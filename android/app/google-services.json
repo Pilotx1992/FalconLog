@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "441066678931",
+    "firebase_url": "https://falconlog-534f8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "falconlog-534f8",
+    "storage_bucket": "falconlog-534f8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:441066678931:android:57941aefd7014c804d7b66",
+        "android_client_info": {
+          "package_name": "com.falcon_log.falconlog"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "441066678931-qh8i9n460akjohthd9kelavpki5vc88o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.falcon_log.falconlog",
+            "certificate_hash": "410b3b71e66173b35bc6b1cf487e1fedfa76be25"
+          }
+        },
+        {
+          "client_id": "441066678931-oik5di8v6mo3de1r6qu942kh2rll9kgf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDN6eriw8_kPn1EfKaWEGH_WnZ5W5FNZQI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "441066678931-oik5di8v6mo3de1r6qu942kh2rll9kgf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "441066678931-sua8u0ourmlcldvqqoje6r0is477dkj4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.falconlog.falconlog"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
