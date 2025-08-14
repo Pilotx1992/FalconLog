@@ -194,11 +194,13 @@ class AutoBackupConfigNotifier extends StateNotifier<AutoBackupConfig> {
   
   Future<void> _loadConfig() async {
     final configJson = await BackupService.getAutoBackupConfig();
-    state = AutoBackupConfig.fromJson(configJson);
+    if (configJson != null) {
+      state = AutoBackupConfig.fromJson(configJson);
+    }
   }
   
   Future<void> updateConfig(AutoBackupConfig config) async {
-    await BackupService.setAutoBackupConfig(config);
+    await BackupService.setAutoBackupConfig(config.toJson());
     state = config;
   }
   

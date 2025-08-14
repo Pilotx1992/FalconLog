@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart'; // Temporarily disabled
 import '../services/notification_service.dart';
 
 // Auth State Provider
@@ -15,16 +15,7 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    // Web client ID for getting ID tokens
-    serverClientId: '441066678931-oik5di8v6mo3de1r6qu942kh2rll9kgf.apps.googleusercontent.com',
-    // Request specific scopes for authentication
-    scopes: [
-      'email',
-      'profile',
-      'openid',
-    ],
-  );
+  // final GoogleSignIn _googleSignIn = GoogleSignIn(); // Temporarily disabled
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -76,6 +67,10 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
+      // TODO: Google Sign-In implementation temporarily disabled due to API compatibility issues
+      throw Exception('Google Sign-In is currently under maintenance. Please use email/password login.');
+      
+      /* Original implementation commented out
       // Check if Google Play services are available first
       try {
         await _googleSignIn.signOut();
@@ -112,8 +107,12 @@ class AuthService {
         print('Google Sign-In: Tokens missing, trying to refresh...');
         
         // Try to refresh tokens
-        await googleUser.clearAuthCache();
-        final refreshedAuth = await googleUser.authentication;
+        await _googleSignIn.disconnect();
+        final refreshedGoogleUser = await _googleSignIn.signIn();
+        if (refreshedGoogleUser == null) {
+          throw Exception('Failed to re-authenticate with Google');
+        }
+        final refreshedAuth = await refreshedGoogleUser.authentication;
         
         if (refreshedAuth.accessToken == null || refreshedAuth.idToken == null) {
           throw Exception('Failed to get Google authentication tokens after refresh');
@@ -137,24 +136,20 @@ class AuthService {
 
       print('Google Sign-In: Signing in with Firebase...');
       return await _auth.signInWithCredential(credential);
+      */
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
       print('Google Sign-In Error: $e');
-      if (e.toString().contains('sign_in_failed')) {
-        throw Exception('Google Sign-In failed. Please check your internet connection and try again.');
-      } else if (e.toString().contains('network_error')) {
-        throw Exception('Network error. Please check your internet connection.');
-      } else {
-        throw Exception('Google Sign-In failed: ${e.toString()}');
-      }
+      rethrow;
     }
   }
 
   // Sign out
   Future<void> signOut() async {
     try {
-      await _googleSignIn.signOut();
+      // Google Sign-In signout temporarily disabled
+      // await _googleSignIn.signOut();
     } catch (e) {
       // Gracefully handle Google Play Services not being available
       if (e.toString().contains('SERVICE_INVALID') || 

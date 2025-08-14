@@ -237,26 +237,17 @@ class RestoreResult {
   final String message;
   final int? logsCount;
   final String? deviceInfo;
-  final List<FlightLog>? logs;
-  final DateTime? timestamp;
-  final String? version;
 
   RestoreResult.success({
     required this.message,
     this.logsCount,
     this.deviceInfo,
-    this.logs,
-    this.timestamp,
-    this.version,
   }) : success = true;
 
   RestoreResult.error(this.message)
       : success = false,
         logsCount = null,
-        deviceInfo = null,
-        logs = null,
-        timestamp = null,
-        version = null;
+        deviceInfo = null;
 }
 
 class BackupInfo {
@@ -266,7 +257,6 @@ class BackupInfo {
   final int logsCount;
   final int backupSize;
   final BackupProvider provider;
-  final String checksum;
 
   BackupInfo({
     required this.id,
@@ -275,27 +265,5 @@ class BackupInfo {
     required this.logsCount,
     required this.backupSize,
     required this.provider,
-    this.checksum = '',
   });
-
-  String get formattedSize {
-    if (backupSize < 1024) return '${backupSize}B';
-    if (backupSize < 1024 * 1024) return '${(backupSize / 1024).toStringAsFixed(1)}KB';
-    return '${(backupSize / (1024 * 1024)).toStringAsFixed(1)}MB';
-  }
-
-  String get formattedDate {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-    
-    if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
-    } else {
-      return 'Just now';
-    }
-  }
 }

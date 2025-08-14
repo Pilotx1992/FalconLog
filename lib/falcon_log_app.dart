@@ -9,10 +9,11 @@ import 'screens/summary_screen.dart';
 import 'screens/advanced_screen.dart';
 import 'screens/all_flights_screen.dart';
 import 'screens/edit_flight_screen.dart';
-import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/modern_login_screen.dart';
+import 'debug/auth_debug_screen.dart';
 import 'widgets/auth_wrapper.dart';
 import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
@@ -55,9 +56,10 @@ class FalconLogApp extends ConsumerWidget {
         '/summary': (context) => const SummaryScreen(),
         '/advanced': (context) => const AdvancedScreen(),
         '/settings': (context) => const SettingsScreen(),
-        '/login': (context) => const AuthGuard(requireAuth: false, child: LoginScreen()),
+        '/login': (context) => AuthGuard(requireAuth: false, child: const ModernLoginScreen()),
         '/register': (context) => const AuthGuard(requireAuth: false, child: RegisterScreen()),
         '/forgot-password': (context) => const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
+        '/debug-auth': (context) => const AuthDebugScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name != null &&

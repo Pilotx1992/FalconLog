@@ -17,7 +17,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
 
   // State variables
   DateTime? _date = DateTime.now();
-  List<FlightType> _selectedTypes = [];
+  final List<FlightType> _selectedTypes = [];
   int _hours = 0;
   int _minutes = 0;
   String? _aircraftType;
@@ -46,6 +46,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
               onPressed: () async {
                 if (_newAircraft.trim().isNotEmpty) {
                   await ref.read(aircraftTypesProvider.notifier).addAircraftType(_newAircraft.trim());
+                  if (!mounted) return;
                   setState(() {
                     _aircraftType = _newAircraft.trim();
                     _newAircraft = '';
@@ -76,13 +77,14 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
             ElevatedButton(
               onPressed: () async {
                 await ref.read(aircraftTypesProvider.notifier).removeAircraftType(type);
+                if (!mounted) return;
                 if (_aircraftType == type) {
                   setState(() => _aircraftType = null);
                 }
                 Navigator.pop(context);
               },
-              child: const Text('Delete'),
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+              child: const Text('Delete'),
             ),
           ],
         );
@@ -92,6 +94,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
 
   void _showFlightTypesDialog() async {
     final List<FlightType> tempSelectedTypes = List.from(_selectedTypes);
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (context) {
@@ -133,6 +136,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
             ),
             ElevatedButton(
               onPressed: () {
+                if (!mounted) return;
                 setState(() {
                   _selectedTypes.clear();
                   _selectedTypes.addAll(tempSelectedTypes);
@@ -240,7 +244,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                         );
-                        if (picked != null) setState(() => _date = picked);
+                        if (picked != null && mounted) setState(() => _date = picked);
                       },
                       child: Container(
                         padding: const EdgeInsets.all(16),
@@ -924,30 +928,35 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       if (_date == null) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Please select a date', isError: true),
                         );
                         return;
                       }
                       if (_selectedTypes.isEmpty) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Please select at least one flight type', isError: true),
                         );
                         return;
                       }
                       if (_hours == 0 && _minutes == 0) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Please enter flight duration', isError: true),
                         );
                         return;
                       }
                       if (_aircraftType == null) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Please select an aircraft type', isError: true),
                         );
                         return;
                       }
                       if (_pilotRole == null) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Please select a pilot role', isError: true),
                         );
@@ -969,12 +978,14 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                         await ref
                             .read(flightLogsProvider.notifier)
                             .addFlightLog(log);
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Flight saved successfully'),
                         );
                         _resetForm();
                         Navigator.pop(context);
                       } catch (e) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           _buildSnackBar('Error saving flight: ${e.toString()}', isError: true),
                         );

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/navigation_service.dart';
 import '../helpers/auth_state_helper.dart';
@@ -9,6 +11,7 @@ import '../services/backup_service.dart';
 import '../widgets/backup_widgets_new.dart';
 import '../localization/app_localizations.dart';
 import 'change_password_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -18,6 +21,25 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  // Design tokens
+  static const _primaryGradient = LinearGradient(
+    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFA855F7)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  static const _tileGradient = LinearGradient(
+    colors: [Color(0xFF3949ab), Color(0xFF5e35b1)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  static const _panelBackground = Color(0x66FFFFFF); // translucent
+  static const _panelStroke = Color(0x33FFFFFF);
+  static const _highlightColor = Color(0xFF6366F1);
+  // Support contact details (international format number without + or leading zeros for WhatsApp API)
+  static const String _supportWhatsAppNumber = '201117006878'; // User provided: 00201117006878
+  static const String _supportEmail = 'pilotn44@gmail.com';
+
+  // (Removed unused _dividerColor & _buildGradientBorder to satisfy analyzer)
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +47,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final localizations = AppLocalizations.of(context)!;
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+  backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         title: Text(
           localizations.settings,
@@ -60,11 +82,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
+      body: Stack(
+        children: [
+          // decorative background gradients
+          Positioned(
+            top: -120,
+            left: -80,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [Color(0x336366F1), Color(0x006366F1)],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -140,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [Color(0x338B5CF6), Color(0x008B5CF6)],
+                ),
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Profile Section
@@ -435,47 +488,72 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () {},
                   trailing: const SizedBox(),
                 ),
+                _buildDivider(),
+                _buildSettingsTile(
+                  icon: Icons.support_agent_rounded,
+                  title: 'Contact Us',
+                  subtitle: 'Support • Feedback • Suggestions',
+                  onTap: _showContactSheet,
+                ),
               ]),
 
               const SizedBox(height: 32),
             ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Colors.grey[800],
-          letterSpacing: 0.3,
+    return Row(
+      children: [
+        Container(
+          width: 6,
+          height: 22,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            gradient: _primaryGradient,
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey[850],
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSettingsCard(List<Widget> children) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        children: children,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              color: _panelBackground,
+              border: Border.all(color: _panelStroke, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(children: children),
+        ),
       ),
     );
   }
@@ -487,60 +565,102 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required VoidCallback onTap,
     Widget? trailing,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3949ab), Color(0xFF5e35b1)],
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.985, end: 1),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) => Transform.scale(
+        scale: scale,
+        alignment: Alignment.centerLeft,
+        child: child,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          splashColor: _highlightColor.withOpacity(0.15),
+          highlightColor: _highlightColor.withOpacity(0.07),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: _tileGradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3949ab).withOpacity(0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.white.withOpacity(0.18), width: 1),
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  child: Icon(icon, size: 22, color: Colors.white),
                 ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                                color: Colors.grey[850],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.2,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              trailing ?? Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.grey[400],
-                size: 24,
-              ),
-            ],
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: trailing ?? Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey[700],
+                    size: 22,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -550,8 +670,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildDivider() {
     return Container(
       height: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      color: Colors.grey[200],
+      margin: const EdgeInsets.symmetric(horizontal: 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0x1464748B), Color(0x3364748B), Color(0x1464748B)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
     );
   }
 
@@ -560,23 +686,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     try {
       await AuthStateHelper.sendEmailVerification();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.verificationEmailSent),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(localizations.verificationEmailSent),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send verification email: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send verification email: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -677,6 +801,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showLanguageSelectionDialog(AppLanguage currentLanguage, ValueChanged<AppLanguage> onLanguageChanged) {
     final localizations = AppLocalizations.of(context)!;
     
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -704,6 +830,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
+                  if (!mounted) return;
                   Navigator.pop(context);
                   onLanguageChanged(language);
                 },
@@ -1037,6 +1164,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showBiometricNotAvailableDialog(BiometricAvailability availability) {
     final localizations = AppLocalizations.of(context)!;
     
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1224,6 +1353,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
   
   void _showBackupOptions(WidgetRef ref) {
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1233,6 +1363,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
   
   void _showBackupHistory(WidgetRef ref) {
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1242,6 +1373,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
   
   Future<void> _exportData() async {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Export feature coming soon'),
@@ -1308,6 +1440,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -1331,6 +1464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -1353,5 +1487,422 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  // Contact Us
+  Future<void> _showContactSheet() async {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          // فتح شبه ممتد مع السماح بالتمرير الإضافي إذا احتاج (أزرار لن تُقص)
+          initialChildSize: 0.60,
+          maxChildSize: 0.85,
+          minChildSize: 0.35,
+          snap: true,
+          snapSizes: const [0.60, 0.85],
+          builder: (ctx, scrollController) => Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 54,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Contact Support',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose how you want to reach us',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: [
+                      _contactAction(
+                        icon: Icons.email_rounded,
+                        title: 'Email Support',
+                        subtitle: _supportEmail,
+                        color: const Color(0xFF6366F1),
+                        onTap: _composeSupportEmail,
+                      ),
+                      _contactAction(
+                        icon: Icons.chat_rounded,
+                        title: 'WhatsApp Chat',
+                        subtitle: 'Quick response (preferred)',
+                        color: const Color(0xFF25D366),
+                        onTap: () {
+                          final userEmail = AuthStateHelper.email;
+                          final display = AuthStateHelper.displayName;
+                          final msg = 'Hi FalconLog Support, I need help with ...\nUser: '+
+                            (display.isNotEmpty ? '$display ' : '') + '<$userEmail>';
+                          _launchWhatsApp(_supportWhatsAppNumber, msg);
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.grey[800]!,
+                              Colors.grey[700]!,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () async {
+                              final text = 'FalconLog Support Contact:\n'
+                                  'Email: $_supportEmail\n'
+                                  'WhatsApp: $_supportWhatsAppNumber\n\n'
+                                  'Subject: FalconLog Support Inquiry\n'
+                                  'User: ${AuthStateHelper.displayName.isNotEmpty ? AuthStateHelper.displayName : "User"} <${AuthStateHelper.email}>';
+                              
+                              await Clipboard.setData(ClipboardData(text: text));
+                              if (!mounted) return;
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('📋 Contact info copied!'),
+                                  duration: Duration(seconds: 2),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            child: const Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.copy_rounded, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Copy Contact Info',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + MediaQuery.of(context).padding.bottom),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            side: const BorderSide(color: Color(0xFF6366F1)),
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF6366F1)),
+                          label: const Text(
+                            'Close',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6366F1),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _composeSupportEmail,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                            backgroundColor: const Color(0xFF6366F1),
+                          ),
+                          icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                          label: const Text(
+                            'Send Email',
+                            style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _contactAction({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.25), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color, color.withOpacity(0.7)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.arrow_outward_rounded, color: Colors.white),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: color.darken(),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, color: color.darken(), size: 22),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _composeSupportEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: _supportEmail,
+      query: 'subject=${Uri.encodeComponent('FalconLog Support Inquiry')}&body=${Uri.encodeComponent('Hello FalconLog Support,\n\nI need help with...\n\n\nUser: ${AuthStateHelper.displayName} <${AuthStateHelper.email}>')}',
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri, mode: LaunchMode.externalApplication);
+      } else {
+        // Fallback if no email client is found
+        _showEmailCopyDialog();
+      }
+    } catch (e) {
+      debugPrint('Could not launch email client: $e');
+      _showEmailCopyDialog();
+    }
+  }
+  
+  void _showEmailCopyDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.email_rounded, color: Color(0xFF6366F1), size: 24),
+            SizedBox(width: 8),
+            Text('Contact Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Copy the email address and contact us:', style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      _supportEmail,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: _supportEmail));
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      _showSuccessSnackBar('📋 تم نسخ الإيميل');
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 20),
+                    tooltip: 'Copy',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchWhatsApp(String number, String message) async {
+    // Clean number
+    final cleaned = number.replaceAll(RegExp(r'[^0-9]'), '');
+    print('DEBUG: WhatsApp number cleaned: $cleaned (original: $number)');
+    
+    try {
+      // Method 1: WhatsApp URL scheme
+      final whatsappScheme = 'whatsapp://send?phone=$cleaned&text=${Uri.encodeComponent(message)}';
+      final whatsappUri = Uri.parse(whatsappScheme);
+      print('DEBUG: WhatsApp scheme: $whatsappScheme');
+      
+      final canLaunchScheme = await canLaunchUrl(whatsappUri);
+      print('DEBUG: Can launch WhatsApp scheme: $canLaunchScheme');
+      
+      if (canLaunchScheme) {
+        final launched = await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+        print('DEBUG: WhatsApp scheme launch result: $launched');
+        if (launched) {
+          _showSuccessSnackBar('تم فتح واتساب / WhatsApp opened');
+          return;
+        }
+      }
+      
+      // Method 2: Web WhatsApp
+      final webUrl = 'https://wa.me/$cleaned?text=${Uri.encodeComponent(message)}';
+      final webUri = Uri.parse(webUrl);
+      print('DEBUG: WhatsApp web: $webUrl');
+      
+      final canLaunchWeb = await canLaunchUrl(webUri);
+      print('DEBUG: Can launch WhatsApp web: $canLaunchWeb');
+      
+      if (canLaunchWeb) {
+        final launched = await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        print('DEBUG: WhatsApp web launch result: $launched');
+        if (launched) {
+          _showSuccessSnackBar('تم فتح واتساب / WhatsApp opened');
+          return;
+        }
+      }
+      
+      // Method 3: Try different modes
+      final launched3 = await launchUrl(webUri, mode: LaunchMode.platformDefault);
+      print('DEBUG: WhatsApp platform default result: $launched3');
+      if (launched3) {
+        _showSuccessSnackBar('تم فتح واتساب / WhatsApp opened');
+        return;
+      }
+      
+      _showErrorSnackBar('واتساب غير متاح - تأكد من تثبيت التطبيق / WhatsApp not available - check if app installed');
+    } catch (e) {
+      print('DEBUG: WhatsApp error: $e');
+      _showErrorSnackBar('خطأ في واتساب: $e');
+    }
+  }
+}
+
+// Simple color darken extension
+extension _ColorShade on Color {
+  Color darken([double amount = .18]) {
+    final hsl = HSLColor.fromColor(this);
+    final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
+    return hslDark.toColor();
   }
 }

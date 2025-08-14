@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -99,31 +98,18 @@ Future<void> _initializeHeavyOperations() async {
   try {
     debugPrint('Starting heavy operations initialization...');
     
-    // Initialize Hive first
-    await Hive.initFlutter();
-    debugPrint('Hive initialized');
-
-    // تسجيل Hive adapters
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(FlightTypeAdapter());
-      debugPrint('FlightTypeAdapter registered');
-    }
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(PilotRoleAdapter());
-      debugPrint('PilotRoleAdapter registered');
-    }
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(FlightLogAdapter());
-      debugPrint('FlightLogAdapter registered');
-    }
-
-    // Open Hive box
-    await Hive.openBox<FlightLog>('flightLogsBox');
-    debugPrint('Hive box opened');
+    // Add delay to prevent UI blocking
+    await Future.delayed(const Duration(milliseconds: 100));
     
-    // Initialize Auth Middleware
-    await AuthMiddleware.initialize();
-    debugPrint('Auth Middleware initialized');
+    // Initialize Auth Middleware in background
+    Future.microtask(() async {
+      try {
+        await AuthMiddleware.initialize();
+        debugPrint('Auth Middleware initialized');
+      } catch (e) {
+        debugPrint('Error initializing Auth Middleware: $e');
+      }
+    });
     
     debugPrint('Heavy operations initialized successfully');
   } catch (e) {

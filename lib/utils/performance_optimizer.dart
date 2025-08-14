@@ -8,14 +8,18 @@ class PerformanceOptimizer {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // تحسين الذاكرة
       PaintingBinding.instance.imageCache.clear();
-      PaintingBinding.instance.imageCache.maximumSize = 100;
-      PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // 50 MB
+      PaintingBinding.instance.imageCache.maximumSize = 50; // Reduced from 100
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 25 << 20; // 25 MB instead of 50 MB
     });
+    
+    // تحسين إعدادات النظام
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
-  // تحسين العمليات الثقيلة
+  // تحسين العمليات الثقيلة مع تأخير
   static Future<T> performHeavyOperation<T>(Future<T> Function() operation) async {
-    // تشغيل العملية في إطار منفصل لتجنب حجب UI
+    // إضافة تأخير صغير لمنع حجب UI
+    await Future.delayed(const Duration(milliseconds: 16)); // One frame delay
     return await operation();
   }
 
@@ -25,8 +29,8 @@ class PerformanceOptimizer {
   );
 
   // إعدادات الرسوم المتحركة المحسنة
-  static Duration get fastAnimation => const Duration(milliseconds: 200);
-  static Duration get normalAnimation => const Duration(milliseconds: 300);
+  static Duration get fastAnimation => const Duration(milliseconds: 150); // Faster
+  static Duration get normalAnimation => const Duration(milliseconds: 250); // Faster
   
   // تحسين الألوان للأداء
   static Color withPerformantOpacity(Color color, double opacity) {
@@ -36,6 +40,14 @@ class PerformanceOptimizer {
       color.green,
       color.blue,
     );
+  }
+
+  // تحسين الذاكرة التلقائي
+  static void optimizeMemory() {
+    // تنظيف الذاكرة
+    PaintingBinding.instance.imageCache.clear();
+    // تشغيل garbage collector
+    // System.gc() is not available in Dart, but this helps
   }
 
   // Widget للتحسين التلقائي

@@ -148,6 +148,8 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
     final allAircraftTypes =
         flightLogs.map((e) => e.aircraftType).toSet().toList();
 
+    if (!context.mounted) return;
+
     await showDialog(
       context: context,
       builder: (context) {
@@ -514,6 +516,8 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
 
   Future<void> _showDeleteDialog(
       BuildContext context, WidgetRef ref, FlightLog log) async {
+    if (!context.mounted) return;
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -618,7 +622,7 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
               firstDate: DateTime(2000),
               lastDate: DateTime(2100),
             );
-            if (picked != null) {
+            if (picked != null && mounted) {
               setState(() {
                 _currentFilter = _currentFilter.copyWith(date: picked);
               });
@@ -677,7 +681,7 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
             ),
             ...widget.allAircraftTypes.map((type) {
               return DropdownMenuItem(value: type, child: Text(type));
-            }).toList(),
+            }),
           ],
           onChanged: (value) {
             setState(() {
@@ -710,7 +714,7 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
             ),
             ...FlightType.values.map((type) {
               return DropdownMenuItem(value: type, child: Text(_getTypeName(type)));
-            }).toList(),
+            }),
           ],
           onChanged: (value) {
             setState(() {

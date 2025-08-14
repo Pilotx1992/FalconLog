@@ -521,6 +521,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
   }
 
   void _showDeleteDialog() async {
+    if (!mounted) return;
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -561,12 +563,14 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                   await ref
                       .read(flightLogsProvider.notifier)
                       .deleteFlightLog(widget.flightId);
+                  if (!mounted) return;
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context); // Close edit screen
                   ScaffoldMessenger.of(context).showSnackBar(
                     _buildSnackBar('Flight deleted successfully'),
                   );
                 } catch (e) {
+                  if (!mounted) return;
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     _buildSnackBar('Error deleting flight: ${e.toString()}', isError: true),

@@ -42,7 +42,7 @@ extension PilotRoleExtension on PilotRole {
       case PilotRole.PIC:
         return 'PIC';
       case PilotRole.CPG_GUNNER:
-        return 'CPG GUNNER';
+        return 'CPG/GUNNER';
     }
   }
 }

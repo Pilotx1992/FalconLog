@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../screens/login_screen.dart';
+import '../screens/modern_login_screen.dart';
 import '../screens/dashboard_screen.dart';
 
 // Provider for auth state
@@ -26,10 +26,10 @@ class AuthWrapper extends ConsumerWidget {
         
         // If user is not signed in, show login screen
         debugPrint('User not authenticated - showing login screen');
-        return const LoginScreen();
+        return ModernLoginScreen();
       },
       loading: () => _buildLoadingScreen(),
-      error: (error, stack) => _buildErrorScreen(error),
+      error: (error, stack) => _buildErrorScreen(error, ref),
     );
   }
 
@@ -115,7 +115,7 @@ class AuthWrapper extends ConsumerWidget {
     );
   }
 
-  Widget _buildErrorScreen(Object error) {
+  Widget _buildErrorScreen(Object error, WidgetRef ref) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -164,6 +164,7 @@ class AuthWrapper extends ConsumerWidget {
                 onPressed: () {
                   // Force rebuild the widget
                   debugPrint('Retrying authentication...');
+                  ref.invalidate(authStateProvider);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,

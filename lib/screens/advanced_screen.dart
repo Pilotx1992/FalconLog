@@ -96,11 +96,11 @@ class _CurrentPeriodSection extends StatelessWidget {
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
-      // حساب فترة الشهر الحالي (من 25 الشهر الماضي إلى 24 الحالي)
-      final now = DateTime.now();
-      final monthStart = DateTime(now.month == 1 ? now.year - 1 : now.year, now.month == 1 ? 12 : now.month - 1, 25);
-      final monthEnd = DateTime(now.year, now.month, 25);
-      final monthLogs = sortedLogs.where((log) => !log.date.isBefore(monthStart) && log.date.isBefore(monthEnd)).toList();
+  // فترة الشهر الحالي (من 1 إلى آخر يوم في الشهر)
+  final now = DateTime.now();
+  final monthStart = DateTime(now.year, now.month, 1);
+  final monthEnd = DateTime(now.year, now.month + 1, 1); // بداية الشهر القادم (حد علوي غير شامل)
+  final monthLogs = sortedLogs.where((log) => !log.date.isBefore(monthStart) && log.date.isBefore(monthEnd)).toList();
       double monthDay = 0, monthNight = 0;
       for (final log in monthLogs) {
         final h = log.durationHours + (log.durationMinutes / 60.0);
@@ -128,7 +128,7 @@ class _CurrentPeriodSection extends StatelessWidget {
         children: [
           _PeriodCard(
             title: 'Current Month',
-            dateRange: '${monthStart.day.toString().padLeft(2, '0')}/${monthStart.month.toString().padLeft(2, '0')}/${monthStart.year} - ${monthEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${monthEnd.subtract(const Duration(days: 1)).month.toString().padLeft(2, '0')}/${monthEnd.subtract(const Duration(days: 1)).year}',
+            dateRange: '01/${monthStart.month.toString().padLeft(2, '0')} - ${monthEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${monthStart.month.toString().padLeft(2, '0')}',
             backgroundColor: const Color(0xFFE0F4FF), // Sky blue background
             stats: [
               _PeriodStat(icon: Icons.wb_sunny_rounded, color: const Color(0xFFf59e0b), label: 'Day Hours', value: format(monthDay)),
@@ -140,7 +140,7 @@ class _CurrentPeriodSection extends StatelessWidget {
           const SizedBox(height: 16),
           _PeriodCard(
             title: 'Current Year',
-            dateRange: '${yearStart.day.toString().padLeft(2, '0')}/${yearStart.month.toString().padLeft(2, '0')}/${yearStart.year} - ${yearEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${yearEnd.subtract(const Duration(days: 1)).month.toString().padLeft(2, '0')}/${yearEnd.subtract(const Duration(days: 1)).year}',
+            dateRange: '${yearStart.day.toString().padLeft(2, '0')}/${yearStart.month.toString().padLeft(2, '0')} - ${yearEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${yearEnd.subtract(const Duration(days: 1)).month.toString().padLeft(2, '0')}',
             backgroundColor: const Color(0xFFE8F5E8), // Light pistachio green background
             stats: [
               _PeriodStat(icon: Icons.wb_sunny_rounded, color: const Color(0xFFf59e0b), label: 'Day Hours', value: format(yearDay)),
@@ -190,38 +190,60 @@ class _PeriodCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: Color(0xFF1E293B),
-                  fontFamily: 'Roboto',
+              Flexible(
+                flex: 0,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: Color(0xFF1E293B),
+                    fontFamily: 'Roboto',
+                  ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                dateRange,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                  fontFamily: 'Roboto',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    dateRange,
+                    maxLines: 1,
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      fontFamily: 'Roboto',
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: stats.length == 4 
-              ? [
-                  Expanded(child: stats[0]),
-                  Expanded(child: stats[1]),
-                  Expanded(child: stats[2]),
-                  Expanded(child: stats[3]),
-                ]
-              : stats,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final count = stats.length;
+              final spacing = 12.0;
+              final totalSpacing = spacing * (count - 1);
+              final itemWidth = count == 0
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - totalSpacing) / count;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final s in stats)
+                    SizedBox(
+                      width: itemWidth,
+                      child: s,
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -238,11 +260,14 @@ class _PeriodStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           value,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
@@ -250,9 +275,12 @@ class _PeriodStat extends StatelessWidget {
             fontFamily: 'Roboto',
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 12,
             color: Color(0xFF64748B),
@@ -624,7 +652,7 @@ class _Last3MonthsSection extends StatelessWidget {
           hours += log.durationHours + (log.durationMinutes / 60.0);
         }
         months.add({
-          'month': '${_monthName(month.month)} ${month.year}',
+          'month': _monthName(month.month),
           'flights': monthLogs.length,
           'hours': format(hours),
         });
@@ -772,7 +800,7 @@ class _RecentActivitySection extends StatelessWidget {
             const SizedBox(height: 18),
             ...last.map((r) => _RecentFlightRow(
                   aircraft: r.aircraftType ?? 'Unknown',
-                  date: '${r.date.day.toString().padLeft(2, '0')}/${r.date.month.toString().padLeft(2, '0')}/${r.date.year}',
+                  date: '${r.date.day.toString().padLeft(2, '0')}/${r.date.month.toString().padLeft(2, '0')}',
                   duration: format(r.durationHours + (r.durationMinutes / 60.0)),
                   isDay: r.isDayFlight,
                 )),
