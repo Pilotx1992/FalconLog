@@ -8,6 +8,7 @@ import 'falcon_log_app.dart';
 import 'models/flight_log.dart';
 import 'middleware/auth_middleware.dart';
 import 'utils/performance_optimizer.dart';
+import 'services/background_backup_worker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,12 @@ void main() async {
   
   // Initialize critical components immediately
   await _initializeCriticalComponents();
+  // Schedule background encrypted backups (non-blocking)
+  try {
+    await BackgroundBackupScheduler.initAndSchedule();
+  } catch (e) {
+    debugPrint('Background backup scheduling failed: $e');
+  }
   
   // تشغيل التطبيق أولاً
   runApp(const ProviderScope(child: FalconLogApp()));
