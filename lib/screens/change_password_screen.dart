@@ -20,12 +20,37 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
+  // Password strength indicators
+  bool _hasMinLength = false;
+  bool _hasUppercase = false;
+  bool _hasLowercase = false;
+  bool _hasDigit = false;
+  bool _hasSpecialChar = false;
+  bool _success = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _newPasswordController.addListener(_checkPasswordStrength);
+  }
+
   @override
   void dispose() {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _checkPasswordStrength() {
+    final password = _newPasswordController.text;
+    setState(() {
+      _hasMinLength = password.length >= 8;
+      _hasUppercase = password.contains(RegExp(r'[A-Z]'));
+      _hasLowercase = password.contains(RegExp(r'[a-z]'));
+      _hasDigit = password.contains(RegExp(r'[0-9]'));
+      _hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+    });
   }
 
   @override
@@ -112,22 +137,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       const Text(
                         'Update Password',
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 25,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                           letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Keep your account secure with a strong password',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white.withOpacity(0.8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      // removed the secondary header line as requested
                     ],
                   ),
                 ),
@@ -242,21 +258,25 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                   color: Colors.grey[600],
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Password Requirements',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[800],
+                                Expanded(
+                                  child: Text(
+                                    'Password Requirements',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[800],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildRequirement('At least 6 characters long'),
-                            _buildRequirement('Contains uppercase and lowercase letters'),
-                            _buildRequirement('Includes at least one number'),
-                            _buildRequirement('Different from your current password'),
+                            _buildRequirement('At least 8 characters long', _hasMinLength),
+                            _buildRequirement('Contains uppercase and lowercase letters', _hasUppercase && _hasLowercase),
+                            _buildRequirement('Includes at least one number', _hasDigit),
+                            _buildRequirement('Contains special characters (!@#\$%^&*)', _hasSpecialChar),
                           ],
                         ),
                       ),
@@ -287,14 +307,30 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Update Password',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
+                              : (_success
+                                  ? FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: const Text(
+                                        'Done',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: const Text(
+                                          'Update Password',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.3,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                    )),
                         ),
                       ),
                     ],
@@ -334,6 +370,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         TextFormField(
           controller: controller,
           obscureText: isObscured,
+          enabled: !_isLoading,
           validator: validator,
           decoration: InputDecoration(
             hintText: hintText,
@@ -383,15 +420,15 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     );
   }
 
-  Widget _buildRequirement(String text) {
+  Widget _buildRequirement(String text, bool isMet) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
           Icon(
-            Icons.check_circle_outline_rounded,
+            isMet ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
             size: 16,
-            color: Colors.grey[500],
+            color: isMet ? Colors.green[600] : Colors.grey[500],
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -399,8 +436,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               text,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: isMet ? Colors.green[700] : Colors.grey[600],
                 fontWeight: FontWeight.w500,
+                decoration: isMet ? TextDecoration.lineThrough : null,
               ),
             ),
           ),
@@ -426,6 +464,19 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
       if (!mounted) return;
 
+      // success: show inline state, clear fields and reset requirements
+      setState(() {
+        _success = true;
+        _hasMinLength = false;
+        _hasUppercase = false;
+        _hasLowercase = false;
+        _hasDigit = false;
+        _hasSpecialChar = false;
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -446,6 +497,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           margin: const EdgeInsets.all(16),
         ),
       );
+
+      // show the Done state briefly then close
+      await Future.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;

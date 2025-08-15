@@ -150,46 +150,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 85,
-                          height: 85,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.25),
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: user?.photoURL != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(21),
-                                  child: Image.network(
-                                    user!.photoURL!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(
-                                        Icons.person_rounded,
-                                        size: 45,
-                                        color: Colors.white,
-                                      );
-                                    },
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.person_rounded,
-                                  size: 45,
-                                  color: Colors.white,
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.25),
+                                  width: 3,
                                 ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: user?.photoURL != null
+                                    ? Image.network(
+                                        user!.photoURL!,
+                                        fit: BoxFit.cover,
+                                        width: 80,
+                                        height: 80,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Icon(
+                                            Icons.person_rounded,
+                                            size: 40,
+                                            color: Colors.white,
+                                          );
+                                        },
+                                      )
+                                    : const Center(
+                                        child: Icon(
+                                          Icons.person_rounded,
+                                          size: 40,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: -6,
+                              right: -6,
+                              child: InkWell(
+                                onTap: () {},
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF8B5CF6), Color(0xFF667eea)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.12),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.edit_rounded,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,15 +235,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      AuthStateHelper.displayName,
-                                      style: const TextStyle(
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                        letterSpacing: 0.3,
-                                        height: 1.2,
-                                      ),
-                                    ),
+                                            AuthStateHelper.displayName,
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.3,
+                                              height: 1.15,
+                                            ),
+                                          ),
                                   ),
                                   if (AuthStateHelper.isEmailVerified)
                                     Container(
@@ -227,11 +264,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 AuthStateHelper.email,
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 13,
                                   color: Colors.white.withOpacity(0.85),
                                   fontWeight: FontWeight.w500,
                                   letterSpacing: 0.2,
@@ -269,7 +306,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   AuthStateHelper.isGoogleUser ? localizations.googleAccount : localizations.premiumMember,
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.2,
                                   ),
