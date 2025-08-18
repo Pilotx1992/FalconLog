@@ -3,32 +3,32 @@ import 'package:flutter/material.dart';
 /// Centralized harmonious color palette for FalconLog.
 /// Adjust here to propagate across the app.
 class AppColors {
-  // Dark surfaces
-  static const Color surfaceUltraDark = Color(0xFF0B1220);
-  static const Color surfaceDark = Color(0xFF0F2033);
-  static const Color surfaceMid = Color(0xFF112E46);
-  static const Color surfaceAccent = Color(0xFF0D1C2C);
+  // Dark sky / cockpit inspired surfaces (طبقات خلفية)
+  static const Color surfaceUltraDark = Color(0xFF071521); // أعمق درجة (ليل طيران)
+  static const Color surfaceDark      = Color(0xFF0B2030); // خلفية رئيسية
+  static const Color surfaceMid       = Color(0xFF123045); // تدرج متوسط
+  static const Color surfaceAccent    = Color(0xFF18435A); // لمسة أفتح (لوحات / بطاقات)
 
-  // Brand gradient (primary)
-  static const Color brandPrimary = Color(0xFF1D4ED8); // Indigo 600
-  static const Color brandPrimaryLight = Color(0xFF3B82F6); // Blue 500
+  // Brand – Sky Blue (هوية مرتبطة بالطيران والسماء)
+  static const Color brandPrimary      = Color(0xFF0A7CCF); // أزرق سماوي رئيسي
+  static const Color brandPrimaryLight = Color(0xFF41B3FF); // درجة أخف لإضاءة وهايلايت
 
-  // Accent / supportive
-  static const Color accentAqua = Color(0xFF7DD3FC);
-  static const Color accentSoftBlue = Color(0xFF60A5FA);
-  static const Color accentMint = Color(0xFF34D399);
+  // Accents (مساندة – لتفاصيل وأيقونات ثانوية)
+  static const Color accentAqua     = Color(0xFF5ED3F3); // سماوي فاتح
+  static const Color accentSoftBlue = Color(0xFF8CCBFF); // درجة هادئة ناعمة
+  static const Color accentMint     = Color(0xFF3ECF9B); // توازن حيوي أخضر تركوازي
 
-  // Text / neutrals
-  static const Color textPrimary = Color(0xFFE2E8F0); // slate 200
-  static const Color textSecondary = Color(0xFF94A3B8); // slate 400
-  static const Color textFaint = Color(0xFF64748B); // slate 500
+  // نصوص – تباين واضح مع الخلفيات الداكنة
+  static const Color textPrimary   = Color(0xFFF2F7FA); // شبه أبيض مريح للعين
+  static const Color textSecondary = Color(0xFFA9C2D3); // ثانوي هادئ
+  static const Color textFaint     = Color(0xFF6F8897); // تعليمات / عناوين صغيرة
 
-  // Semantic
-  static const Color danger = Colors.redAccent;
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color success = Color(0xFF10B981);
+  // Semantic (تبقى كما هي تقريباً)
+  static const Color danger  = Colors.redAccent;
+  static const Color warning = Color(0xFFF5A524);
+  static const Color success = Color(0xFF19B574);
 
-  // Utility opacities
+  // Utility overlays (ظلال / طبقات زجاجية)
   static Color overlayLight(double opacity) => Colors.white.withOpacity(opacity);
-  static Color overlayDark(double opacity) => Colors.black.withOpacity(opacity);
+  static Color overlayDark(double opacity)  => Colors.black.withOpacity(opacity);
 }

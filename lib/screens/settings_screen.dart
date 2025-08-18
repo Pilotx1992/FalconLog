@@ -1611,114 +1611,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         },
                       ),
                       const SizedBox(height: 20),
-                      Container(
-                        width: double.infinity,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.grey[800]!,
-                              Colors.grey[700]!,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () async {
-                              final text = 'FalconLog Support Contact:\n'
-                                  'Email: $_supportEmail\n'
-                                  'WhatsApp: $_supportWhatsAppNumber\n\n'
-                                  'Subject: FalconLog Support Inquiry\n'
-                                  'User: ${AuthStateHelper.displayName.isNotEmpty ? AuthStateHelper.displayName : "User"} <${AuthStateHelper.email}>';
-                              
-                              await Clipboard.setData(ClipboardData(text: text));
-                              if (!mounted) return;
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('📋 Contact info copied!'),
-                                  duration: Duration(seconds: 2),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                            },
-                            child: const Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.copy_rounded, color: Colors.white, size: 20),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Copy Contact Info',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      // Removed Copy Contact Info button per request
                     ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + MediaQuery.of(context).padding.bottom),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            side: const BorderSide(color: Color(0xFF6366F1)),
-                          ),
-                          icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF6366F1)),
-                          label: const Text(
-                            'Close',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF6366F1),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _composeSupportEmail,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 0,
-                            backgroundColor: const Color(0xFF6366F1),
-                          ),
-                          icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
-                          label: const Text(
-                            'Send Email',
-                            style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Removed Close / Send Email buttons per request
               ],
               ),
             ),

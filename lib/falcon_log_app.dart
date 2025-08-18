@@ -13,6 +13,7 @@ import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'debug/auth_debug_screen.dart';
 import 'widgets/auth_wrapper.dart';
 import 'widgets/auth_guard.dart';
@@ -38,8 +39,15 @@ class FalconLogApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0A7CCF), // Sky blue brand
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0B2030),
         useMaterial3: true,
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Color(0xFFF2F7FA)),
+        ),
       ),
       builder: (context, child) {
         return Directionality(
@@ -47,9 +55,10 @@ class FalconLogApp extends ConsumerWidget {
           child: child!,
         );
       },
-      initialRoute: '/',
+      initialRoute: '/splash',
       routes: {
         '/': (context) => const AuthWrapper(),
+        '/splash': (context) => const SplashScreen(),
         '/home': (context) => const AuthGuard(child: DashboardScreen()),
         '/dashboard': (context) => const AuthGuard(child: DashboardScreen()), // Alias for /home
         '/logFlight': (context) => const LogFlightScreen(),
