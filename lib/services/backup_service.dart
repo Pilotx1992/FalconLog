@@ -23,6 +23,13 @@ extension BackupProviderExtension on BackupProvider {
 }
 
 class BackupService {
+  // Internal helper: persist last backup time
+  static Future<void> _updateLastBackupTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_backup_time', DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
+  }
   
   // Basic backup to Firebase
   static Future<BackupResult> backupToFirebase(List<FlightLog> logs) async {
@@ -44,6 +51,8 @@ class BackupService {
         'timestamp': FieldValue.serverTimestamp(),
         'logs_count': logs.length,
       });
+
+  await _updateLastBackupTime();
 
       return BackupResult.success(
         message: 'Successfully backed up to Firebase',
@@ -77,6 +86,8 @@ class BackupService {
 
       await file.writeAsString(jsonEncode(backupData));
 
+  await _updateLastBackupTime();
+
       return BackupResult.success(
         message: 'Successfully backed up locally',
         logsCount: logs.length,
@@ -95,20 +106,30 @@ class BackupService {
       if (user == null) {
         return RestoreResult.error('User not authenticated');
       }
+  DocumentSnapshot<Map<String, dynamic>>? targetDoc;
 
-      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+      final collectionRef = FirebaseFirestore.instance
           .collection('backups')
           .doc(user.uid)
-          .collection('flight_data')
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get();
+          .collection('flight_data');
 
-      if (snapshot.docs.isEmpty) {
-        return RestoreResult.error('No backup found');
+      if (backupId != null) {
+        final docSnap = await collectionRef.doc(backupId).get();
+        if (!docSnap.exists) {
+          return RestoreResult.error('Backup not found');
+        }
+        targetDoc = docSnap;
+      } else {
+        final snapshot = await collectionRef
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+        if (snapshot.docs.isEmpty) {
+          return RestoreResult.error('No backup found');
+        }
+        targetDoc = snapshot.docs.first;
       }
-
-      final data = snapshot.docs.first.data() as Map<String, dynamic>;
+      final data = targetDoc.data() ?? <String, dynamic>{};
       final logsData = data['logs'] as List;
       final flights = logsData
           .map((log) => FlightLog.fromJson(log as Map<String, dynamic>))
@@ -118,6 +139,8 @@ class BackupService {
         message: 'Successfully restored from Firebase',
         logsCount: flights.length,
         deviceInfo: 'Firebase Backup',
+        logs: flights,
+        timestamp: DateTime.now(),
       );
     } catch (e) {
       return RestoreResult.error('Firebase restore failed: $e');
@@ -181,7 +204,8 @@ class BackupService {
       return RestoreResult.success(
         message: 'Successfully restored from secure cloud storage\n(Google Drive temporarily unavailable)',
         logsCount: flights.length,
-        logs: flights,
+  logs: flights,
+  timestamp: DateTime.now(),
       );
     } catch (e) {
       return RestoreResult.error('Cloud restore failed: $e');
@@ -207,6 +231,8 @@ class BackupService {
         message: 'Successfully restored from local file',
         logsCount: flights.length,
         deviceInfo: 'Local Backup',
+        logs: flights,
+        timestamp: DateTime.now(),
       );
     } catch (e) {
       return RestoreResult.error('Local restore failed: $e');
@@ -221,11 +247,79 @@ class BackupService {
   }
 
   static Future<List<BackupInfo>> getBackupHistory() async {
-    return [];
+    final List<BackupInfo> history = [];
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('backups')
+            .doc(user.uid)
+            .collection('flight_data')
+            .orderBy('timestamp', descending: true)
+            .limit(20)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+            final ts = (data['timestamp'] is Timestamp)
+                ? (data['timestamp'] as Timestamp).toDate()
+                : DateTime.now();
+            history.add(BackupInfo(
+              id: doc.id,
+              name: doc.id,
+              timestamp: ts,
+              logsCount: (data['logs_count'] as int?) ?? (data['logs'] as List?)?.length ?? 0,
+              backupSize: (data['logs'] as List?)?.length ?? 0,
+              provider: BackupProvider.firebase,
+            ));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading firebase backup history: $e');
+    }
+    return history;
   }
 
   static Future<List<BackupInfo>> getLocalBackups() async {
-    return [];
+    final List<BackupInfo> local = [];
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final backupDir = Directory('${directory.path}/falconlog_backups');
+      if (await backupDir.exists()) {
+        final files = backupDir.listSync().whereType<File>().where((f) => f.path.endsWith('.json'));
+        for (final file in files) {
+          final name = file.uri.pathSegments.last;
+          DateTime ts = file.lastModifiedSync();
+          // Parse timestamp from filename if present
+          final idMatch = RegExp(r'falc|falconlog_backup_(\d+)').firstMatch(name);
+          if (idMatch != null) {
+            final millisStr = idMatch.group(1);
+            if (millisStr != null) {
+              final millis = int.tryParse(millisStr);
+              if (millis != null) ts = DateTime.fromMillisecondsSinceEpoch(millis);
+            }
+          }
+          int logsCount = 0;
+          try {
+            final content = await file.readAsString();
+            final data = jsonDecode(content) as Map<String, dynamic>;
+            logsCount = (data['logs'] as List?)?.length ?? 0;
+          } catch (_) {}
+          local.add(BackupInfo(
+            id: file.path,
+            name: name,
+            timestamp: ts,
+            logsCount: logsCount,
+            backupSize: await file.length(),
+            provider: BackupProvider.local,
+          ));
+        }
+      }
+      // Sort newest first
+      local.sort((a,b)=> b.timestamp.compareTo(a.timestamp));
+    } catch (e) {
+      debugPrint('Error loading local backups: $e');
+    }
+    return local;
   }
 
   static Future<BackupProvider> getBackupProvider() async {
@@ -273,8 +367,31 @@ class BackupService {
   }
 
   static Future<bool> deleteBackup(BackupInfo backupInfo) async {
-    // Stub implementation
-    return true;
+    try {
+      if (backupInfo.provider == BackupProvider.local) {
+        final file = File(backupInfo.id);
+        if (await file.exists()) {
+          await file.delete();
+          return true;
+        }
+        return false;
+      } else if (backupInfo.provider == BackupProvider.firebase) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return false;
+        await FirebaseFirestore.instance
+            .collection('backups')
+            .doc(user.uid)
+            .collection('flight_data')
+            .doc(backupInfo.id)
+            .delete();
+        return true;
+      }
+      // GoogleDrive path currently falls back to firebase; nothing to delete separately
+      return false;
+    } catch (e) {
+      debugPrint('Error deleting backup: $e');
+      return false;
+    }
   }
 }
 
