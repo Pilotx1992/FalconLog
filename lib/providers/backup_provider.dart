@@ -1,8 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/backup_service.dart';
+import '../services/backup_logger.dart';
 import '../models/flight_log.dart';
 import 'flight_logs_provider.dart';
+
+// Backup log provider
+final backupLogProvider = FutureProvider<List<BackupLogEntry>>((ref) async {
+  return BackupLogger.getLog();
+});
+
+// Provider to refresh backup log
+final refreshBackupLogProvider = StateProvider<int>((ref) => 0);
 
 // Backup provider setting
 final backupProviderProvider = StateNotifierProvider<BackupProviderNotifier, BackupProvider>((ref) {
@@ -327,7 +336,7 @@ class BackupStatusNotifier extends StateNotifier<BackupStatus> {
         version: result.version,
       );
     } else {
-      state = BackupStatus.error(result.message ?? 'Restore failed');
+      state = BackupStatus.error(result.message);
     }
     
     // Reset to idle after 5 seconds (longer for user to see success)

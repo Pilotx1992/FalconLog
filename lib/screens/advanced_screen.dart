@@ -55,22 +55,22 @@ class AdvancedScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Section 2: Current Period Statistics
-              _CurrentPeriodSection(),
+              const _CurrentPeriodSection(),
               const SizedBox(height: 28),
               // Section 3: Statistics by Flight Type
-              _FlightTypeStatsSection(),
+              const _FlightTypeStatsSection(),
               const SizedBox(height: 28),
               // Section 4: Flight Hours by Aircraft Type
-              _AircraftTypeStatsSection(),
+              const _AircraftTypeStatsSection(),
               const SizedBox(height: 28),
               // Section 5: Flight Hours by Pilot Role
-              _PilotRoleStatsSection(),
+              const _PilotRoleStatsSection(),
               const SizedBox(height: 28),
               // Section 6: Last 3 Months Statistics
-              _Last3MonthsSection(),
+              const _Last3MonthsSection(),
               const SizedBox(height: 28),
               // Section 7: Recent Activity
-              _RecentActivitySection(),
+              const _RecentActivitySection(),
               const SizedBox(height: 16),
             ],
           ),
@@ -84,6 +84,8 @@ class AdvancedScreen extends ConsumerWidget {
 
 // --- Section 2: Current Period Statistics ---
 class _CurrentPeriodSection extends StatelessWidget {
+  const _CurrentPeriodSection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
@@ -295,6 +297,8 @@ class _PeriodStat extends StatelessWidget {
 
 // --- Section 3: Statistics by Flight Type ---
 class _FlightTypeStatsSection extends StatelessWidget {
+  const _FlightTypeStatsSection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
@@ -426,6 +430,8 @@ class _FlightTypeProgress extends StatelessWidget {
 
 // --- Section 4: Flight Hours by Aircraft Type ---
 class _AircraftTypeStatsSection extends StatelessWidget {
+  const _AircraftTypeStatsSection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
@@ -533,6 +539,8 @@ class _AircraftTypeRow extends StatelessWidget {
 
 // --- Section 5: Flight Hours by Pilot Role ---
 class _PilotRoleStatsSection extends StatelessWidget {
+  const _PilotRoleStatsSection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
@@ -629,6 +637,8 @@ class _PilotRoleRow extends StatelessWidget {
 
 // --- Section 6: Last 3 Months Statistics ---
 class _Last3MonthsSection extends StatelessWidget {
+  const _Last3MonthsSection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
@@ -758,6 +768,8 @@ class _MonthStatRow extends StatelessWidget {
 
 // --- Section 7: Recent Activity ---
 class _RecentActivitySection extends StatelessWidget {
+  const _RecentActivitySection();
+
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {

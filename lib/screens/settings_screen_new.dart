@@ -6,11 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/navigation_service.dart';
 import '../helpers/auth_state_helper.dart';
-import '../providers/biometric_provider.dart';
-import '../providers/language_provider.dart';
-import '../providers/backup_provider.dart';
-import '../services/backup_service.dart';
-import '../widgets/backup_widgets_new.dart';
 import '../localization/app_localizations.dart';
 import 'change_password_screen.dart';
 
@@ -344,12 +339,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       
       _buildDivider(),
       
-      _buildSettingsTile(
-        icon: Icons.download_rounded,
-        title: localizations.exportData,
-        subtitle: localizations.exportDataSubtitle,
-        onTap: _exportData,
-      ),
     ]);
   }
 
@@ -359,7 +348,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _buildSettingsTile(
         icon: Icons.code_rounded,
         title: localizations.version,
-        subtitle: 'v2.0.0 (Build 1)',
+        subtitle: 'v2.0.0',
         onTap: () {},
         trailing: const SizedBox(),
       ),
@@ -379,7 +368,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _buildSettingsTile(
         icon: Icons.support_agent_rounded,
         title: 'Contact Us',
-        subtitle: 'Support • Feedback • Suggestions',
+        subtitle: 'Give Feedback',
         onTap: _showContactSheet,
       ),
     ]);
@@ -510,7 +499,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ============ Contact Methods ============
   Future<void> _composeSupportEmail() async {
-    final localizations = AppLocalizations.of(context)!;
     final userEmail = AuthStateHelper.email;
     final displayName = AuthStateHelper.displayName;
     
@@ -717,13 +705,6 @@ Email: $userEmail
         ),
       );
     }
-  }
-
-  Future<void> _exportData() async {
-    // Implement export functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export data feature coming soon')),
-    );
   }
 
   // ============ Background Decorations ============

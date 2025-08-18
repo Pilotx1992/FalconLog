@@ -410,10 +410,11 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
               Navigator.pop(context);
               
               // Show loading indicator
+              if (!context.mounted) return;
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => AlertDialog(
+                builder: (loadingContext) => AlertDialog(
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -434,42 +435,54 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                 if (latestBackup != null) {
                   await ref.read(backupStatusProvider.notifier).performRestore(latestBackup);
                   
-                  // Close loading dialog
-                  Navigator.of(context).pop();
+                  // Close loading dialog safely
+                  if (context.mounted && Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
                   
-                  // Show success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Data restored successfully!'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
+                  // Show success message safely
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data restored successfully!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 } else {
-                  // Close loading dialog
-                  Navigator.of(context).pop();
+                  // Close loading dialog safely
+                  if (context.mounted && Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
                   
-                  // Show no backup found message
+                  // Show no backup found message safely
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No backup found for the selected provider'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                // Close loading dialog safely
+                if (context.mounted && Navigator.canPop(context)) {
+                  Navigator.of(context).pop();
+                }
+                
+                // Show error message safely
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('No backup found for the selected provider'),
-                      backgroundColor: Colors.orange,
-                      duration: Duration(seconds: 3),
+                    SnackBar(
+                      content: Text('Restore failed: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
                     ),
                   );
                 }
-              } catch (e) {
-                // Close loading dialog
-                Navigator.of(context).pop();
-                
-                // Show error message
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Restore failed: $e'),
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
               }
             },
             child: const Text('Restore'),
@@ -700,7 +713,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
   void _showRestoreConfirmation(BuildContext context, WidgetRef ref, BackupInfo backup) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Restore Backup'),
         content: Text(
           'Restore ${backup.logsCount} flights from ${backup.formattedDate}? '
@@ -708,18 +721,19 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               
-              // Show loading indicator
+              // Show loading indicator with new context
+              if (!context.mounted) return;
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => AlertDialog(
+                builder: (loadingContext) => AlertDialog(
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -734,29 +748,37 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
               try {
                 await ref.read(backupStatusProvider.notifier).performRestore(backup);
                 
-                // Close loading dialog
-                Navigator.of(context).pop();
+                // Close loading dialog safely
+                if (context.mounted && Navigator.canPop(context)) {
+                  Navigator.of(context).pop();
+                }
                 
-                // Show success message
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Data restored successfully!'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 3),
-                  ),
-                );
+                // Show success message safely
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Data restored successfully!'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
               } catch (e) {
-                // Close loading dialog
-                Navigator.of(context).pop();
+                // Close loading dialog safely
+                if (context.mounted && Navigator.canPop(context)) {
+                  Navigator.of(context).pop();
+                }
                 
-                // Show error message
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Restore failed: $e'),
-                    backgroundColor: Colors.red,
-                    duration: Duration(seconds: 5),
-                  ),
-                );
+                // Show error message safely
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Restore failed: $e'),
+                      backgroundColor: Colors.red,
+                      duration: Duration(seconds: 5),
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Restore'),
@@ -769,7 +791,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref, BackupInfo backup) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Backup'),
         content: Text(
           'Delete backup from ${backup.formattedDate}? '
@@ -777,18 +799,19 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               
-              // Show loading indicator
+              // Show loading indicator with new context
+              if (!context.mounted) return;
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => AlertDialog(
+                builder: (loadingContext) => AlertDialog(
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -803,40 +826,48 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
               try {
                 final success = await BackupService.deleteBackup(backup);
                 
-                // Close loading dialog
-                Navigator.of(context).pop();
+                // Close loading dialog safely
+                if (context.mounted && Navigator.canPop(context)) {
+                  Navigator.of(context).pop();
+                }
                 
-                if (success) {
-                  // Refresh backup history
-                  ref.invalidate(backupHistoryProvider);
-                  
+                if (context.mounted) {
+                  if (success) {
+                    // Refresh backup history
+                    ref.invalidate(backupHistoryProvider);
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Backup deleted successfully'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to delete backup'),
+                        backgroundColor: Colors.red,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                // Close loading dialog safely
+                if (context.mounted && Navigator.canPop(context)) {
+                  Navigator.of(context).pop();
+                }
+                
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Backup deleted successfully'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failed to delete backup'),
+                    SnackBar(
+                      content: Text('Delete failed: $e'),
                       backgroundColor: Colors.red,
-                      duration: Duration(seconds: 3),
+                      duration: Duration(seconds: 5),
                     ),
                   );
                 }
-              } catch (e) {
-                // Close loading dialog
-                Navigator.of(context).pop();
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Delete failed: $e'),
-                    backgroundColor: Colors.red,
-                    duration: Duration(seconds: 5),
-                  ),
-                );
               }
             },
             style: ElevatedButton.styleFrom(

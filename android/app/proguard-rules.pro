@@ -27,6 +27,20 @@
     public static ** valueOf(java.lang.String);
 }
 
+# Keep backup/encryption related classes
+-keep class **.services.backup_service.** { *; }
+-keep class **.services.encryption_service.** { *; }
+-keep class **.services.notification_service.** { *; }
+
+# Keep Riverpod providers
+-keep class **.providers.** { *; }
+
+# Keep connectivity plus
+-keep class io.flutter.plugins.connectivity.** { *; }
+
+# Keep flutter secure storage
+-keep class com.it_nomads.fluttersecurestorage.** { *; }
+
 # Don't obfuscate
 -dontobfuscate
 

@@ -479,13 +479,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   },
                 ),
                 _buildDivider(),
-                _buildSettingsTile(
-                  icon: Icons.download_rounded,
-                  title: localizations.exportData,
-                  subtitle: localizations.exportDataSubtitle,
-                  onTap: () => _exportData(),
-                ),
-                _buildDivider(),
                 Consumer(
                   builder: (context, ref, child) {
                     final backupHistoryAsync = ref.watch(backupHistoryProvider);
@@ -513,7 +506,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _buildSettingsTile(
                   icon: Icons.code_rounded,
                   title: localizations.version,
-                  subtitle: 'v2.0.0 (Build 1)',
+                  subtitle: 'v2.0.0',
                   onTap: () {},
                   trailing: const SizedBox(),
                 ),
@@ -529,7 +522,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _buildSettingsTile(
                   icon: Icons.support_agent_rounded,
                   title: 'Contact Us',
-                  subtitle: 'Support • Feedback • Suggestions',
+                  subtitle: 'Give Feedback',
                   onTap: _showContactSheet,
                 ),
               ]),
@@ -1406,16 +1399,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const BackupHistoryBottomSheet(),
-    );
-  }
-  
-  Future<void> _exportData() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Export feature coming soon'),
-        backgroundColor: Colors.blue,
-      ),
     );
   }
   
