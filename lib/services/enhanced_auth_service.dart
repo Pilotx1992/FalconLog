@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:google_sign_in/google_sign_in.dart'; // Temporarily disabled
+import 'package:google_sign_in/google_sign_in.dart' as g;
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,7 +13,7 @@ enum AuthMethod {
 
 class EnhancedAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  // final GoogleSignIn _googleSignIn = GoogleSignIn(); // Temporarily disabled
+  final g.GoogleSignIn _googleSignIn = g.GoogleSignIn(scopes: const ['email']);
   final LocalAuthentication _localAuth = LocalAuthentication();
 
   // Current user stream
@@ -65,26 +65,23 @@ class EnhancedAuthService {
     }
   }
 
-  // Sign in with Google
+  // Sign in with Google (v6 compatible implementation)
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // TODO: Google Sign-In implementation temporarily disabled due to API compatibility issues
-      throw Exception('Google Sign-In is currently under maintenance. Please use email/password login.');
-      
-      /* Original implementation commented out
-      // Check if Google Play Services are available first
-      final isAvailable = await _googleSignIn.isSignedIn();
-      debugPrint('Google Sign-In availability check: $isAvailable');
-      
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Trigger the Google Sign-In flow
+      final g.GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
-        throw Exception('Google sign-in was cancelled by user');
+        throw Exception('Sign in cancelled');
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final g.GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Verify we have the required tokens
+      if (googleAuth.idToken == null) {
+        throw Exception('Failed to obtain Google ID token');
+      }
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -94,30 +91,46 @@ class EnhancedAuthService {
 
       // Sign in to Firebase with the Google credential
       final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      
-      // Save Google sign-in preference
+
+      // Persist Google sign-in preference
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('prefer_google_signin', true);
       await prefs.setString('google_email', googleUser.email);
-      
+
       debugPrint('Google sign-in successful for: ${googleUser.email}');
       return userCredential;
-      */
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_handleFirebaseAuthError(e));
     } on PlatformException catch (e) {
-      if (e.code == 'sign_in_canceled') {
-        throw Exception('Google sign-in was cancelled');
-      } else if (e.code == 'network_error') {
-        throw Exception('Network error occurred during Google sign-in');
-      } else {
-        throw Exception('Google sign-in failed: ${e.message}');
+      debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}');
+      switch (e.code) {
+        case 'sign_in_canceled':
+          throw Exception('Sign in cancelled');
+        case 'sign_in_failed':
+          throw Exception('Google sign-in failed. Please try again.');
+        case 'network_error':
+          throw Exception('Network error. Please check your internet connection.');
+        case 'sign_in_required':
+          throw Exception('Google sign-in is required for this action');
+        default:
+          throw Exception('Google sign-in error: ${e.message ?? e.code}');
       }
     } catch (e) {
-      if (e.toString().contains('Google Play Services')) {
-        throw Exception('Google Play Services not available. This feature requires Google Play Services and works on real devices only.');
-      } else if (e.toString().contains('SERVICE_INVALID')) {
-        throw Exception('Google Play Services not available on this device');
+      debugPrint('Google Sign-In general error: $e');
+      
+      // Handle common issues
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('play services')) {
+        throw Exception('Google Play Services is not available. Please ensure it\'s installed and updated.');
+      } else if (errorString.contains('network')) {
+        throw Exception('Network error. Please check your internet connection.');
+      } else if (errorString.contains('developer_error')) {
+        throw Exception('Google Sign-In configuration error. Please check app setup.');
+      } else if (errorString.contains('internal_error')) {
+        throw Exception('Internal error occurred. Please try again later.');
+      } else {
+        throw Exception('Google sign-in failed: ${e.toString()}');
       }
-      throw Exception('Google sign-in failed: ${e.toString()}');
     }
   }
 
@@ -244,21 +257,36 @@ class EnhancedAuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      // Sign out from Google if signed in (temporarily disabled)
-      /*
-      if (await _googleSignIn.isSignedIn()) {
+      debugPrint('Starting comprehensive sign-out process...');
+      
+      // Sign out from Google if signed in
+      try {
         await _googleSignIn.signOut();
+        debugPrint('Google sign-out completed');
+      } catch (e) {
+        debugPrint('Google sign-out warning (non-fatal): $e');
+        // Continue with Firebase sign out even if Google sign out fails
       }
-      */
       
       // Sign out from Firebase
       await _firebaseAuth.signOut();
+      debugPrint('Firebase sign-out completed');
       
-      // Clear saved preferences
+      // Clear ALL saved preferences related to auth
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('prefer_google_signin');
       await prefs.remove('google_email');
+      await prefs.remove('user_email');
+      await prefs.remove('auth_method');
+      await prefs.remove('biometric_enabled');
+      await prefs.remove('remember_me');
+      debugPrint('Auth preferences cleared');
+      
+      // Force Firebase auth state to refresh
+      await Future.delayed(const Duration(milliseconds: 100));
+      debugPrint('Sign-out process completed successfully');
     } catch (e) {
+      debugPrint('Sign out error: $e');
       throw Exception('Sign out failed: ${e.toString()}');
     }
   }

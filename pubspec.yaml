@@ -30,7 +30,8 @@ dependencies:
   cloud_firestore: ^6.0.0
   local_auth: ^2.1.8
   local_auth_android: ^1.0.35
-  google_sign_in: ^7.1.1
+  # Downgraded to v6 API for compatibility with existing sign-in code. Upgrade to 7.x requires migration.
+  google_sign_in: ^6.2.1
   googleapis: ^14.0.0
   googleapis_auth: ^2.0.0
   http: ^1.1.0
@@ -40,9 +41,10 @@ dependencies:
   url_launcher: ^6.3.0
   archive: ^4.0.7
   crypto: ^3.0.6
-  flutter_secure_storage: ^4.2.1
+  flutter_secure_storage: ^9.2.2
   path: ^1.9.1
   workmanager: ^0.9.0+2
+  package_info_plus: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -55,3 +57,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/airplane.svg
+    - assets/airplane.png
+    - assets/google.png

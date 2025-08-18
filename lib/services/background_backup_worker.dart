@@ -37,7 +37,7 @@ Future<bool> backgroundDispatcher() async {
           final box = Hive.box<FlightLog>('flightLogsBox');
           final logs = box.values.toList();
           if (logs.isNotEmpty) {
-            final result = await BackupService.backupToLocal(logs, encrypted: true);
+            final result = await BackupService.backupToLocal(logs);
             log('[BackgroundBackup] Result: ${result.message}');
           } else {
             log('[BackgroundBackup] No logs to backup.');

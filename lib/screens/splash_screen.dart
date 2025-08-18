@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
@@ -31,7 +30,13 @@ class _SplashScreenState extends State<SplashScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset('assets/airplane.svg', width: 48, height: 48),
+                // Replaced SVG airplane with PNG asset per request
+                Image.asset(
+                  'assets/airplane.png',
+                  width: 52,
+                  height: 52,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(width: 12),
                 const Text(
                   'FalconLog',

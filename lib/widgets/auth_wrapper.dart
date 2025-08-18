@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../screens/modern_login_screen.dart';
+import '../screens/login_screen.dart';
 import '../screens/dashboard_screen.dart';
 
 // Provider for auth state
 final authStateProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges();
+  debugPrint('AuthState: Listening to Firebase auth changes');
+  return FirebaseAuth.instance.authStateChanges().map((user) {
+    if (user != null) {
+      debugPrint('AuthState: User logged in - ${user.email}');
+    } else {
+      debugPrint('AuthState: User logged out');
+    }
+    return user;
+  });
 });
 
 class AuthWrapper extends ConsumerWidget {
@@ -20,16 +28,22 @@ class AuthWrapper extends ConsumerWidget {
       data: (user) {
         // If user is signed in, show dashboard
         if (user != null) {
-          debugPrint('User authenticated: ${user.email}');
+          debugPrint('AuthWrapper: User authenticated: ${user.email}');
           return const DashboardScreen();
         }
         
         // If user is not signed in, show login screen
-        debugPrint('User not authenticated - showing login screen');
-        return ModernLoginScreen();
+        debugPrint('AuthWrapper: User not authenticated - showing login screen');
+        return const LoginScreen();
       },
-      loading: () => _buildLoadingScreen(),
-      error: (error, stack) => _buildErrorScreen(error, ref),
+      loading: () {
+        debugPrint('AuthWrapper: Loading auth state...');
+        return _buildLoadingScreen();
+      },
+      error: (error, stack) {
+        debugPrint('AuthWrapper: Auth error - $error');
+        return _buildErrorScreen(error, ref);
+      },
     );
   }
 

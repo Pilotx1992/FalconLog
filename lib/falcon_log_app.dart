@@ -12,7 +12,7 @@ import 'screens/edit_flight_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/modern_login_screen.dart';
+import 'screens/login_screen.dart';
 import 'debug/auth_debug_screen.dart';
 import 'widgets/auth_wrapper.dart';
 import 'widgets/auth_guard.dart';
@@ -51,12 +51,13 @@ class FalconLogApp extends ConsumerWidget {
       routes: {
         '/': (context) => const AuthWrapper(),
         '/home': (context) => const AuthGuard(child: DashboardScreen()),
+        '/dashboard': (context) => const AuthGuard(child: DashboardScreen()), // Alias for /home
         '/logFlight': (context) => const LogFlightScreen(),
         '/flights': (context) => const AllFlightsScreen(),
         '/summary': (context) => const SummaryScreen(),
         '/advanced': (context) => const AdvancedScreen(),
         '/settings': (context) => const SettingsScreen(),
-        '/login': (context) => AuthGuard(requireAuth: false, child: const ModernLoginScreen()),
+  '/login': (context) => const AuthGuard(requireAuth: false, child: LoginScreen()),
         '/register': (context) => const AuthGuard(requireAuth: false, child: RegisterScreen()),
         '/forgot-password': (context) => const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
         '/debug-auth': (context) => const AuthDebugScreen(),

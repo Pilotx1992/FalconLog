@@ -124,7 +124,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   ref: ref,
                   provider: BackupProvider.googleDrive,
                   title: 'Google Drive',
-                  subtitle: isOnline ? 'Google Drive storage (like WhatsApp)' : 'Requires internet connection',
+                  subtitle: isOnline ? 'Temporarily using Firebase cloud storage' : 'Requires internet connection',
                   icon: Icons.cloud_queue_outlined,
                   iconColor: Colors.green,
                   isSelected: currentProvider == BackupProvider.googleDrive,
@@ -247,9 +247,9 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                 if (ref.read(isOnlineProvider)) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Switched to Google Drive Backup'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
+                      content: Text('Google Drive temporarily using Firebase cloud storage'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
                     ),
                   );
                 }
@@ -356,7 +356,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text('Performing ${provider.name} backup...'),
+            Text('Performing ${provider.displayName} backup...'),
           ],
         ),
       ),

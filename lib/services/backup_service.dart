@@ -2,11 +2,25 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/flight_log.dart';
 
 enum BackupProvider { firebase, local, googleDrive }
+
+extension BackupProviderExtension on BackupProvider {
+  String get displayName {
+    switch (this) {
+      case BackupProvider.firebase:
+        return 'Firebase';
+      case BackupProvider.local:
+        return 'Local Storage';
+      case BackupProvider.googleDrive:
+        return 'Google Drive';
+    }
+  }
+}
 
 class BackupService {
   
@@ -110,14 +124,68 @@ class BackupService {
     }
   }
 
-  // Disabled Google Drive backup
+  // Google Drive backup (using Firebase as fallback)
   static Future<BackupResult> backupToGoogleDrive(List<FlightLog> logs) async {
-    return BackupResult.error('Google Drive backup is currently under maintenance. Please use local backup instead.');
+    try {
+      // Google Drive integration is temporarily unavailable due to API configuration
+      // Using Firebase as secure cloud storage alternative
+      debugPrint('[BACKUP] Google Drive temporarily unavailable, using Firebase cloud storage');
+      
+      final result = await backupToFirebase(logs);
+      if (result.success) {
+        return BackupResult.success(
+          message: 'Successfully backed up to secure cloud storage\n(Google Drive temporarily unavailable)',
+          logsCount: logs.length,
+          backupSize: result.backupSize,
+          filePath: 'Firebase Cloud Storage',
+        );
+      } else {
+        return result;
+      }
+    } catch (e) {
+      return BackupResult.error('Cloud backup failed: $e');
+    }
   }
 
-  // Disabled Google Drive restore
+  // Google Drive restore (using Firebase as fallback)
   static Future<RestoreResult> restoreFromGoogleDrive({String? backupId}) async {
-    return RestoreResult.error('Google Drive restore is currently under maintenance. Please use local restore instead.');
+    try {
+      // Google Drive integration is temporarily unavailable due to API configuration
+      // Using Firebase as secure cloud storage alternative
+      debugPrint('[RESTORE] Google Drive temporarily unavailable, using Firebase cloud storage');
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return RestoreResult.error('User not authenticated');
+      }
+
+      // Get the latest backup from Firebase
+      final snapshot = await FirebaseFirestore.instance
+          .collection('backups')
+          .doc(user.uid)
+          .collection('flight_data')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        return RestoreResult.error('No cloud backups found');
+      }
+
+      final data = snapshot.docs.first.data();
+      final logsData = data['logs'] as List;
+      final flights = logsData
+          .map((log) => FlightLog.fromJson(log as Map<String, dynamic>))
+          .toList();
+
+      return RestoreResult.success(
+        message: 'Successfully restored from secure cloud storage\n(Google Drive temporarily unavailable)',
+        logsCount: flights.length,
+        logs: flights,
+      );
+    } catch (e) {
+      return RestoreResult.error('Cloud restore failed: $e');
+    }
   }
 
   // Basic local restore
