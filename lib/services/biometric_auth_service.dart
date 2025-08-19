@@ -254,19 +254,17 @@ extension BiometricSetupResultMessages on BiometricSetupResult {
   String get message {
     switch (this) {
       case BiometricSetupResult.success:
-        return 'Biometric authentication enabled successfully!';
+        return 'Enabled Successfully!';
       case BiometricSetupResult.deviceNotSupported:
-        return 'Your device does not support biometric authentication';
+        return 'Device not supported';
       case BiometricSetupResult.biometricsNotAvailable:
-        return 'Biometric authentication is not available on this device';
+        return 'Biometrics not available';
       case BiometricSetupResult.noBiometricsEnrolled:
-        return 'Please enroll fingerprint or face ID in device settings first';
+        return 'No biometrics enrolled';
       case BiometricSetupResult.authenticationFailed:
-        return 'Biometric authentication failed. Please try again';
+        return 'Authentication failed';
       case BiometricSetupResult.error:
-        return 'An error occurred while setting up biometric authentication';
+        return 'Setup error';
     }
   }
-
-  bool get isSuccess => this == BiometricSetupResult.success;
 }
