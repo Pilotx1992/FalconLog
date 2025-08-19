@@ -29,7 +29,7 @@ class AppLocalizations {
       
       // Account Settings
       'change_password': 'Change Password',
-      'update_password': 'Update your account password',
+      'update_password': 'Update your password',
       'biometric_auth': 'Biometric Authentication',
       'biometric_subtitle': 'Use fingerprint to secure app',
       'verify_email': 'Verify Email',

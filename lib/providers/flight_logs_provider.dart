@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import '../models/flight_log.dart';
-import '../services/backup_service.dart';
 
 final flightLogsProvider =
     StateNotifierProvider<FlightLogsNotifier, AsyncValue<List<FlightLog>>>(
@@ -53,10 +52,6 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       await _box?.put(log.id, log);
       _updateState();
-      
-      // Trigger auto backup after adding flight
-      final allLogs = _box?.values.toList() ?? [];
-      BackupService.triggerAutoBackupAfterFlight(allLogs);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,12 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../models/flight_log.dart';
 import 'encryption_service.dart';
-import 'notification_service.dart';
-import 'backup_logger.dart';
 
 enum BackupProvider { firebase, local, googleDrive }
 
@@ -31,17 +27,6 @@ extension BackupProviderExtension on BackupProvider {
 }
 
 class BackupService {
-  // =====================
-  // Auto backup configuration
-  // =====================
-  static Timer? _autoBackupTimer;
-  static final List<BackupInfo> _backupCache = [];
-  static DateTime? _lastCacheUpdate;
-  
-  // Maintenance configuration
-  static const int maxLocalBackups = 5;
-  static const int maxFirebaseBackups = 10;
-  
   // =====================
   // Internal helpers
   // =====================
@@ -61,79 +46,13 @@ class BackupService {
     return backupDir;
   }
 
-  static Future<bool> _checkConnectivity() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
-  }
-
-  static String _formatSize(int bytes) {
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
-  }
-
-  // =====================
-  // Automatic maintenance
-  // =====================
-  static Future<void> _performMaintenance() async {
-    try {
-      await _cleanupOldBackups();
-      await BackupLogger.logMaintenance(
-        operation: 'Automatic cleanup completed',
-        details: {
-          'max_local': maxLocalBackups,
-          'max_firebase': maxFirebaseBackups,
-        },
-      );
-    } catch (e) {
-      debugPrint('Maintenance error: $e');
-    }
-  }
-
-  static Future<void> _cleanupOldBackups() async {
-    // Clean local backups
-    try {
-      final localBackups = await getLocalBackups();
-      if (localBackups.length > maxLocalBackups) {
-        final toDelete = localBackups.skip(maxLocalBackups).toList();
-        for (final backup in toDelete) {
-          await deleteBackup(backup);
-        }
-        debugPrint('Cleaned ${toDelete.length} old local backups');
-      }
-    } catch (e) {
-      debugPrint('Error cleaning local backups: $e');
-    }
-
-    // Clean Firebase backups
-    try {
-      final firebaseBackups = await getBackupHistory();
-      if (firebaseBackups.length > maxFirebaseBackups) {
-        final toDelete = firebaseBackups.skip(maxFirebaseBackups).toList();
-        for (final backup in toDelete) {
-          await deleteBackup(backup);
-        }
-        debugPrint('Cleaned ${toDelete.length} old Firebase backups');
-      }
-    } catch (e) {
-      debugPrint('Error cleaning Firebase backups: $e');
-    }
-  }
-
   // =====================
   // Firebase backup (plain JSON stored in Firestore)
   // =====================
   static Future<BackupResult> backupToFirebase(List<FlightLog> logs) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        await BackupLogger.logError(
-          provider: 'Firebase',
-          operation: 'backup',
-          error: 'User not authenticated',
-        );
-        return BackupResult.error('User not authenticated');
-      }
+      if (user == null) return BackupResult.error('User not authenticated');
 
       final logsData = logs.map((l) => l.toJson()).toList();
       final docId = 'backup_${DateTime.now().millisecondsSinceEpoch}';
@@ -151,28 +70,8 @@ class BackupService {
       });
 
       await _updateLastBackupTime();
-      
       // Rough size estimation (JSON string length)
       final size = utf8.encode(jsonEncode({'logs': logsData})).length;
-      final sizeFormatted = _formatSize(size);
-      
-      // Log success
-      await BackupLogger.logBackup(
-        provider: 'Firebase',
-        flightCount: logs.length,
-        size: size,
-      );
-      
-      // Show notification
-      NotificationService.showBackupSuccess(
-        flightCount: logs.length,
-        provider: 'Firebase',
-        size: sizeFormatted,
-      );
-      
-      // Perform maintenance
-      await _performMaintenance();
-      
       return BackupResult.success(
         message: 'Successfully backed up to Firebase',
         logsCount: logs.length,
@@ -180,12 +79,6 @@ class BackupService {
         filePath: 'Firebase:$docId',
       );
     } catch (e) {
-      await BackupLogger.logError(
-        provider: 'Firebase',
-        operation: 'backup',
-        error: e.toString(),
-      );
-      NotificationService.showBackupError(error: e.toString());
       return BackupResult.error('Firebase backup failed: $e');
     }
   }
@@ -225,7 +118,6 @@ class BackupService {
       final checksum = await EncryptionService.sha256OfFile(encFile);
 
       // 4. Metadata
-      final encSize = await encFile.length();
       final meta = {
         'id': baseName,
         'encrypted_file': p.basename(encFile.path),
@@ -236,7 +128,7 @@ class BackupService {
         'provider': 'local',
         'version': 1,
         'zip_size': await zipFile.length(),
-        'enc_size': encSize,
+        'enc_size': await encFile.length(),
       };
       final metaFile = File(p.join(backupDir.path, '$baseName.meta.json'));
       await metaFile.writeAsString(jsonEncode(meta), flush: true);
@@ -246,36 +138,13 @@ class BackupService {
       try { await zipFile.delete(); } catch (_) {}
 
       await _updateLastBackupTime();
-      
-      // Log and notify
-      await BackupLogger.logBackup(
-        provider: 'Local',
-        flightCount: logs.length,
-        size: encSize,
-      );
-      
-      NotificationService.showBackupSuccess(
-        flightCount: logs.length,
-        provider: 'Local Storage',
-        size: _formatSize(encSize),
-      );
-      
-      // Perform maintenance
-      await _performMaintenance();
-      
       return BackupResult.success(
         message: 'Successfully backed up locally (encrypted)',
         logsCount: logs.length,
-        backupSize: encSize,
+        backupSize: await encFile.length(),
         filePath: encFile.path,
       );
     } catch (e) {
-      await BackupLogger.logError(
-        provider: 'Local',
-        operation: 'backup',
-        error: e.toString(),
-      );
-      NotificationService.showBackupError(error: e.toString());
       return BackupResult.error('Local backup failed: $e');
     }
   }
@@ -286,14 +155,7 @@ class BackupService {
   static Future<RestoreResult> restoreFromFirebase({String? backupId}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        await BackupLogger.logError(
-          provider: 'Firebase',
-          operation: 'restore',
-          error: 'User not authenticated',
-        );
-        return RestoreResult.error('User not authenticated');
-      }
+      if (user == null) return RestoreResult.error('User not authenticated');
 
       final collectionRef = FirebaseFirestore.instance
           .collection('backups')
@@ -303,25 +165,11 @@ class BackupService {
       DocumentSnapshot<Map<String, dynamic>>? targetDoc;
       if (backupId != null) {
         final snap = await collectionRef.doc(backupId).get();
-        if (!snap.exists) {
-          await BackupLogger.logError(
-            provider: 'Firebase',
-            operation: 'restore',
-            error: 'Backup not found: $backupId',
-          );
-          return RestoreResult.error('Backup not found');
-        }
+        if (!snap.exists) return RestoreResult.error('Backup not found');
         targetDoc = snap;
       } else {
         final latest = await collectionRef.orderBy('timestamp', descending: true).limit(1).get();
-        if (latest.docs.isEmpty) {
-          await BackupLogger.logError(
-            provider: 'Firebase',
-            operation: 'restore',
-            error: 'No backups found',
-          );
-          return RestoreResult.error('No backup found');
-        }
+        if (latest.docs.isEmpty) return RestoreResult.error('No backup found');
         targetDoc = latest.docs.first;
       }
 
@@ -331,18 +179,6 @@ class BackupService {
           .map((e) => FlightLog.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Log success
-      await BackupLogger.logRestore(
-        provider: 'Firebase',
-        flightCount: flights.length,
-      );
-      
-      // Show notification
-      NotificationService.showRestoreSuccess(
-        flightCount: flights.length,
-        provider: 'Firebase',
-      );
-
       return RestoreResult.success(
         message: 'Successfully restored from Firebase',
         logsCount: flights.length,
@@ -351,12 +187,6 @@ class BackupService {
         version: data['schema'] as String?,
       );
     } catch (e) {
-      await BackupLogger.logError(
-        provider: 'Firebase',
-        operation: 'restore',
-        error: e.toString(),
-      );
-      NotificationService.showRestoreError(error: e.toString());
       return RestoreResult.error('Firebase restore failed: $e');
     }
   }
@@ -468,18 +298,8 @@ class BackupService {
     return ts != null ? DateTime.fromMillisecondsSinceEpoch(ts) : null;
   }
 
-  static Future<List<BackupInfo>> getBackupHistory({bool useCache = true}) async {
-    // Use cache if available and fresh (less than 5 minutes old)
-    if (useCache && _lastCacheUpdate != null) {
-      final cacheAge = DateTime.now().difference(_lastCacheUpdate!);
-      if (cacheAge.inMinutes < 5 && _backupCache.isNotEmpty) {
-        return List.from(_backupCache);
-      }
-    }
-
-    final List<BackupInfo> allBackups = [];
-    
-    // Get Firebase backups
+  static Future<List<BackupInfo>> getBackupHistory() async {
+    final List<BackupInfo> history = [];
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -488,15 +308,14 @@ class BackupService {
             .doc(user.uid)
             .collection('flight_data')
             .orderBy('timestamp', descending: true)
-            .limit(50) // Increased limit
+            .limit(20)
             .get();
-        
         for (final doc in snapshot.docs) {
           final data = doc.data();
           final ts = (data['timestamp'] is Timestamp)
               ? (data['timestamp'] as Timestamp).toDate()
               : DateTime.now();
-          allBackups.add(BackupInfo(
+          history.add(BackupInfo(
             id: doc.id,
             name: doc.id,
             timestamp: ts,
@@ -509,29 +328,7 @@ class BackupService {
     } catch (e) {
       debugPrint('Error loading firebase backup history: $e');
     }
-
-    // Get local backups
-    try {
-      final localBackups = await getLocalBackups();
-      allBackups.addAll(localBackups);
-    } catch (e) {
-      debugPrint('Error loading local backup history: $e');
-    }
-
-    // Sort all backups by timestamp (newest first)
-    allBackups.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    // Update cache
-    _backupCache.clear();
-    _backupCache.addAll(allBackups);
-    _lastCacheUpdate = DateTime.now();
-
-    return allBackups;
-  }
-
-  static void clearBackupCache() {
-    _backupCache.clear();
-    _lastCacheUpdate = null;
+    return history;
   }
 
   static Future<List<BackupInfo>> getLocalBackups() async {
@@ -641,94 +438,10 @@ class BackupService {
   }
 
   // =====================
-  // Auto backup system
-  // =====================
-  static Future<void> startAutoBackup() async {
-    try {
-      if (!await isAutoBackupEnabled()) return;
-      
-      _autoBackupTimer?.cancel();
-      
-      // Check every hour for backup conditions
-      _autoBackupTimer = Timer.periodic(const Duration(hours: 1), (_) async {
-        await _checkAndPerformAutoBackup();
-      });
-      
-      debugPrint('Auto backup timer started');
-    } catch (e) {
-      debugPrint('Error starting auto backup: $e');
-    }
-  }
-
-  static void stopAutoBackup() {
-    _autoBackupTimer?.cancel();
-    _autoBackupTimer = null;
-    debugPrint('Auto backup timer stopped');
-  }
-
-  static Future<void> _checkAndPerformAutoBackup() async {
-    try {
-      if (!await isAutoBackupEnabled()) return;
-      
-      final lastBackup = await getLastBackupTime();
-      final now = DateTime.now();
-      
-      // Check if enough time has passed
-      bool shouldBackup = false;
-      if (lastBackup == null) {
-        shouldBackup = true; // First backup
-      } else {
-        final config = await getAutoBackupConfig();
-        if (config != null) {
-          final intervalHours = config['interval_hours'] as int? ?? 24;
-          final hoursSinceBackup = now.difference(lastBackup).inHours;
-          shouldBackup = hoursSinceBackup >= intervalHours;
-        }
-      }
-      
-      if (!shouldBackup) return;
-      
-      // Check connectivity if required
-      final config = await getAutoBackupConfig();
-      final requiresWifi = config?['requires_wifi'] as bool? ?? false;
-      if (requiresWifi && !await _checkConnectivity()) {
-        debugPrint('Auto backup skipped: WiFi required but not available');
-        return;
-      }
-      
-      debugPrint('Performing auto backup...');
-      // Perform the actual backup (this would need access to current flight logs)
-      // This is a placeholder - in reality you'd get logs from a provider
-      await performAutoBackup([]);
-      
-    } catch (e) {
-      debugPrint('Auto backup check error: $e');
-    }
-  }
-
-  static Future<void> triggerAutoBackupAfterFlight(List<FlightLog> logs) async {
-    try {
-      if (!await isAutoBackupEnabled()) return;
-      
-      final config = await getAutoBackupConfig();
-      final backupAfterFlight = config?['backup_after_flight'] as bool? ?? true;
-      
-      if (backupAfterFlight) {
-        debugPrint('Triggering auto backup after flight...');
-        await performAutoBackup(logs);
-      }
-    } catch (e) {
-      debugPrint('Auto backup after flight error: $e');
-    }
-  }
-
-  // =====================
   // Delete backup
   // =====================
   static Future<bool> deleteBackup(BackupInfo info) async {
     try {
-      bool success = false;
-      
       switch (info.provider) {
         case BackupProvider.local:
           final file = File(info.id);
@@ -742,8 +455,7 @@ class BackupService {
             if (await metaFile.exists()) {
               try { await metaFile.delete(); } catch (_) {}
             }
-          success = true;
-          break;
+          return true;
         case BackupProvider.firebase:
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) return false;
@@ -753,39 +465,13 @@ class BackupService {
               .collection('flight_data')
               .doc(info.id)
               .delete();
-          success = true;
-          break;
+          return true;
         case BackupProvider.googleDrive:
           // falls back to firebase path currently – nothing additional
-          success = false;
-          break;
+          return false;
       }
-      
-      if (success) {
-        // Clear cache to force refresh
-        clearBackupCache();
-        
-        // Log the deletion
-        await BackupLogger.log(
-          type: BackupLogType.delete,
-          provider: info.provider.displayName,
-          message: 'Deleted backup: ${info.name}',
-          details: {
-            'backup_id': info.id,
-            'flight_count': info.logsCount,
-            'size': info.backupSize,
-          },
-        );
-      }
-      
-      return success;
     } catch (e) {
       debugPrint('Error deleting backup: $e');
-      await BackupLogger.logError(
-        provider: info.provider.displayName,
-        operation: 'delete',
-        error: e.toString(),
-      );
       return false;
     }
   }

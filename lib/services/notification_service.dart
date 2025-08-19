@@ -15,34 +15,6 @@ class NotificationService {
   static void showInfo(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
-
-  // Backup/Restore notifications
-  static void showBackupSuccess({
-    required int flightCount,
-    required String provider,
-    required String size,
-  }) {
-    showSuccess('✅ Backed up $flightCount flights to $provider ($size)');
-  }
-
-  static void showBackupError({required String error}) {
-    showError('❌ Backup failed: $error');
-  }
-
-  static void showRestoreSuccess({
-    required int flightCount,
-    required String provider,
-  }) {
-    showSuccess('✅ Restored $flightCount flights from $provider');
-  }
-
-  static void showRestoreError({required String error}) {
-    showError('❌ Restore failed: $error');
-  }
-
-  static void showAutoBackupReminder() {
-    showInfo('📅 Consider backing up your flights - it\'s been a while!');
-  }
   
   // Show authentication success
   static void showAuthSuccess(String action) {
@@ -115,9 +87,17 @@ class NotificationService {
     showSuccess('Verification email sent! Please check your inbox.');
   }
   
-  // Show sync notifications (legacy)
+  // Show backup/sync notifications
+  static void showBackupSuccess() {
+    showSuccess('Data backed up successfully!');
+  }
+  
   static void showSyncSuccess() {
     showSuccess('Data synchronized successfully!');
+  }
+  
+  static void showBackupError() {
+    showError('Failed to backup data. Please try again.');
   }
   
   // Show settings changes

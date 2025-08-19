@@ -9,7 +9,6 @@ import 'models/flight_log.dart';
 import 'middleware/auth_middleware.dart';
 import 'utils/performance_optimizer.dart';
 import 'services/background_backup_worker.dart';
-import 'services/backup_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,14 +67,6 @@ void main() async {
     await BackgroundBackupScheduler.initAndSchedule();
   } catch (e) {
     debugPrint('Background backup scheduling failed: $e');
-  }
-  
-  // Initialize auto backup after critical components
-  try {
-    BackupService.startAutoBackup();
-    debugPrint('✅ Auto backup initialized successfully');
-  } catch (e) {
-    debugPrint('Auto backup initialization failed: $e');
   }
   
   // تشغيل التطبيق أولاً

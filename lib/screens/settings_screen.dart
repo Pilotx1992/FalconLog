@@ -994,7 +994,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) {
     final localizations = AppLocalizations.of(context)!;
     final isLoading = setupState.runtimeType.toString() == '_Loading';
-    final biometricName = availability.biometricTypeName;
+    
     
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -1032,7 +1032,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   availability.isFullyAvailable 
-                    ? '${localizations.useBiometric} $biometricName ${localizations.toSecureApp}'
+                    ? 'Active Biometric'
                     : availability.statusMessage,
                   style: TextStyle(
                     fontSize: 13,

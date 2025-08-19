@@ -79,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'Every Mission, Counted.',
+                  'Precision flight logging for fighter pilots.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 16,
