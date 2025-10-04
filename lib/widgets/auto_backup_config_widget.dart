@@ -181,7 +181,9 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: Text(_getIntervalDescription(interval)),
               value: interval,
               groupValue: config.interval,
-              onChanged: null, // TODO: Implement state management
+              onChanged: (value) {
+                // TODO: Implement state management
+              },
             );
           }).toList(),
         ),
