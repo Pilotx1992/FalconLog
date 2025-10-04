@@ -524,12 +524,12 @@ class BackupService extends ChangeNotifier {
         }
 
         if (kDebugMode && i % (batchSize * 5) == 0) {
-          print('📊 Progress: $processedCount/$totalCount logs processed');
+          debugPrint('📊 Progress: $processedCount/$totalCount logs processed');
         }
       }
 
       if (errorCount > 0 && kDebugMode) {
-        print('⚠️ Skipped $errorCount corrupt entries during backup');
+        debugPrint('⚠️ Skipped $errorCount corrupt entries during backup');
       }
 
       backupData['flight_logs'] = flightLogsData;
