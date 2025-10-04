@@ -27,13 +27,27 @@ class FlightLogAdapter extends TypeAdapter<FlightLog> {
       isDayFlight: fields[7] as bool,
       isSimulated: fields[8] as bool,
       createdAt: fields[9] as DateTime?,
+      dateUpdated: fields[10] as DateTime?,
+      registration: fields[11] as String?,
+      departure: fields[12] as String?,
+      arrival: fields[13] as String?,
+      flightTime: fields[14] as double?,
+      picTime: fields[15] as double?,
+      sicTime: fields[16] as double?,
+      nightTime: fields[17] as double?,
+      ifrTime: fields[18] as double?,
+      crossCountry: fields[19] as double?,
+      dayLandings: fields[20] as int?,
+      nightLandings: fields[21] as int?,
+      remarks: fields[22] as String?,
+      updatedAt: fields[23] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, FlightLog obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(24)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +67,35 @@ class FlightLogAdapter extends TypeAdapter<FlightLog> {
       ..writeByte(8)
       ..write(obj.isSimulated)
       ..writeByte(9)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(10)
+      ..write(obj.dateUpdated)
+      ..writeByte(11)
+      ..write(obj.registration)
+      ..writeByte(12)
+      ..write(obj.departure)
+      ..writeByte(13)
+      ..write(obj.arrival)
+      ..writeByte(14)
+      ..write(obj.flightTime)
+      ..writeByte(15)
+      ..write(obj.picTime)
+      ..writeByte(16)
+      ..write(obj.sicTime)
+      ..writeByte(17)
+      ..write(obj.nightTime)
+      ..writeByte(18)
+      ..write(obj.ifrTime)
+      ..writeByte(19)
+      ..write(obj.crossCountry)
+      ..writeByte(20)
+      ..write(obj.dayLandings)
+      ..writeByte(21)
+      ..write(obj.nightLandings)
+      ..writeByte(22)
+      ..write(obj.remarks)
+      ..writeByte(23)
+      ..write(obj.updatedAt);
   }
 
   @override
@@ -154,31 +196,31 @@ class PilotRoleAdapter extends TypeAdapter<PilotRole> {
   PilotRole read(BinaryReader reader) {
     switch (reader.readByte()) {
       case 0:
-        return PilotRole.IP;
+        return PilotRole.ip;
       case 1:
-        return PilotRole.MTP;
+        return PilotRole.mtp;
       case 2:
-        return PilotRole.PIC;
+        return PilotRole.pic;
       case 3:
-        return PilotRole.CPG_GUNNER;
+        return PilotRole.cpgGunner;
       default:
-        return PilotRole.IP;
+        return PilotRole.ip;
     }
   }
 
   @override
   void write(BinaryWriter writer, PilotRole obj) {
     switch (obj) {
-      case PilotRole.IP:
+      case PilotRole.ip:
         writer.writeByte(0);
         break;
-      case PilotRole.MTP:
+      case PilotRole.mtp:
         writer.writeByte(1);
         break;
-      case PilotRole.PIC:
+      case PilotRole.pic:
         writer.writeByte(2);
         break;
-      case PilotRole.CPG_GUNNER:
+      case PilotRole.cpgGunner:
         writer.writeByte(3);
         break;
     }

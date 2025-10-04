@@ -26,7 +26,7 @@ class FalconLogApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
     final isRTL = ref.watch(isRTLProvider);
-    
+
     return MaterialApp(
       title: 'FalconLog',
       navigatorKey: NavigationService.navigatorKey,
@@ -44,26 +44,31 @@ class FalconLogApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF3949ab), // لون بنفسجي ليتناسب مع تصميمك
           // قم بتغيير السطر التالي إلى Brightness.light
-          brightness: Brightness.light, 
+          brightness: Brightness.light,
         ),
         // يمكنك الآن تحديد ألوان إضافية للوضع الفاتح
         scaffoldBackgroundColor: const Color(0xFFF8FAFC), // خلفية فاتحة للشاشات
-        dialogBackgroundColor: Colors.white, // خلفية بيضاء لمربعات الحوار
         cardColor: Colors.white, // خلفية بيضاء للكروت
-        
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Colors.white, // خلفية بيضاء لمربعات الحوار
+        ),
+
         // تخصيص لون النص ليكون داكنًا في الوضع الفاتح
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Color(0xFF334155)), // لون نص داكن
-          titleLarge: TextStyle(color: Color(0xFF334155)), // لون للعناوين الكبيرة
-          titleMedium: TextStyle(color: Color(0xFF334155)), // لون للعناوين المتوسطة
+          titleLarge:
+              TextStyle(color: Color(0xFF334155)), // لون للعناوين الكبيرة
+          titleMedium:
+              TextStyle(color: Color(0xFF334155)), // لون للعناوين المتوسطة
         ),
-        
+
         // تخصيص مظهر الـ AppBar ليكون متناسقًا
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent, // شفاف ليظهر التدرج اللوني
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.white), // لون الأيقونات
-          titleTextStyle: TextStyle( // تصميم نص العنوان
+          titleTextStyle: TextStyle(
+            // تصميم نص العنوان
             color: Colors.white,
             fontSize: 22,
             fontWeight: FontWeight.w700,
@@ -82,15 +87,19 @@ class FalconLogApp extends ConsumerWidget {
         '/': (context) => const AuthWrapper(),
         '/splash': (context) => const SplashScreen(),
         '/home': (context) => const AuthGuard(child: DashboardScreen()),
-        '/dashboard': (context) => const AuthGuard(child: DashboardScreen()), // Alias for /home
+        '/dashboard': (context) =>
+            const AuthGuard(child: DashboardScreen()), // Alias for /home
         '/logFlight': (context) => const LogFlightScreen(),
         '/flights': (context) => const AllFlightsScreen(),
         '/summary': (context) => const SummaryScreen(),
         '/advanced': (context) => const AdvancedScreen(),
         '/settings': (context) => const SettingsScreen(),
-        '/login': (context) => const AuthGuard(requireAuth: false, child: LoginScreen()),
-        '/register': (context) => const AuthGuard(requireAuth: false, child: RegisterScreen()),
-        '/forgot-password': (context) => const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
+        '/login': (context) =>
+            const AuthGuard(requireAuth: false, child: LoginScreen()),
+        '/register': (context) =>
+            const AuthGuard(requireAuth: false, child: RegisterScreen()),
+        '/forgot-password': (context) =>
+            const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
         '/debug-auth': (context) => const AuthDebugScreen(),
       },
       onGenerateRoute: (settings) {

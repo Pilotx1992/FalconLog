@@ -6,7 +6,8 @@ class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() =>
+      _ChangePasswordScreenState();
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
@@ -14,7 +15,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
@@ -73,11 +74,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         leading: Container(
           margin: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 20),
+            icon: const Icon(Icons.arrow_back_ios_rounded,
+                color: Colors.white, size: 20),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -106,14 +108,18 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFF8B5CF6)],
+                      colors: [
+                        Color(0xFF667eea),
+                        Color(0xFF764ba2),
+                        Color(0xFF8B5CF6)
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF667eea).withOpacity(0.3),
+                        color: const Color(0xFF667eea).withValues(alpha: 0.3),
                         blurRadius: 24,
                         offset: const Offset(0, 12),
                       ),
@@ -124,7 +130,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Icon(
@@ -158,7 +164,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 24,
                         offset: const Offset(0, 12),
                       ),
@@ -243,7 +249,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.grey.withOpacity(0.2),
+                            color: Colors.grey.withValues(alpha: 0.2),
                             width: 1,
                           ),
                         ),
@@ -273,10 +279,16 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildRequirement('At least 8 characters long', _hasMinLength),
-                            _buildRequirement('Contains uppercase and lowercase letters', _hasUppercase && _hasLowercase),
-                            _buildRequirement('Includes at least one number', _hasDigit),
-                            _buildRequirement('Contains special characters (!@#\$%^&*)', _hasSpecialChar),
+                            _buildRequirement(
+                                'At least 8 characters long', _hasMinLength),
+                            _buildRequirement(
+                                'Contains uppercase and lowercase letters',
+                                _hasUppercase && _hasLowercase),
+                            _buildRequirement(
+                                'Includes at least one number', _hasDigit),
+                            _buildRequirement(
+                                'Contains special characters (!@#\$%^&*)',
+                                _hasSpecialChar),
                           ],
                         ),
                       ),
@@ -296,7 +308,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             elevation: 0,
-                            shadowColor: const Color(0xFF667eea).withOpacity(0.3),
+                            shadowColor:
+                                const Color(0xFF667eea).withValues(alpha: 0.3),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -304,7 +317,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
                                   ),
                                 )
                               : (_success
@@ -322,14 +336,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                   : FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: const Text(
-                                          'Update Password',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 0.3,
-                                            color: Colors.white,
-                                          ),
+                                        'Update Password',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.3,
+                                          color: Colors.white,
                                         ),
+                                      ),
                                     )),
                         ),
                       ),
@@ -382,11 +396,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             fillColor: const Color(0xFFF8FAFC),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+              borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+              borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -400,10 +414,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(color: Colors.red, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             suffixIcon: IconButton(
               icon: Icon(
-                isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                isObscured
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
                 color: Colors.grey[600],
                 size: 22,
               ),
@@ -426,7 +443,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       child: Row(
         children: [
           Icon(
-            isMet ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
+            isMet
+                ? Icons.check_circle_rounded
+                : Icons.check_circle_outline_rounded,
             size: 16,
             color: isMet ? Colors.green[600] : Colors.grey[500],
           ),

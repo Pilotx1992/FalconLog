@@ -26,7 +26,7 @@ class _AuthDebugScreenState extends ConsumerState<AuthDebugScreen> {
     try {
       final auth = FirebaseAuth.instance;
       final user = auth.currentUser;
-      
+
       setState(() {
         _debugInfo = '''
 Current Auth State:
@@ -51,7 +51,7 @@ Current Auth State:
 
     try {
       final auth = FirebaseAuth.instance;
-      
+
       // Try direct Firebase Auth
       final credential = await auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -99,7 +99,7 @@ Current Auth State:
 
     try {
       final authService = EnhancedAuthService();
-      
+
       final credential = await authService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -134,7 +134,7 @@ Current Auth State:
 
     try {
       final auth = FirebaseAuth.instance;
-      
+
       final credential = await auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -205,7 +205,7 @@ Current Auth State:
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Password Input
             TextField(
               controller: _passwordController,
@@ -217,7 +217,7 @@ Current Auth State:
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Test Buttons
             Row(
               children: [
@@ -237,13 +237,14 @@ Current Auth State:
               ],
             ),
             const SizedBox(height: 8),
-            
+
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _createTestAccount,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     child: const Text('Create Account'),
                   ),
                 ),
@@ -251,14 +252,15 @@ Current Auth State:
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _signOut,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     child: const Text('Sign Out'),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Debug Info
             Expanded(
               child: Container(
@@ -279,7 +281,7 @@ Current Auth State:
                 ),
               ),
             ),
-            
+
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(16.0),

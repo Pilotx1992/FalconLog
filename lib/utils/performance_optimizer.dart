@@ -9,36 +9,41 @@ class PerformanceOptimizer {
       // تحسين الذاكرة
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.maximumSize = 50; // Reduced from 100
-      PaintingBinding.instance.imageCache.maximumSizeBytes = 25 << 20; // 25 MB instead of 50 MB
+      PaintingBinding.instance.imageCache.maximumSizeBytes =
+          25 << 20; // 25 MB instead of 50 MB
     });
-    
+
     // تحسين إعدادات النظام
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   // تحسين العمليات الثقيلة مع تأخير
-  static Future<T> performHeavyOperation<T>(Future<T> Function() operation) async {
+  static Future<T> performHeavyOperation<T>(
+      Future<T> Function() operation) async {
     // إضافة تأخير صغير لمنع حجب UI
     await Future.delayed(const Duration(milliseconds: 16)); // One frame delay
     return await operation();
   }
 
   // تحسين التمرير
-  static ScrollPhysics get optimizedScrollPhysics => const BouncingScrollPhysics(
-    parent: AlwaysScrollableScrollPhysics(),
-  );
+  static ScrollPhysics get optimizedScrollPhysics =>
+      const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      );
 
   // إعدادات الرسوم المتحركة المحسنة
-  static Duration get fastAnimation => const Duration(milliseconds: 150); // Faster
-  static Duration get normalAnimation => const Duration(milliseconds: 250); // Faster
-  
+  static Duration get fastAnimation =>
+      const Duration(milliseconds: 150); // Faster
+  static Duration get normalAnimation =>
+      const Duration(milliseconds: 250); // Faster
+
   // تحسين الألوان للأداء
   static Color withPerformantOpacity(Color color, double opacity) {
     return Color.fromARGB(
       (255 * opacity).round(),
-      color.red,
-      color.green,
-      color.blue,
+      (color.r * 255.0).round() & 0xff,
+      (color.g * 255.0).round() & 0xff,
+      (color.b * 255.0).round() & 0xff,
     );
   }
 
@@ -115,7 +120,8 @@ class PerformanceOptimizer {
   }
 
   // تحسين العمليات غير المتزامنة
-  static Future<void> deferredExecution(VoidCallback callback, [Duration delay = Duration.zero]) {
+  static Future<void> deferredExecution(VoidCallback callback,
+      [Duration delay = Duration.zero]) {
     return Future.delayed(delay, callback);
   }
 
@@ -123,7 +129,8 @@ class PerformanceOptimizer {
   static void cleanupResources() {
     // تنظيف الذاكرة
     PaintingBinding.instance.imageCache.clear();
-    SystemChannels.platform.invokeMethod('SystemChrome.setSystemUIOverlayStyle');
+    SystemChannels.platform
+        .invokeMethod('SystemChrome.setSystemUIOverlayStyle');
   }
 }
 
@@ -176,7 +183,8 @@ class OptimizedStatsCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: PerformanceOptimizer.withPerformantOpacity(Colors.black, 0.05),
+              color: PerformanceOptimizer.withPerformantOpacity(
+                  Colors.black, 0.05),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -190,7 +198,8 @@ class OptimizedStatsCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: PerformanceOptimizer.withPerformantOpacity(color, 0.1),
+                    color:
+                        PerformanceOptimizer.withPerformantOpacity(color, 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon, color: color, size: 20),

@@ -7,8 +7,6 @@ import '../models/flight_log.dart';
 class AdvancedScreen extends ConsumerWidget {
   const AdvancedScreen({super.key});
 
-
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ...existing code...
@@ -89,20 +87,28 @@ class _CurrentPeriodSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       // Sort logs by date (newest first) for consistent data processing
-      final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-      
+      final sortedLogs = logs.toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
       String format(double hours) {
         final h = hours.floor();
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
-  // فترة الشهر الحالي (من 1 إلى آخر يوم في الشهر)
-  final now = DateTime.now();
-  final monthStart = DateTime(now.year, now.month, 1);
-  final monthEnd = DateTime(now.year, now.month + 1, 1); // بداية الشهر القادم (حد علوي غير شامل)
-  final monthLogs = sortedLogs.where((log) => !log.date.isBefore(monthStart) && log.date.isBefore(monthEnd)).toList();
+
+      // فترة الشهر الحالي (من 1 إلى آخر يوم في الشهر)
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      final monthEnd = DateTime(
+          now.year, now.month + 1, 1); // بداية الشهر القادم (حد علوي غير شامل)
+      final monthLogs = sortedLogs
+          .where((log) =>
+              !log.date.isBefore(monthStart) && log.date.isBefore(monthEnd))
+          .toList();
       double monthDay = 0, monthNight = 0;
       for (final log in monthLogs) {
         final h = log.durationHours + (log.durationMinutes / 60.0);
@@ -113,10 +119,15 @@ class _CurrentPeriodSection extends StatelessWidget {
         }
       }
       // السنة: من 25/5 الحالي إلى 24/5 القادم
-      int year = now.month < 5 || (now.month == 5 && now.day < 25) ? now.year - 1 : now.year;
+      int year = now.month < 5 || (now.month == 5 && now.day < 25)
+          ? now.year - 1
+          : now.year;
       final yearStart = DateTime(year, 5, 25);
       final yearEnd = DateTime(year + 1, 5, 25);
-      final yearLogs = sortedLogs.where((log) => !log.date.isBefore(yearStart) && log.date.isBefore(yearEnd)).toList();
+      final yearLogs = sortedLogs
+          .where((log) =>
+              !log.date.isBefore(yearStart) && log.date.isBefore(yearEnd))
+          .toList();
       double yearDay = 0, yearNight = 0;
       for (final log in yearLogs) {
         final h = log.durationHours + (log.durationMinutes / 60.0);
@@ -130,25 +141,60 @@ class _CurrentPeriodSection extends StatelessWidget {
         children: [
           _PeriodCard(
             title: 'Current Month',
-            dateRange: '01/${monthStart.month.toString().padLeft(2, '0')} - ${monthEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${monthStart.month.toString().padLeft(2, '0')}',
+            dateRange:
+                '01/${monthStart.month.toString().padLeft(2, '0')} - ${monthEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${monthStart.month.toString().padLeft(2, '0')}',
             backgroundColor: const Color(0xFFE0F4FF), // Sky blue background
             stats: [
-              _PeriodStat(icon: Icons.wb_sunny_rounded, color: const Color(0xFFf59e0b), label: 'Day Hours', value: format(monthDay)),
-              _PeriodStat(icon: Icons.nights_stay_rounded, color: const Color(0xFF7c3aed), label: 'Night Hours', value: format(monthNight)),
-              _PeriodStat(icon: Icons.access_time_rounded, color: const Color(0xFF38bdf8), label: 'Total Hours', value: format(monthDay + monthNight)),
-              _PeriodStat(icon: Icons.flight_rounded, color: const Color(0xFF34d399), label: 'Flights', value: monthLogs.length.toString()),
+              _PeriodStat(
+                  icon: Icons.wb_sunny_rounded,
+                  color: const Color(0xFFf59e0b),
+                  label: 'Day Hours',
+                  value: format(monthDay)),
+              _PeriodStat(
+                  icon: Icons.nights_stay_rounded,
+                  color: const Color(0xFF7c3aed),
+                  label: 'Night Hours',
+                  value: format(monthNight)),
+              _PeriodStat(
+                  icon: Icons.access_time_rounded,
+                  color: const Color(0xFF38bdf8),
+                  label: 'Total Hours',
+                  value: format(monthDay + monthNight)),
+              _PeriodStat(
+                  icon: Icons.flight_rounded,
+                  color: const Color(0xFF34d399),
+                  label: 'Flights',
+                  value: monthLogs.length.toString()),
             ],
           ),
           const SizedBox(height: 16),
           _PeriodCard(
             title: 'Current Year',
-            dateRange: '${yearStart.day.toString().padLeft(2, '0')}/${yearStart.month.toString().padLeft(2, '0')} - ${yearEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${yearEnd.subtract(const Duration(days: 1)).month.toString().padLeft(2, '0')}',
-            backgroundColor: const Color(0xFFE8F5E8), // Light pistachio green background
+            dateRange:
+                '${yearStart.day.toString().padLeft(2, '0')}/${yearStart.month.toString().padLeft(2, '0')} - ${yearEnd.subtract(const Duration(days: 1)).day.toString().padLeft(2, '0')}/${yearEnd.subtract(const Duration(days: 1)).month.toString().padLeft(2, '0')}',
+            backgroundColor:
+                const Color(0xFFE8F5E8), // Light pistachio green background
             stats: [
-              _PeriodStat(icon: Icons.wb_sunny_rounded, color: const Color(0xFFf59e0b), label: 'Day Hours', value: format(yearDay)),
-              _PeriodStat(icon: Icons.nights_stay_rounded, color: const Color(0xFF7c3aed), label: 'Night Hours', value: format(yearNight)),
-              _PeriodStat(icon: Icons.access_time_rounded, color: const Color(0xFF38bdf8), label: 'Total Hours', value: format(yearDay + yearNight)),
-              _PeriodStat(icon: Icons.flight_rounded, color: const Color(0xFF34d399), label: 'Flights', value: yearLogs.length.toString()),
+              _PeriodStat(
+                  icon: Icons.wb_sunny_rounded,
+                  color: const Color(0xFFf59e0b),
+                  label: 'Day Hours',
+                  value: format(yearDay)),
+              _PeriodStat(
+                  icon: Icons.nights_stay_rounded,
+                  color: const Color(0xFF7c3aed),
+                  label: 'Night Hours',
+                  value: format(yearNight)),
+              _PeriodStat(
+                  icon: Icons.access_time_rounded,
+                  color: const Color(0xFF38bdf8),
+                  label: 'Total Hours',
+                  value: format(yearDay + yearNight)),
+              _PeriodStat(
+                  icon: Icons.flight_rounded,
+                  color: const Color(0xFF34d399),
+                  label: 'Flights',
+                  value: yearLogs.length.toString()),
             ],
           ),
         ],
@@ -162,7 +208,11 @@ class _PeriodCard extends StatelessWidget {
   final String dateRange;
   final List<_PeriodStat> stats;
   final Color? backgroundColor;
-  const _PeriodCard({required this.title, required this.dateRange, required this.stats, this.backgroundColor});
+  const _PeriodCard(
+      {required this.title,
+      required this.dateRange,
+      required this.stats,
+      this.backgroundColor});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -171,17 +221,19 @@ class _PeriodCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: backgroundColor != null 
-          ? Border.all(
-              color: backgroundColor == const Color(0xFFE0F4FF) 
-                ? const Color(0xFF87CEEB) // Darker sky blue border for month
-                : const Color(0xFF90EE90), // Darker pistachio green border for year
-              width: 2,
-            )
-          : null,
+        border: backgroundColor != null
+            ? Border.all(
+                color: backgroundColor == const Color(0xFFE0F4FF)
+                    ? const Color(
+                        0xFF87CEEB) // Darker sky blue border for month
+                    : const Color(
+                        0xFF90EE90), // Darker pistachio green border for year
+                width: 2,
+              )
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -258,7 +310,11 @@ class _PeriodStat extends StatelessWidget {
   final Color color;
   final String label;
   final String value;
-  const _PeriodStat({required this.icon, required this.color, required this.label, required this.value});
+  const _PeriodStat(
+      {required this.icon,
+      required this.color,
+      required this.label,
+      required this.value});
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -302,10 +358,13 @@ class _FlightTypeStatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       // Sort logs by date (newest first) for consistent data processing
-      final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-      
+      final sortedLogs = logs.toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
       // Collect all types from flightTypes list
       final Map<String, int> typeCounts = {};
       int total = sortedLogs.length;
@@ -326,7 +385,7 @@ class _FlightTypeStatsSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -435,10 +494,13 @@ class _AircraftTypeStatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       // Sort logs by date (newest first) for consistent data processing
-      final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-      
+      final sortedLogs = logs.toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
       final Map<String, double> aircraftHours = {};
       final Map<String, DateTime> aircraftLastFlight = {};
       String format(double hours) {
@@ -446,12 +508,14 @@ class _AircraftTypeStatsSection extends StatelessWidget {
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
+
       for (final log in sortedLogs) {
         final type = log.aircraftType ?? 'Unknown';
         final h = log.durationHours + (log.durationMinutes / 60.0);
         aircraftHours[type] = (aircraftHours[type] ?? 0) + h;
         // Track the most recent flight date for each aircraft type
-        if (!aircraftLastFlight.containsKey(type) || log.date.isAfter(aircraftLastFlight[type]!)) {
+        if (!aircraftLastFlight.containsKey(type) ||
+            log.date.isAfter(aircraftLastFlight[type]!)) {
           aircraftLastFlight[type] = log.date;
         }
       }
@@ -469,7 +533,7 @@ class _AircraftTypeStatsSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -509,7 +573,8 @@ class _AircraftTypeRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          const Icon(Icons.airplanemode_active_rounded, color: Color(0xFF7c3aed), size: 20),
+          const Icon(Icons.airplanemode_active_rounded,
+              color: Color(0xFF7c3aed), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -544,18 +609,24 @@ class _PilotRoleStatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       // Sort logs by date (newest first) for consistent data processing
-      final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-      
+      final sortedLogs = logs.toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
       final Map<String, double> roleHours = {};
       String format(double hours) {
         final h = hours.floor();
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
+
       for (final log in sortedLogs) {
-        final role = log.pilotRole != null ? log.pilotRole.toString().split('.').last : 'Unknown';
+        final role = log.pilotRole != null
+            ? log.pilotRole.toString().split('.').last
+            : 'Unknown';
         final h = log.durationHours + (log.durationMinutes / 60.0);
         roleHours[role] = (roleHours[role] ?? 0) + h;
       }
@@ -569,7 +640,7 @@ class _PilotRoleStatsSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -642,21 +713,28 @@ class _Last3MonthsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       // Sort logs by date (newest first) before processing
-      final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-      
+      final sortedLogs = logs.toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+
       String format(double hours) {
         final h = hours.floor();
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
+
       final now = DateTime.now();
       List<Map<String, dynamic>> months = [];
       for (int i = 0; i <= 2; i++) {
         final month = DateTime(now.year, now.month - i, 1);
         final nextMonth = DateTime(month.year, month.month + 1, 1);
-        final monthLogs = sortedLogs.where((log) => !log.date.isBefore(month) && log.date.isBefore(nextMonth)).toList();
+        final monthLogs = sortedLogs
+            .where((log) =>
+                !log.date.isBefore(month) && log.date.isBefore(nextMonth))
+            .toList();
         double hours = 0;
         for (final log in monthLogs) {
           hours += log.durationHours + (log.durationMinutes / 60.0);
@@ -675,7 +753,7 @@ class _Last3MonthsSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -708,8 +786,18 @@ class _Last3MonthsSection extends StatelessWidget {
   String _monthName(int month) {
     const names = [
       '',
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return names[month];
   }
@@ -719,14 +807,16 @@ class _MonthStatRow extends StatelessWidget {
   final String month;
   final int flights;
   final String hours;
-  const _MonthStatRow({required this.month, required this.flights, required this.hours});
+  const _MonthStatRow(
+      {required this.month, required this.flights, required this.hours});
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
           children: [
-            const Icon(Icons.calendar_today_rounded, color: Color(0xFF0284c7), size: 18),
+            const Icon(Icons.calendar_today_rounded,
+                color: Color(0xFF0284c7), size: 18),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -773,15 +863,17 @@ class _RecentActivitySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer(builder: (context, ref, _) {
-      final logs = ref.watch(flightLogsProvider).maybeWhen(data: (l) => l, orElse: () => []);
+      final logs = ref
+          .watch(flightLogsProvider)
+          .maybeWhen(data: (l) => l, orElse: () => []);
       String format(double hours) {
         final h = hours.floor();
         final m = ((hours - h) * 60).round();
         return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
       }
+
       // Sort by date (newest first) and take the most recent 5 flights
-      final recent = logs.toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
+      final recent = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
       final last = recent.take(5).toList();
       return Container(
         width: double.infinity,
@@ -791,7 +883,7 @@ class _RecentActivitySection extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -812,8 +904,10 @@ class _RecentActivitySection extends StatelessWidget {
             const SizedBox(height: 18),
             ...last.map((r) => _RecentFlightRow(
                   aircraft: r.aircraftType ?? 'Unknown',
-                  date: '${r.date.day.toString().padLeft(2, '0')}/${r.date.month.toString().padLeft(2, '0')}',
-                  duration: format(r.durationHours + (r.durationMinutes / 60.0)),
+                  date:
+                      '${r.date.day.toString().padLeft(2, '0')}/${r.date.month.toString().padLeft(2, '0')}',
+                  duration:
+                      format(r.durationHours + (r.durationMinutes / 60.0)),
                   isDay: r.isDayFlight,
                 )),
           ],
@@ -828,7 +922,11 @@ class _RecentFlightRow extends StatelessWidget {
   final String date;
   final String duration;
   final bool isDay;
-  const _RecentFlightRow({required this.aircraft, required this.date, required this.duration, required this.isDay});
+  const _RecentFlightRow(
+      {required this.aircraft,
+      required this.date,
+      required this.duration,
+      required this.isDay});
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -859,7 +957,9 @@ class _RecentFlightRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: isDay ? const Color(0xFFf59e0b).withOpacity(0.12) : const Color(0xFF7c3aed).withOpacity(0.12),
+              color: isDay
+                  ? const Color(0xFFf59e0b).withValues(alpha: 0.12)
+                  : const Color(0xFF7c3aed).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

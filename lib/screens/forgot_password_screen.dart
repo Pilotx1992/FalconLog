@@ -6,7 +6,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -73,7 +74,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width - 32,
@@ -85,11 +87,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
-                        _emailSent ? Icons.mark_email_read_outlined : Icons.lock_reset,
+                        _emailSent
+                            ? Icons.mark_email_read_outlined
+                            : Icons.lock_reset,
                         size: 60,
                         color: Colors.white,
                       ),
@@ -115,7 +119,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           : 'Enter your email to receive a password reset link',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -133,13 +137,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
                         ],
                       ),
-                      child: _emailSent ? _buildSuccessContent() : _buildFormContent(isLoading),
+                      child: _emailSent
+                          ? _buildSuccessContent()
+                          : _buildFormContent(isLoading),
                     ),
                   ],
                 ),

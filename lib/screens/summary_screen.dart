@@ -1,8 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_logs_provider.dart';
 import '../models/flight_log.dart';
-
 
 class SummaryScreen extends ConsumerWidget {
   const SummaryScreen({super.key});
@@ -10,7 +9,7 @@ class SummaryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsyncValue = ref.watch(flightLogsProvider);
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -48,9 +47,9 @@ class SummaryScreen extends ConsumerWidget {
               children: [
                 // Aircraft Hours Table
                 if (logs.isNotEmpty) _buildAircraftHoursTable(logs),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Recent Activity
                 if (logs.isNotEmpty) _buildRecentActivity(logs),
               ],
@@ -114,7 +113,7 @@ class SummaryScreen extends ConsumerWidget {
     // Sort logs by date (newest first) and take the most recent 2
     final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
     final recentLogs = sortedLogs.take(2).toList();
-    
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -209,7 +208,7 @@ class SummaryScreen extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  '${log.durationHours}h ${log.durationMinutes}m â€¢ ${log.flightTypes.map(_getFlightTypeName).join(', ')}',
+                  '${log.durationHours}h ${log.durationMinutes}m • ${log.flightTypes.map(_getFlightTypeName).join(', ')}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
@@ -266,14 +265,14 @@ class SummaryScreen extends ConsumerWidget {
   Widget _buildAircraftHoursTable(List<FlightLog> logs) {
     // Sort logs by date (newest first) for consistent processing
     final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-    
+
     // Group flights by aircraft type and calculate hours
     final aircraftStats = <String, Map<String, dynamic>>{};
-    
+
     for (final log in sortedLogs) {
       final aircraftType = log.aircraftType;
       final totalHours = log.durationHours + (log.durationMinutes / 60.0);
-      
+
       if (!aircraftStats.containsKey(aircraftType)) {
         aircraftStats[aircraftType] = {
           'day': 0.0,
@@ -282,26 +281,30 @@ class SummaryScreen extends ConsumerWidget {
           'lastFlightDate': log.date, // Track the most recent flight date
         };
       }
-      
-      aircraftStats[aircraftType]!['total'] = aircraftStats[aircraftType]!['total']! + totalHours;
-      
+
+      aircraftStats[aircraftType]!['total'] =
+          aircraftStats[aircraftType]!['total']! + totalHours;
+
       // Update the most recent flight date for this aircraft type
       if (log.date.isAfter(aircraftStats[aircraftType]!['lastFlightDate'])) {
         aircraftStats[aircraftType]!['lastFlightDate'] = log.date;
       }
-      
+
       // Check if flight is day or night using isDayFlight property
       if (log.isDayFlight) {
-        aircraftStats[aircraftType]!['day'] = aircraftStats[aircraftType]!['day']! + totalHours;
+        aircraftStats[aircraftType]!['day'] =
+            aircraftStats[aircraftType]!['day']! + totalHours;
       } else {
-        aircraftStats[aircraftType]!['night'] = aircraftStats[aircraftType]!['night']! + totalHours;
+        aircraftStats[aircraftType]!['night'] =
+            aircraftStats[aircraftType]!['night']! + totalHours;
       }
     }
-    
+
     // Sort aircraft by most recent flight date (newest first)
     final sortedAircraft = aircraftStats.entries.toList()
-      ..sort((a, b) => b.value['lastFlightDate'].compareTo(a.value['lastFlightDate']));
-    
+      ..sort((a, b) =>
+          b.value['lastFlightDate'].compareTo(a.value['lastFlightDate']));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -334,7 +337,7 @@ class SummaryScreen extends ConsumerWidget {
             ],
           ),
         ),
-        
+
         // Table Header
         Container(
           width: double.infinity,
@@ -399,9 +402,9 @@ class SummaryScreen extends ConsumerWidget {
             ],
           ),
         ),
-        
+
         const SizedBox(height: 8),
-        
+
         // Table Body
         Column(
           children: sortedAircraft.asMap().entries.map((entry) {
@@ -409,15 +412,13 @@ class SummaryScreen extends ConsumerWidget {
             final aircraftEntry = entry.value;
             final aircraftType = aircraftEntry.key;
             final stats = aircraftEntry.value;
-            
+
             return Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 4),
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
-                color: index % 2 == 0 
-                  ? const Color(0xFFF8FAFC) 
-                  : Colors.white,
+                color: index % 2 == 0 ? const Color(0xFFF8FAFC) : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: const Color(0xFFE2E8F0),
@@ -479,7 +480,7 @@ class SummaryScreen extends ConsumerWidget {
             );
           }).toList(),
         ),
-        
+
         if (sortedAircraft.isEmpty)
           Container(
             width: double.infinity,

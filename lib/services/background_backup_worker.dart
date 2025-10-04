@@ -5,7 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../firebase_options.dart';
 import '../models/flight_log.dart';
-import 'backup_service.dart';
+import '../backup/services/backup_service.dart';
 
 /// Task identifiers
 class BackgroundBackupTasks {
@@ -37,8 +37,10 @@ Future<bool> backgroundDispatcher() async {
           final box = Hive.box<FlightLog>('flightLogsBox');
           final logs = box.values.toList();
           if (logs.isNotEmpty) {
-            final result = await BackupService.backupToLocal(logs);
-            log('[BackgroundBackup] Result: ${result.message}');
+            // TODO: Implement background backup using BackupService instance
+            final backupService = BackupService();
+            final success = await backupService.startBackup();
+            log('[BackgroundBackup] Result: ${success ? 'Success' : 'Failed'}');
           } else {
             log('[BackgroundBackup] No logs to backup.');
           }

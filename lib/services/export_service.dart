@@ -33,12 +33,16 @@ class _ExportArgs {
   final String tempDirPath;
   final List<Map<String, dynamic>> logs;
   final bool includeCsv;
-  _ExportArgs({required this.tempDirPath, required this.logs, required this.includeCsv});
+  _ExportArgs(
+      {required this.tempDirPath,
+      required this.logs,
+      required this.includeCsv});
 }
 
 String _buildArchive(_ExportArgs args) {
   final tempDir = Directory(args.tempDirPath);
-  final exportDir = Directory(p.join(tempDir.path, 'falconlog_export'))..createSync(recursive: true);
+  final exportDir = Directory(p.join(tempDir.path, 'falconlog_export'))
+    ..createSync(recursive: true);
 
   final manifest = <String, dynamic>{
     'app': 'FalconLog',
@@ -48,12 +52,15 @@ String _buildArchive(_ExportArgs args) {
   };
 
   // Write JSON (compact for speed + size)
-  File(p.join(exportDir.path, 'manifest.json')).writeAsStringSync(jsonEncode(manifest));
-  File(p.join(exportDir.path, 'flights.json')).writeAsStringSync(jsonEncode(args.logs));
+  File(p.join(exportDir.path, 'manifest.json'))
+      .writeAsStringSync(jsonEncode(manifest));
+  File(p.join(exportDir.path, 'flights.json'))
+      .writeAsStringSync(jsonEncode(args.logs));
 
   if (args.includeCsv) {
     final csv = StringBuffer()
-      ..writeln('id,date,flightTypes,durationHours,durationMinutes,aircraftType,pilotRole,isDayFlight,isSimulated,createdAt');
+      ..writeln(
+          'id,date,flightTypes,durationHours,durationMinutes,aircraftType,pilotRole,isDayFlight,isSimulated,createdAt');
     for (final m in args.logs) {
       csv.writeln([
         m['id'],
@@ -68,18 +75,26 @@ String _buildArchive(_ExportArgs args) {
         m['createdAt'],
       ].join(','));
     }
-    File(p.join(exportDir.path, 'flights.csv')).writeAsStringSync(csv.toString());
+    File(p.join(exportDir.path, 'flights.csv'))
+        .writeAsStringSync(csv.toString());
   }
 
-  final totalMinutes = args.logs.fold<int>(0, (sum, m) => sum + (m['durationHours'] as int) * 60 + (m['durationMinutes'] as int));
+  final totalMinutes = args.logs.fold<int>(
+      0,
+      (sum, m) =>
+          sum +
+          (m['durationHours'] as int) * 60 +
+          (m['durationMinutes'] as int));
   File(p.join(exportDir.path, 'stats.txt')).writeAsStringSync(
     'Total Flights: ${args.logs.length}\nTotal Time: ${totalMinutes ~/ 60}h ${totalMinutes % 60}m',
   );
 
-  final zipPath = p.join(tempDir.path, 'falconlog_export_${DateTime.now().millisecondsSinceEpoch}.zip');
+  final zipPath = p.join(tempDir.path,
+      'falconlog_export_${DateTime.now().millisecondsSinceEpoch}.zip');
   // Use existing zip util (synchronous inside isolate, OK)
   // ignore: deprecated_member_use
-  EncryptionService.createZip(sources: [exportDir], outputZipPath: zipPath).then((_){}); // fire & sync wait replaced
+  EncryptionService.createZip(sources: [exportDir], outputZipPath: zipPath)
+      .then((_) {}); // fire & sync wait replaced
   // Need to wait for zip creation complete synchronously; createZip is async, but we are in isolate.
   // Simpler: block until it completes by using .then with future.wait may not block; instead use sync completion
   // We'll just run a blocking event loop: (not ideal). Better: not use async inside isolate function.

@@ -23,7 +23,11 @@ class AuthGuard extends StatelessWidget {
             body: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1a237e), Color(0xFF3949ab), Color(0xFF5e35b1)],
+                  colors: [
+                    Color(0xFF1a237e),
+                    Color(0xFF3949ab),
+                    Color(0xFF5e35b1)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -52,7 +56,8 @@ class AuthGuard extends StatelessWidget {
 }
 
 // Helper function to wrap routes with auth guard
-Route<dynamic>? generateAuthProtectedRoute(RouteSettings settings, Widget Function(BuildContext) builder) {
+Route<dynamic>? generateAuthProtectedRoute(
+    RouteSettings settings, Widget Function(BuildContext) builder) {
   return MaterialPageRoute<dynamic>(
     settings: settings,
     builder: (context) => AuthGuard(
@@ -64,25 +69,25 @@ Route<dynamic>? generateAuthProtectedRoute(RouteSettings settings, Widget Functi
 // Auth state provider for checking current user
 class AuthStateHelper {
   static User? get currentUser => FirebaseAuth.instance.currentUser;
-  
+
   static bool get isLoggedIn => currentUser != null;
-  
+
   static String? get userEmail => currentUser?.email;
-  
+
   static String? get displayName => currentUser?.displayName;
-  
+
   static String? get userPhoto => currentUser?.photoURL;
-  
+
   static Future<void> signOut() async {
     await FirebaseAuth.instance.signOut();
   }
-  
+
   // Check if user has verified email
   static bool get isEmailVerified => currentUser?.emailVerified ?? false;
-  
+
   // Get user creation time
   static DateTime? get userCreationTime => currentUser?.metadata.creationTime;
-  
+
   // Get last sign in time
   static DateTime? get lastSignInTime => currentUser?.metadata.lastSignInTime;
 }

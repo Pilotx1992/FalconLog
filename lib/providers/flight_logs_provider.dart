@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import '../models/flight_log.dart';
+import '../core/services/hive_initialization_service.dart';
 
 final flightLogsProvider =
     StateNotifierProvider<FlightLogsNotifier, AsyncValue<List<FlightLog>>>(
@@ -18,23 +19,17 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
 
   Future<void> _init() async {
     try {
-      // Wait for Hive to be fully initialized
-      int attempts = 0;
-      while (!Hive.isBoxOpen(boxName) && attempts < 50) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        attempts++;
-        if (attempts % 5 == 0) {
-          debugPrint('Waiting for Hive box to be ready... attempt $attempts');
-        }
-      }
-      
-      if (Hive.isBoxOpen(boxName)) {
-        _box = Hive.box<FlightLog>(boxName);
-        _updateState();
-        debugPrint('FlightLogsProvider initialized successfully');
-      } else {
-        throw Exception('Hive box could not be opened after waiting');
-      }
+      // Use centralized Hive service to get or open the box
+      _box = await HiveInitializationService.openBox<FlightLog>(
+        boxName,
+        timeout: const Duration(seconds: 30),
+        maxRetries: 3,
+      );
+
+      debugPrint(
+          'FlightLogsProvider: Box opened successfully with ${_box!.length} logs');
+      _updateState();
+      debugPrint('FlightLogsProvider initialized successfully');
     } catch (e, stack) {
       debugPrint('Error in FlightLogsProvider._init: $e');
       state = AsyncValue.error(e, stack);
@@ -79,17 +74,38 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       // Clear all existing logs
       await _box?.clear();
-      
+
       // Add all restored logs
       for (final log in logs) {
         await _box?.put(log.id, log);
       }
-      
+
       _updateState();
       debugPrint('Restored ${logs.length} flight logs');
     } catch (e, stack) {
       debugPrint('Error restoring flight logs: $e');
       state = AsyncValue.error(e, stack);
     }
+  }
+
+  /// Clear all flight logs from the database
+  Future<void> clearAllFlights() async {
+    try {
+      await _box?.clear();
+      _updateState();
+      debugPrint('All flight logs cleared');
+    } catch (e, stack) {
+      debugPrint('Error clearing all flight logs: $e');
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  /// Refresh the provider by re-reading data from Hive
+  /// Useful after external changes to the box (e.g., from backup restore)
+  void refresh() {
+    debugPrint('FlightLogsProvider: Refreshing data from Hive...');
+    _updateState();
+    debugPrint(
+        'FlightLogsProvider: Refresh complete with ${_box?.length ?? 0} logs');
   }
 }

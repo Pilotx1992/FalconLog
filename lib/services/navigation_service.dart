@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/auth_guard.dart';
 
 class NavigationService {
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   static BuildContext? get context => navigatorKey.currentContext;
 
@@ -15,7 +16,8 @@ class NavigationService {
     if (requireAuth && !AuthStateHelper.isLoggedIn) {
       return pushNamedAndClearStack('/login');
     }
-    return navigatorKey.currentState!.pushNamed(routeName, arguments: arguments);
+    return navigatorKey.currentState!
+        .pushNamed(routeName, arguments: arguments);
   }
 
   // Replace current route
@@ -61,7 +63,7 @@ class NavigationService {
   static void showSnackBar(String message, {bool isError = false}) {
     final currentContext = context;
     if (currentContext == null) return;
-    
+
     final messenger = ScaffoldMessenger.of(currentContext);
     messenger.clearSnackBars();
     messenger.showSnackBar(
@@ -93,7 +95,7 @@ class NavigationService {
   static void showLoadingDialog({String message = 'Loading...'}) {
     final currentContext = context;
     if (currentContext == null) return;
-    
+
     showDialog(
       context: currentContext,
       barrierDismissible: false,
@@ -154,7 +156,7 @@ class NavigationService {
   }) {
     final currentContext = context;
     if (currentContext == null) return Future.value(false);
-    
+
     return showDialog<bool>(
       context: currentContext,
       builder: (BuildContext context) {
@@ -190,7 +192,8 @@ class NavigationService {
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDestructive ? Colors.red : const Color(0xFF3949ab),
+                backgroundColor:
+                    isDestructive ? Colors.red : const Color(0xFF3949ab),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/flight_log.dart';
 import 'flight_logs_provider.dart';
 
 class CurrencyStatus {
@@ -20,10 +21,12 @@ final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
   return logsAsync.when(
     data: (logs) {
       final now = DateTime.now();
-      
+
       // Calculate total flight hours
-      double totalHours = logs.fold(0.0, (sum, log) => sum + (log.durationHours + log.durationMinutes / 60.0));
-      double nightHours = logs.where((log) => !log.isDayFlight).fold(0.0, (sum, log) => sum + (log.durationHours + log.durationMinutes / 60.0));
+      double totalHours = logs.fold(0.0,
+          (sum, log) => sum + (log.durationHours + log.durationMinutes / 60.0));
+      double nightHours = logs.where((log) => !log.isDayFlight).fold(0.0,
+          (sum, log) => sum + (log.durationHours + log.durationMinutes / 60.0));
 
       // Determine currency intervals based on pilot experience
       int dayCurrencyInterval;
@@ -47,13 +50,11 @@ final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
         nightCurrencyInterval = 10;
       }
 
-      final dayFlights = logs.where((log) => log.isDayFlight).toList();
-      final nightFlights = logs.where((log) => !log.isDayFlight).toList();
+      final dayFlights = logs.where((log) => log.isDayFlight);
+      final nightFlights = logs.where((log) => !log.isDayFlight);
 
-      DateTime? lastDayFlightDate =
-          dayFlights.isNotEmpty ? dayFlights.first.date : null;
-      DateTime? lastNightFlightDate =
-          nightFlights.isNotEmpty ? nightFlights.first.date : null;
+      DateTime? lastDayFlightDate = _latestFlightDate(dayFlights);
+      DateTime? lastNightFlightDate = _latestFlightDate(nightFlights);
 
       bool dayDue = lastDayFlightDate == null ||
           now.difference(lastDayFlightDate).inDays >= dayCurrencyInterval;
@@ -63,13 +64,14 @@ final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
       // Calculate expiry dates
       String dayMessage = '';
       String nightMessage = '';
-      
+
       if (lastDayFlightDate != null) {
         final daysSinceLastFlight = now.difference(lastDayFlightDate).inDays;
         if (dayDue) {
           dayMessage = 'Last day flight: $daysSinceLastFlight days ago';
         } else {
-          final dayExpiryDate = lastDayFlightDate.add(Duration(days: dayCurrencyInterval));
+          final dayExpiryDate =
+              lastDayFlightDate.add(Duration(days: dayCurrencyInterval));
           final daysRemaining = dayExpiryDate.difference(now).inDays;
           dayMessage = 'Day currency valid ($daysRemaining days remaining)';
         }
@@ -82,7 +84,8 @@ final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
         if (nightDue) {
           nightMessage = 'Last night flight: $daysSinceLastFlight days ago';
         } else {
-          final nightExpiryDate = lastNightFlightDate.add(Duration(days: nightCurrencyInterval));
+          final nightExpiryDate =
+              lastNightFlightDate.add(Duration(days: nightCurrencyInterval));
           final daysRemaining = nightExpiryDate.difference(now).inDays;
           nightMessage = 'Night currency valid ($daysRemaining days remaining)';
         }
@@ -111,3 +114,15 @@ final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
     ),
   );
 });
+
+
+DateTime? _latestFlightDate(Iterable<FlightLog> flights) {
+  DateTime? latest;
+  for (final flight in flights) {
+    final flightDate = flight.date;
+    if (latest == null || flightDate.isAfter(latest)) {
+      latest = flightDate;
+    }
+  }
+  return latest;
+}

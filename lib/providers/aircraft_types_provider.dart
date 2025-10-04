@@ -1,10 +1,11 @@
+import 'dart:developer';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final aircraftTypesProvider =
     StateNotifierProvider<AircraftTypesNotifier, List<String>>(
-      (ref) => AircraftTypesNotifier(),
-    );
+  (ref) => AircraftTypesNotifier(),
+);
 
 class AircraftTypesNotifier extends StateNotifier<List<String>> {
   static const String key = 'aircraftTypes';
@@ -18,7 +19,7 @@ class AircraftTypesNotifier extends StateNotifier<List<String>> {
       final aircraftTypes = prefs.getStringList(key) ?? [];
       state = aircraftTypes;
     } catch (e) {
-      print('Error initializing aircraft types: $e');
+      log('Error initializing aircraft types: $e', name: 'AircraftTypesProvider');
       state = [];
     }
   }
@@ -31,7 +32,7 @@ class AircraftTypesNotifier extends StateNotifier<List<String>> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(key, updated);
     } catch (e) {
-      print('Error adding aircraft type: $e');
+      log('Error adding aircraft type: $e', name: 'AircraftTypesProvider');
     }
   }
 
@@ -43,7 +44,7 @@ class AircraftTypesNotifier extends StateNotifier<List<String>> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(key, updated);
     } catch (e) {
-      print('Error removing aircraft type: $e');
+      log('Error removing aircraft type: $e', name: 'AircraftTypesProvider');
     }
   }
 }

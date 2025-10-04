@@ -144,7 +144,7 @@ class BiometricAuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_biometricEnabledKey, enabled);
-      
+
       if (enabled) {
         // Mark setup as complete when enabling
         await prefs.setBool(_biometricSetupKey, true);
@@ -169,7 +169,7 @@ class BiometricAuthService {
   // Get biometric type names for display
   static String getBiometricTypeName(List<BiometricType> types) {
     if (types.isEmpty) return 'Biometric';
-    
+
     if (types.contains(BiometricType.face)) {
       return 'Face ID';
     } else if (types.contains(BiometricType.fingerprint)) {
@@ -181,7 +181,7 @@ class BiometricAuthService {
     } else if (types.contains(BiometricType.weak)) {
       return 'Biometric';
     }
-    
+
     return 'Biometric';
   }
 
@@ -227,14 +227,32 @@ class BiometricAuthService {
       throw BiometricException('Failed to disable auth');
     }
   }
+
+  // Instance methods for compatibility with backup service
+  Future<bool> isBiometricAvailable() async {
+    return await canCheckBiometrics() && await hasEnrolledBiometrics();
+  }
+
+  Future<String> getBiometricAvailability() async {
+    if (!await isDeviceSupported()) {
+      return 'Device not supported';
+    }
+    if (!await canCheckBiometrics()) {
+      return 'Biometrics not available';
+    }
+    if (!await hasEnrolledBiometrics()) {
+      return 'No biometrics enrolled';
+    }
+    return 'Available';
+  }
 }
 
 // Custom exception for biometric errors
 class BiometricException implements Exception {
   final String message;
-  
+
   const BiometricException(this.message);
-  
+
   @override
   String toString() => 'BiometricException: $message';
 }

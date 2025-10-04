@@ -35,10 +35,10 @@ class EnhancedAuthService {
         email: email,
         password: password,
       );
-      
+
       // Save credentials for biometric login (encrypted)
       await _saveBiometricCredentials(email, password);
-      
+
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleFirebaseAuthError(e);
@@ -55,10 +55,10 @@ class EnhancedAuthService {
         email: email,
         password: password,
       );
-      
+
       // Save credentials for biometric login
       await _saveBiometricCredentials(email, password);
-      
+
       return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleFirebaseAuthError(e);
@@ -70,14 +70,15 @@ class EnhancedAuthService {
     try {
       // Trigger the Google Sign-In flow
       final g.GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         throw Exception('Sign in cancelled');
       }
 
       // Obtain the auth details from the request
-      final g.GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
+      final g.GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
       // Verify we have the required tokens
       if (googleAuth.idToken == null) {
         throw Exception('Failed to obtain Google ID token');
@@ -90,7 +91,8 @@ class EnhancedAuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
 
       // Persist Google sign-in preference
       final prefs = await SharedPreferences.getInstance();
@@ -109,7 +111,8 @@ class EnhancedAuthService {
         case 'sign_in_failed':
           throw Exception('Google sign-in failed. Please try again.');
         case 'network_error':
-          throw Exception('Network error. Please check your internet connection.');
+          throw Exception(
+              'Network error. Please check your internet connection.');
         case 'sign_in_required':
           throw Exception('Google sign-in is required for this action');
         default:
@@ -117,15 +120,18 @@ class EnhancedAuthService {
       }
     } catch (e) {
       debugPrint('Google Sign-In general error: $e');
-      
+
       // Handle common issues
       final errorString = e.toString().toLowerCase();
       if (errorString.contains('play services')) {
-        throw Exception('Google Play Services is not available. Please ensure it\'s installed and updated.');
+        throw Exception(
+            'Google Play Services is not available. Please ensure it\'s installed and updated.');
       } else if (errorString.contains('network')) {
-        throw Exception('Network error. Please check your internet connection.');
+        throw Exception(
+            'Network error. Please check your internet connection.');
       } else if (errorString.contains('developer_error')) {
-        throw Exception('Google Sign-In configuration error. Please check app setup.');
+        throw Exception(
+            'Google Sign-In configuration error. Please check app setup.');
       } else if (errorString.contains('internal_error')) {
         throw Exception('Internal error occurred. Please try again later.');
       } else {
@@ -139,8 +145,9 @@ class EnhancedAuthService {
     try {
       final bool isAvailable = await _localAuth.canCheckBiometrics;
       final bool isDeviceSupported = await _localAuth.isDeviceSupported();
-      final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
-      
+      final List<BiometricType> availableBiometrics =
+          await _localAuth.getAvailableBiometrics();
+
       return isAvailable && isDeviceSupported && availableBiometrics.isNotEmpty;
     } catch (e) {
       debugPrint('Error checking biometric availability: $e');
@@ -165,9 +172,10 @@ class EnhancedAuthService {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('biometric_email');
       final savedPassword = prefs.getString('biometric_password');
-      
+
       if (savedEmail == null || savedPassword == null) {
-        throw Exception('No biometric credentials saved. Please sign in with email first.');
+        throw Exception(
+            'No biometric credentials saved. Please sign in with email first.');
       }
 
       // Authenticate with biometric
@@ -196,7 +204,8 @@ class EnhancedAuthService {
   // Check if biometric credentials are saved
   Future<bool> hasBiometricCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('biometric_email') && prefs.containsKey('biometric_password');
+    return prefs.containsKey('biometric_email') &&
+        prefs.containsKey('biometric_password');
   }
 
   // Enable biometric authentication for current user
@@ -207,7 +216,8 @@ class EnhancedAuthService {
 
     final bool isAvailable = await isBiometricAvailable();
     if (!isAvailable) {
-      throw Exception('Biometric authentication is not available on this device');
+      throw Exception(
+          'Biometric authentication is not available on this device');
     }
 
     // Test biometric authentication
@@ -246,7 +256,7 @@ class EnhancedAuthService {
   Future<void> _saveBiometricCredentials(String email, String password) async {
     final prefs = await SharedPreferences.getInstance();
     final biometricEnabled = await isBiometricEnabled();
-    
+
     if (biometricEnabled || await isBiometricAvailable()) {
       // In production, encrypt these values properly
       await prefs.setString('biometric_email', email);
@@ -258,7 +268,7 @@ class EnhancedAuthService {
   Future<void> signOut() async {
     try {
       debugPrint('Starting comprehensive sign-out process...');
-      
+
       // Sign out from Google if signed in
       try {
         await _googleSignIn.signOut();
@@ -267,11 +277,11 @@ class EnhancedAuthService {
         debugPrint('Google sign-out warning (non-fatal): $e');
         // Continue with Firebase sign out even if Google sign out fails
       }
-      
+
       // Sign out from Firebase
       await _firebaseAuth.signOut();
       debugPrint('Firebase sign-out completed');
-      
+
       // Clear ALL saved preferences related to auth
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('prefer_google_signin');
@@ -281,7 +291,7 @@ class EnhancedAuthService {
       await prefs.remove('biometric_enabled');
       await prefs.remove('remember_me');
       debugPrint('Auth preferences cleared');
-      
+
       // Force Firebase auth state to refresh
       await Future.delayed(const Duration(milliseconds: 100));
       debugPrint('Sign-out process completed successfully');
@@ -307,7 +317,7 @@ class EnhancedAuthService {
       if (user != null) {
         // Clear biometric credentials
         await disableBiometricAuth();
-        
+
         // Delete user account
         await user.delete();
       }
@@ -319,15 +329,15 @@ class EnhancedAuthService {
   // Get preferred sign-in method
   Future<AuthMethod?> getPreferredSignInMethod() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (await isBiometricEnabled() && await hasBiometricCredentials()) {
       return AuthMethod.biometric;
     }
-    
+
     if (prefs.getBool('prefer_google_signin') ?? false) {
       return AuthMethod.google;
     }
-    
+
     return AuthMethod.email;
   }
 

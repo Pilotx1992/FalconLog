@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/backup_provider.dart';
-import '../services/backup_service.dart';
+import '../backup/models/backup_provider_enum.dart';
+import '../providers/backup_service_provider.dart';
 
 class _StatusInfo {
   final Color color;
@@ -63,10 +63,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               title: const Text('Enable Auto Backup'),
               subtitle: const Text('Automatically backup flight data'),
               value: config.enabled,
-              onChanged: (value) {
-                ref.read(autoBackupConfigProvider.notifier)
-                    .updateConfig(config.copyWith(enabled: value));
-              },
+              onChanged: null, // TODO: Implement state management
             ),
             
             if (config.enabled) ...[
@@ -93,10 +90,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
                 title: const Text('Require WiFi'),
                 subtitle: const Text('Only backup when connected to WiFi'),
                 value: config.requiresWifi,
-                onChanged: (value) {
-                  ref.read(autoBackupConfigProvider.notifier)
-                      .setRequiresWifi(value);
-                },
+                onChanged: null, // TODO: Implement state management
               ),
               
               // Preferred Provider
@@ -123,9 +117,8 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final scheduler = ref.read(autoBackupSchedulerProvider);
-                    await scheduler.checkAndPerformAutoBackup();
+                  onPressed: () {
+                    // TODO: Implement backup trigger
                   },
                   icon: const Icon(Icons.backup_rounded),
                   label: const Text('Backup Now'),
@@ -138,7 +131,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusIndicator(BuildContext context, AutoBackupStatus status) {
+  Widget _buildStatusIndicator(BuildContext context, String status) {
     final statusInfo = _getStatusInfo(status);
 
     return Container(
@@ -166,44 +159,12 @@ class AutoBackupConfigWidget extends ConsumerWidget {
     );
   }
 
-  _StatusInfo _getStatusInfo(AutoBackupStatus status) {
-    return switch (status.runtimeType.toString()) {
-      '_AutoBackupDisabled' => const _StatusInfo(
-        color: Colors.grey,
-        icon: Icons.backup_outlined,
-        text: 'Auto backup is disabled',
-      ),
-      '_AutoBackupManual' => const _StatusInfo(
-        color: Colors.blue,
-        icon: Icons.touch_app_rounded,
-        text: 'Manual backup only',
-      ),
-      '_AutoBackupPending' => const _StatusInfo(
-        color: Colors.orange,
-        icon: Icons.schedule_rounded,
-        text: 'First backup pending',
-      ),
-      '_AutoBackupWaitingForFlight' => const _StatusInfo(
-        color: Colors.green,
-        icon: Icons.flight_rounded,
-        text: 'Waiting for next flight',
-      ),
-      '_AutoBackupScheduled' => _StatusInfo(
-        color: Colors.green,
-        icon: Icons.schedule_rounded,
-        text: 'Next backup: ${_formatDateTime((status as dynamic).nextBackup)}',
-      ),
-      '_AutoBackupOverdue' => _StatusInfo(
-        color: Colors.red,
-        icon: Icons.warning_rounded,
-        text: 'Backup overdue by ${_formatDuration((status as dynamic).overdueBy)}',
-      ),
-      _ => const _StatusInfo(
-        color: Colors.grey,
-        icon: Icons.help_outline,
-        text: 'Unknown status',
-      ),
-    };
+  _StatusInfo _getStatusInfo(String status) {
+    return _StatusInfo(
+      color: Colors.green,
+      icon: Icons.backup_rounded,
+      text: status,
+    );
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -244,12 +205,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: Text(_getIntervalDescription(interval)),
               value: interval,
               groupValue: config.interval,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(autoBackupConfigProvider.notifier).setInterval(value);
-                  Navigator.pop(context);
-                }
-              },
+              onChanged: null, // TODO: Implement state management
             );
           }).toList(),
         ),
@@ -270,12 +226,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: Text(_getTriggerDescription(trigger)),
               value: trigger,
               groupValue: config.trigger,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(autoBackupConfigProvider.notifier).setTrigger(value);
-                  Navigator.pop(context);
-                }
-              },
+              onChanged: null, // TODO: Implement state management
             );
           }).toList(),
         ),
@@ -296,26 +247,14 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: const Text('Secure cloud storage'),
               value: BackupProvider.firebase,
               groupValue: config.preferredProvider,
-              onChanged: (value) {
-                if (value != null) {
-                  final newConfig = config.copyWith(preferredProvider: value);
-                  ref.read(autoBackupConfigProvider.notifier).updateConfig(newConfig);
-                  Navigator.pop(context);
-                }
-              },
+              onChanged: null, // TODO: Implement state management
             ),
             RadioListTile<BackupProvider>(
               title: const Text('Local Backup'),
               subtitle: const Text('Store on device'),
               value: BackupProvider.local,
               groupValue: config.preferredProvider,
-              onChanged: (value) {
-                if (value != null) {
-                  final newConfig = config.copyWith(preferredProvider: value);
-                  ref.read(autoBackupConfigProvider.notifier).updateConfig(newConfig);
-                  Navigator.pop(context);
-                }
-              },
+              onChanged: null, // TODO: Implement state management
             ),
           ],
         ),
@@ -335,12 +274,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               title: Text('$count backups'),
               value: count,
               groupValue: config.maxBackups,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(autoBackupConfigProvider.notifier).setMaxBackups(value);
-                  Navigator.pop(context);
-                }
-              },
+              onChanged: null, // TODO: Implement state management
             );
           }).toList(),
         ),

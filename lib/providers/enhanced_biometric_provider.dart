@@ -8,13 +8,14 @@ final enhancedAuthServiceProvider = Provider<EnhancedAuthService>((ref) {
 });
 
 // Provider for biometric enabled state
-final biometricEnabledProvider = StateNotifierProvider<BiometricEnabledNotifier, bool>((ref) {
+final biometricEnabledProvider =
+    StateNotifierProvider<BiometricEnabledNotifier, bool>((ref) {
   return BiometricEnabledNotifier(ref);
 });
 
 class BiometricEnabledNotifier extends StateNotifier<bool> {
   final Ref _ref;
-  
+
   BiometricEnabledNotifier(this._ref) : super(false) {
     _loadBiometricState();
   }
@@ -51,7 +52,8 @@ class BiometricEnabledNotifier extends StateNotifier<bool> {
 }
 
 // Provider for checking biometric availability
-final biometricAvailabilityProvider = FutureProvider<BiometricAvailability>((ref) async {
+final biometricAvailabilityProvider =
+    FutureProvider<BiometricAvailability>((ref) async {
   try {
     final authService = ref.read(enhancedAuthServiceProvider);
     final isAvailable = await authService.isBiometricAvailable();
@@ -74,18 +76,19 @@ final biometricAvailabilityProvider = FutureProvider<BiometricAvailability>((ref
 });
 
 // Provider for biometric setup state
-final biometricSetupProvider = StateNotifierProvider<BiometricSetupNotifier, BiometricSetupState>((ref) {
+final biometricSetupProvider =
+    StateNotifierProvider<BiometricSetupNotifier, BiometricSetupState>((ref) {
   return BiometricSetupNotifier(ref);
 });
 
 class BiometricSetupNotifier extends StateNotifier<BiometricSetupState> {
   final Ref _ref;
-  
+
   BiometricSetupNotifier(this._ref) : super(const BiometricSetupState.idle());
 
   Future<void> setupBiometric() async {
     state = const BiometricSetupState.loading();
-    
+
     try {
       final authService = _ref.read(enhancedAuthServiceProvider);
       await authService.enableBiometricAuth();
@@ -97,7 +100,7 @@ class BiometricSetupNotifier extends StateNotifier<BiometricSetupState> {
 
   Future<void> disableBiometric() async {
     state = const BiometricSetupState.loading();
-    
+
     try {
       final authService = _ref.read(enhancedAuthServiceProvider);
       await authService.disableBiometricAuth();
@@ -126,15 +129,21 @@ class BiometricAvailability {
     required this.availableBiometrics,
   });
 
-  bool get isFullyAvailable => 
-    isDeviceSupported && canCheckBiometrics && hasEnrolledBiometrics;
+  bool get isFullyAvailable =>
+      isDeviceSupported && canCheckBiometrics && hasEnrolledBiometrics;
 
   String get biometricTypeName {
     if (availableBiometrics.isEmpty) return 'None';
     if (availableBiometrics.contains(BiometricType.face)) return 'Face ID';
-    if (availableBiometrics.contains(BiometricType.fingerprint)) return 'Fingerprint';
-    if (availableBiometrics.contains(BiometricType.strong)) return 'Strong Biometric';
-    if (availableBiometrics.contains(BiometricType.weak)) return 'Weak Biometric';
+    if (availableBiometrics.contains(BiometricType.fingerprint)) {
+      return 'Fingerprint';
+    }
+    if (availableBiometrics.contains(BiometricType.strong)) {
+      return 'Strong Biometric';
+    }
+    if (availableBiometrics.contains(BiometricType.weak)) {
+      return 'Weak Biometric';
+    }
     return 'Biometric';
   }
 

@@ -23,7 +23,7 @@ class AuthWrapper extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
-    
+
     return authState.when(
       data: (user) {
         // If user is signed in, show dashboard
@@ -31,9 +31,10 @@ class AuthWrapper extends ConsumerWidget {
           debugPrint('AuthWrapper: User authenticated: ${user.email}');
           return const DashboardScreen();
         }
-        
+
         // If user is not signed in, show login screen
-        debugPrint('AuthWrapper: User not authenticated - showing login screen');
+        debugPrint(
+            'AuthWrapper: User not authenticated - showing login screen');
         return const LoginScreen();
       },
       loading: () {
@@ -66,10 +67,10 @@ class AuthWrapper extends ConsumerWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -95,7 +96,7 @@ class AuthWrapper extends ConsumerWidget {
                 'Professional Flight Logging',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.5,
                 ),
@@ -105,7 +106,7 @@ class AuthWrapper extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const CircularProgressIndicator(
@@ -118,7 +119,7 @@ class AuthWrapper extends ConsumerWidget {
                 'Initializing...',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -146,7 +147,7 @@ class AuthWrapper extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(
@@ -169,7 +170,7 @@ class AuthWrapper extends ConsumerWidget {
                 'Please restart the app',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -183,7 +184,8 @@ class AuthWrapper extends ConsumerWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFFFF6B6B),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

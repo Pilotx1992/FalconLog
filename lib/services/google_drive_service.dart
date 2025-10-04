@@ -1,43 +1,96 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/exceptions/backup_exceptions.dart';
 import '../models/drive_file_meta.dart';
 import 'drive_auth_service.dart';
+
+class GoogleAuthClient extends http.BaseClient {
+  GoogleAuthClient(this._headerProvider) : _client = http.Client();
+
+  final http.Client _client;
+  final Future<Map<String, String>> Function() _headerProvider;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final headers = await _headerProvider();
+    request.headers.addAll(headers);
+    return _client.send(request);
+  }
+
+  @override
+  void close() {
+    _client.close();
+    super.close();
+  }
+}
 
 /// Service for managing Google Drive backup operations
 class GoogleDriveService {
   static const String _folderIdKey = 'drive.backupFolderId';
   static const String _backupFolderName = 'FalconLog_Backups';
-  
+
   final DriveAuthService _authService;
   drive.DriveApi? _driveApi;
+  GoogleAuthClient? _authClient;
   String? _cachedFolderId;
+  static final _logger = Logger('GoogleDriveService');
 
   GoogleDriveService(this._authService);
 
-  /// Gets an authenticated Drive API client
-  Future<drive.DriveApi?> _getDriveApi() async {
-    // Return cached client if available and still valid (within 5 minutes)
-    if (_driveApi != null) return _driveApi;
-
-    final account = await _authService.ensureAuthenticated();
-    if (account == null) return null;
-
-    // Stub implementation - TODO: Fix when Google Sign In API is properly configured
-    debugPrint('Google Drive API not properly configured');
-    return null;
+  void _resetAuthClient() {
+    _authClient?.close();
+    _authClient = null;
+    _driveApi = null;
   }
 
-  /// Ensures the backup folder exists and returns its ID
-  /// Uses cached folder ID to minimize API calls
-  Future<String?> ensureBackupFolder() async {
-    try {
-      // Return cached folder ID if available
-      if (_cachedFolderId != null) return _cachedFolderId;
+  /// Gets an authenticated Drive API client.
+  Future<drive.DriveApi?> _getDriveApi({bool interactive = true}) async {
+    if (_driveApi != null) {
+      if (!_authService.isSignedIn) {
+        _resetAuthClient();
+      } else {
+        return _driveApi;
+      }
+    }
 
-      // Try to load from SharedPreferences
+    try {
+      await _authService.getAuthHeaders(interactive: interactive);
+      final client = GoogleAuthClient(
+        () => _authService.getAuthHeaders(
+          interactive: false,
+          attemptSilent: false,
+        ),
+      );
+      final api = drive.DriveApi(client);
+
+      _authClient?.close();
+      _authClient = client;
+      _driveApi = api;
+      return _driveApi;
+    } on CloudAuthenticationException catch (error, stackTrace) {
+      _logger.severe('Google authentication failed', error, stackTrace);
+      return null;
+    } catch (error, stackTrace) {
+      _logger.severe('Error creating Drive API client', error, stackTrace);
+      return null;
+    }
+  }
+
+  /// Ensures the backup folder exists and returns its ID.
+  /// Uses cached folder ID to minimize API calls.
+  Future<String?> ensureBackupFolder({bool interactive = true}) async {
+    try {
+      if (_cachedFolderId != null) {
+        return _cachedFolderId;
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final cachedId = prefs.getString(_folderIdKey);
       if (cachedId != null) {
@@ -45,67 +98,68 @@ class GoogleDriveService {
         return cachedId;
       }
 
-      final driveApi = await _getDriveApi();
+      final driveApi = await _getDriveApi(interactive: interactive);
       if (driveApi == null) return null;
 
-      // Search for existing backup folder
-      final query = "name = '$_backupFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+      final query =
+          "name = '$_backupFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
       final searchResult = await driveApi.files.list(q: query);
 
       String folderId;
       if (searchResult.files != null && searchResult.files!.isNotEmpty) {
-        // Folder exists, use the first one
         folderId = searchResult.files!.first.id!;
       } else {
-        // Create new folder
         final folder = drive.File()
           ..name = _backupFolderName
           ..mimeType = 'application/vnd.google-apps.folder';
-        
+
         final createdFolder = await driveApi.files.create(folder);
         folderId = createdFolder.id!;
       }
 
-      // Cache the folder ID
       _cachedFolderId = folderId;
       await prefs.setString(_folderIdKey, folderId);
-      
+
       return folderId;
-    } catch (e) {
-      print('Error ensuring backup folder: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error ensuring backup folder', error, stackTrace);
       return null;
     }
   }
 
-  /// Uploads an encrypted backup file to Google Drive
-  Future<DriveFileMeta?> uploadEncryptedBackup(File file, {String? sha256}) async {
+  /// Uploads an encrypted backup file to Google Drive.
+  Future<DriveFileMeta?> uploadEncryptedBackup(
+    File file, {
+    String? sha256,
+    bool interactive = true,
+  }) async {
     try {
-      final driveApi = await _getDriveApi();
+      final driveApi = await _getDriveApi(interactive: interactive);
       if (driveApi == null) return null;
 
-      final folderId = await ensureBackupFolder();
+      final folderId = await ensureBackupFolder(interactive: interactive);
       if (folderId == null) return null;
 
-      // Prepare file metadata
       final fileName = file.path.split(Platform.pathSeparator).last;
       final fileSize = await file.length();
-      
+
       final driveFile = drive.File()
         ..name = fileName
         ..parents = [folderId];
 
-      // Add SHA256 to app properties if provided
       if (sha256 != null) {
         driveFile.appProperties = {'sha256': sha256};
       }
 
-      // Choose upload method based on file size
       drive.File uploadedFile;
       bool resumable = false;
-      if (fileSize < 5 * 1024 * 1024) { // < 5MB - use simple upload
+      if (fileSize < 5 * 1024 * 1024) {
         final media = drive.Media(file.openRead(), fileSize);
-        uploadedFile = await driveApi.files.create(driveFile, uploadMedia: media);
-      } else { // >= 5MB - use resumable upload
+        uploadedFile = await driveApi.files.create(
+          driveFile,
+          uploadMedia: media,
+        );
+      } else {
         final media = drive.Media(file.openRead(), fileSize);
         uploadedFile = await driveApi.files.create(
           driveFile,
@@ -115,28 +169,31 @@ class GoogleDriveService {
         resumable = true;
       }
       final meta = DriveFileMeta.fromDriveFile(uploadedFile);
-      print('[Drive][UPLOAD ${resumable ? 'RESUMABLE' : 'SIMPLE'}] id=${meta.id} name=${meta.name} size=${meta.size}');
+      _logger.info(
+        'Drive upload ${resumable ? 'resumable' : 'simple'}: id=${meta.id} name=${meta.name} size=${meta.size}',
+      );
       return meta;
-    } catch (e) {
-      print('Error uploading backup: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error uploading backup', error, stackTrace);
       return null;
     }
   }
 
-  /// Lists all backup files from Google Drive
-  Future<List<DriveFileMeta>> listBackups() async {
+  /// Lists all backup files from Google Drive.
+  Future<List<DriveFileMeta>> listBackups({bool interactive = false}) async {
     try {
-      final driveApi = await _getDriveApi();
+      final driveApi = await _getDriveApi(interactive: interactive);
       if (driveApi == null) return [];
 
-      final folderId = await ensureBackupFolder();
+      final folderId = await ensureBackupFolder(interactive: interactive);
       if (folderId == null) return [];
 
       final query = "'$folderId' in parents and trashed = false";
       final result = await driveApi.files.list(
         q: query,
         orderBy: 'createdTime desc',
-        $fields: 'files(id,name,size,createdTime,modifiedTime,sha256Checksum,appProperties)',
+        $fields:
+            'files(id,name,size,createdTime,modifiedTime,sha256Checksum,appProperties)',
       );
 
       if (result.files == null) return [];
@@ -145,96 +202,101 @@ class GoogleDriveService {
           .map((file) => DriveFileMeta.fromDriveFile(file))
           .toList();
       if (metas.isNotEmpty) {
-        print('[Drive][LIST] ${metas.length} files: ${metas.map((m) => m.id).join(', ')}');
+        _logger.info(
+          'Drive list: ${metas.length} files: ${metas.map((m) => m.id).join(', ')}',
+        );
       } else {
-        print('[Drive][LIST] no backups');
+        _logger.info('Drive list: no backups');
       }
       return metas;
-    } catch (e) {
-      print('Error listing backups: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error listing backups', error, stackTrace);
       return [];
     }
   }
 
-  /// Downloads a backup file from Google Drive
-  Future<File?> downloadBackup(String fileId, String localPath) async {
+  /// Downloads a backup file from Google Drive.
+  Future<File?> downloadBackup(
+    String fileId,
+    String localPath, {
+    bool interactive = true,
+  }) async {
     try {
-      final driveApi = await _getDriveApi();
+      final driveApi = await _getDriveApi(interactive: interactive);
       if (driveApi == null) return null;
 
-      // Get file content
       final response = await driveApi.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
       ) as drive.Media;
 
-      // Create local file
       final file = File(localPath);
       await file.create(recursive: true);
 
-      // Write content to file
       final sink = file.openWrite();
       await sink.addStream(response.stream);
       await sink.close();
 
       return file;
-    } catch (e) {
-      print('Error downloading backup: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error downloading backup', error, stackTrace);
       return null;
     }
   }
 
-  /// Deletes a backup file from Google Drive
-  Future<bool> deleteBackup(String fileId) async {
+  /// Deletes a backup file from Google Drive.
+  Future<bool> deleteBackup(String fileId, {bool interactive = false}) async {
     try {
-      final driveApi = await _getDriveApi();
+      final driveApi = await _getDriveApi(interactive: interactive);
       if (driveApi == null) return false;
 
-  await driveApi.files.delete(fileId);
-  print('[Drive][DELETE] id=$fileId');
-  return true;
-    } catch (e) {
-      print('Error deleting backup: $e');
+      await driveApi.files.delete(fileId);
+      _logger.info('Drive delete: id=$fileId');
+      return true;
+    } catch (error, stackTrace) {
+      _logger.severe('Error deleting backup', error, stackTrace);
       return false;
     }
   }
 
-  /// Removes old backup files, keeping only the specified number
-  Future<void> pruneBackups(int keepCount) async {
+  /// Removes old backup files, keeping only the specified number.
+  Future<void> pruneBackups(int keepCount, {bool interactive = false}) async {
     try {
       if (keepCount <= 0) return;
 
-      final backups = await listBackups();
-      if (backups.length <= keepCount) return; // Nothing to prune
+      final backups = await listBackups(interactive: interactive);
+      if (backups.length <= keepCount) return;
 
-      // Sort by creation time (newest first) - listBackups already does this
       final toDelete = backups.skip(keepCount).toList();
 
       for (final backup in toDelete) {
-        final deleted = await deleteBackup(backup.id);
+        final deleted = await deleteBackup(backup.id, interactive: interactive);
         if (deleted) {
-          print('[Drive][PRUNE] deleted id=${backup.id} name=${backup.name}');
+          _logger
+              .info('Drive prune: deleted id=${backup.id} name=${backup.name}');
         }
       }
-    } catch (e) {
-      print('Error pruning backups: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error pruning backups', error, stackTrace);
     }
   }
 
-  /// Clears cached folder ID (useful when switching accounts)
+  /// Clears cached data (useful when switching accounts).
   Future<void> clearCache() async {
     _cachedFolderId = null;
-    _driveApi = null;
+    _resetAuthClient();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_folderIdKey);
   }
 
-  /// Gets storage info for the backup folder
-  Future<Map<String, dynamic>> getStorageInfo() async {
+  /// Gets storage info for the backup folder.
+  Future<Map<String, dynamic>> getStorageInfo(
+      {bool interactive = false}) async {
     try {
-      final backups = await listBackups();
-      final totalSize = backups.fold<int>(0, (sum, backup) => sum + backup.size);
-      
+      final backups = await listBackups(interactive: interactive);
+      final totalSize =
+          backups.fold<int>(0, (sum, backup) => sum + backup.size);
+
       return {
         'backupCount': backups.length,
         'totalSize': totalSize,
@@ -242,8 +304,8 @@ class GoogleDriveService {
         'oldestBackup': backups.isEmpty ? null : backups.last.createdTime,
         'newestBackup': backups.isEmpty ? null : backups.first.createdTime,
       };
-    } catch (e) {
-      print('Error getting storage info: $e');
+    } catch (error, stackTrace) {
+      _logger.severe('Error getting storage info', error, stackTrace);
       return {
         'backupCount': 0,
         'totalSize': 0,
@@ -254,11 +316,12 @@ class GoogleDriveService {
     }
   }
 
-  /// Formats bytes to human readable format
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '${bytes}B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
   }
 }
@@ -271,17 +334,18 @@ final googleDriveServiceProvider = Provider<GoogleDriveService>((ref) {
   return GoogleDriveService(authService);
 });
 
-/// StateProvider to track whether a Drive operation is in progress
+/// StateProvider to track whether a Drive operation is in progress.
 final driveOperationInProgressProvider = StateProvider<bool>((ref) => false);
 
-/// FutureProvider to get Drive storage information
-final driveStorageInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+/// FutureProvider to get Drive storage information.
+final driveStorageInfoProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final driveService = ref.watch(googleDriveServiceProvider);
-  return await driveService.getStorageInfo();
+  return driveService.getStorageInfo(interactive: false);
 });
 
-/// FutureProvider to list all backups from Drive
+/// FutureProvider to list all backups from Drive.
 final driveBackupsProvider = FutureProvider<List<DriveFileMeta>>((ref) async {
   final driveService = ref.watch(googleDriveServiceProvider);
-  return await driveService.listBackups();
+  return driveService.listBackups(interactive: false);
 });

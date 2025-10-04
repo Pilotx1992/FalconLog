@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:google_sign_in/google_sign_in.dart'; // Temporarily disabled
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:logging/logging.dart';
 import '../services/notification_service.dart';
 
 // Auth State Provider
@@ -15,7 +16,8 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  // final GoogleSignIn _googleSignIn = GoogleSignIn(); // Temporarily disabled
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  static final _logger = Logger('AuthService');
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -30,11 +32,11 @@ class AuthService {
         email: email,
         password: password,
       );
-      
+
       if (result.user != null) {
         NotificationService.showAuthSuccess('Sign in');
       }
-      
+
       return result;
     } on FirebaseAuthException catch (e) {
       NotificationService.showAuthError('sign in', e.code);
@@ -53,11 +55,11 @@ class AuthService {
         email: email,
         password: password,
       );
-      
+
       // Update display name
       await result.user?.updateDisplayName(displayName);
       await result.user?.reload();
-      
+
       return result;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -67,10 +69,8 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // TODO: Google Sign-In implementation temporarily disabled due to API compatibility issues
-      throw Exception('Google Sign-In unavailable. Use email/password.');
+      _logger.info('Starting Google Sign-In process');
       
-      /* Original implementation commented out
       // Check if Google Play services are available first
       try {
         await _googleSignIn.signOut();
@@ -78,33 +78,33 @@ class AuthService {
         if (e.toString().contains('SERVICE_INVALID') || 
             e.toString().contains('Google Play Store') ||
             e.toString().contains('Failed to signout')) {
-          print('Google Play Services not available: $e');
+          _logger.warning('Google Play Services not available: $e');
           throw Exception('Google Sign-In is not available on this device. Google Play Services are required.');
         }
         // For other errors, continue with sign-in attempt
-        print('Warning during Google Sign-In signout: $e');
+        _logger.warning('Warning during Google Sign-In signout: $e');
       }
       
       // Check if Google Play services are available
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         // User cancelled the sign-in
-        print('Google Sign-In: User cancelled');
+        _logger.info('Google Sign-In: User cancelled');
         return null;
       }
 
-      print('Google Sign-In: User selected - ${googleUser.email}');
+      _logger.info('Google Sign-In: User selected - ${googleUser.email}');
 
       // Get authentication details
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       
-      print('Google Sign-In: Getting tokens...');
-      print('Access Token: ${googleAuth.accessToken != null ? "✓" : "✗"}');
-      print('ID Token: ${googleAuth.idToken != null ? "✓" : "✗"}');
+      _logger.fine('Google Sign-In: Getting tokens...');
+      _logger.fine('Access Token: ${googleAuth.accessToken != null ? "✓" : "✗"}');
+      _logger.fine('ID Token: ${googleAuth.idToken != null ? "✓" : "✗"}');
       
       // Check if we got the tokens with retry mechanism
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        print('Google Sign-In: Tokens missing, trying to refresh...');
+        _logger.info('Google Sign-In: Tokens missing, trying to refresh...');
         
         // Try to refresh tokens
         await _googleSignIn.disconnect();
@@ -124,7 +124,7 @@ class AuthService {
           idToken: refreshedAuth.idToken,
         );
         
-        print('Google Sign-In: Using refreshed tokens');
+        _logger.info('Google Sign-In: Using refreshed tokens');
         return await _auth.signInWithCredential(credential);
       }
       
@@ -134,13 +134,12 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      print('Google Sign-In: Signing in with Firebase...');
+      _logger.info('Google Sign-In: Signing in with Firebase...');
       return await _auth.signInWithCredential(credential);
-      */
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
-      print('Google Sign-In Error: $e');
+      _logger.severe('Google Sign-In Error: $e');
       rethrow;
     }
   }
@@ -148,16 +147,16 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      // Google Sign-In signout temporarily disabled
-      // await _googleSignIn.signOut();
+      await _googleSignIn.signOut();
     } catch (e) {
       // Gracefully handle Google Play Services not being available
-      if (e.toString().contains('SERVICE_INVALID') || 
+      if (e.toString().contains('SERVICE_INVALID') ||
           e.toString().contains('Google Play Store') ||
           e.toString().contains('Failed to signout')) {
-        print('Google Sign-In signout skipped - Google Play Services not available: $e');
+        _logger.warning(
+            'Google Sign-In signout skipped - Google Play Services not available: $e');
       } else {
-        print('Warning during Google Sign-In signout: $e');
+        _logger.warning('Warning during Google Sign-In signout: $e');
       }
     }
     await _auth.signOut();

@@ -23,8 +23,10 @@ class DriveFileMeta {
     return DriveFileMeta(
       id: driveFile.id ?? '',
       name: driveFile.name ?? '',
-      createdTime: DateTime.tryParse(driveFile.createdTime ?? '') ?? DateTime.now(),
-      modifiedTime: DateTime.tryParse(driveFile.modifiedTime ?? '') ?? DateTime.now(),
+      createdTime:
+          DateTime.tryParse(driveFile.createdTime ?? '') ?? DateTime.now(),
+      modifiedTime:
+          DateTime.tryParse(driveFile.modifiedTime ?? '') ?? DateTime.now(),
       size: int.tryParse(driveFile.size ?? '0') ?? 0,
       sha256: driveFile.sha256Checksum,
       appProperties: driveFile.appProperties?.cast<String, String>(),
@@ -35,7 +37,9 @@ class DriveFileMeta {
   String get formattedSize {
     if (size < 1024) return '${size}B';
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)}KB';
-    if (size < 1024 * 1024 * 1024) return '${(size / (1024 * 1024)).toStringAsFixed(1)}MB';
+    if (size < 1024 * 1024 * 1024) {
+      return '${(size / (1024 * 1024)).toStringAsFixed(1)}MB';
+    }
     return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
   }
 
@@ -43,12 +47,14 @@ class DriveFileMeta {
   String get relativeTime {
     final now = DateTime.now();
     final difference = now.difference(modifiedTime);
-    
+
     if (difference.inMinutes < 1) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
     if (difference.inHours < 24) return '${difference.inHours}h ago';
     if (difference.inDays < 30) return '${difference.inDays}d ago';
-    if (difference.inDays < 365) return '${(difference.inDays / 30).floor()}mo ago';
+    if (difference.inDays < 365) {
+      return '${(difference.inDays / 30).floor()}mo ago';
+    }
     return '${(difference.inDays / 365).floor()}y ago';
   }
 

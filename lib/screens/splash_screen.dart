@@ -9,7 +9,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
@@ -26,8 +27,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 1200),
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
-    _scale = Tween<double>(begin: 0.88, end: 1.0)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    _scale = Tween<double>(begin: 0.88, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _controller.forward();
 
     // Total splash duration = 4s (previous 2s + requested +2s)
@@ -96,7 +97,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     child: LinearProgressIndicator(
                       minHeight: 6,
                       backgroundColor: Colors.white10,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade400),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.amber.shade400),
                     ),
                   ),
                 ),

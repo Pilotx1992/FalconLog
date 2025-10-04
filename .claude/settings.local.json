@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter:*)",
+      "Bash(dart format:*)",
+      "Bash(find:*)",
+      "Bash(dart analyze:*)",
+      "Bash(dart run build_runner:*)",
+      "Bash(nc:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\")",
+      "Read(//c/Users/X/Desktop/alkhazna/lib/**)",
+      "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\\lib\\backup\")",
+      "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\\lib\\backup\\ui\")",
+      "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\\lib\\backup\\utils\")",
+      "Bash(dart:*)",
+      "Bash(pkill:*)",
+      "Bash(awk:*)",
+      "Bash(xargs kill:*)",
+      "Bash(echo:*)",
+      "Bash(dir:*)",
+      "Read(//c/Users/X/Desktop/alkhazna/**)",
+      "Read(//c/Users/X/AppData/Local/Pub/Cache/hosted/pub.dev/googleapis_auth-1.6.0/lib/**)",
+      "Read(//c/Users/X/**)",
+      "Bash(del \"lib\\backup\\models\\key_file_format.g.dart\")",
+      "Bash(grep:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
