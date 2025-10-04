@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 19, 89, 155), // Sky blue
       body: Center(
         child: FadeTransition(
           opacity: _fade,
@@ -79,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'Precision flight logging for fighter pilots.',
+                  'Get ready for',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 16,

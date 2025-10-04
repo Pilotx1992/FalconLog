@@ -71,7 +71,7 @@ class AuthStateHelper {
   }) async {
     final user = currentUser;
     if (user == null) {
-      throw Exception('No user is currently signed in');
+      throw Exception('No user signed in');
     }
 
     // Re-authenticate user with current password

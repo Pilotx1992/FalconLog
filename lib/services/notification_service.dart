@@ -18,7 +18,7 @@ class NotificationService {
   
   // Show authentication success
   static void showAuthSuccess(String action) {
-    showSuccess('$action successful! Welcome to FalconLog.');
+    showSuccess('$action successful!');
   }
   
   // Show authentication error
@@ -27,23 +27,23 @@ class NotificationService {
     
     // Handle common Firebase Auth errors
     if (error.contains('user-not-found')) {
-      message += 'No account found with this email address.';
+      message += 'Account not found.';
     } else if (error.contains('wrong-password')) {
-      message += 'Incorrect password. Please try again.';
+      message += 'Wrong password.';
     } else if (error.contains('email-already-in-use')) {
-      message += 'An account already exists with this email address.';
+      message += 'Email already exists.';
     } else if (error.contains('weak-password')) {
-      message += 'Password is too weak. Please choose a stronger password.';
+      message += 'Password too weak.';
     } else if (error.contains('invalid-email')) {
-      message += 'Invalid email address format.';
+      message += 'Invalid email.';
     } else if (error.contains('user-disabled')) {
-      message += 'This account has been disabled.';
+      message += 'Account disabled.';
     } else if (error.contains('too-many-requests')) {
-      message += 'Too many failed attempts. Please try again later.';
+      message += 'Too many attempts. Try later.';
     } else if (error.contains('network-request-failed')) {
-      message += 'Network error. Please check your internet connection.';
+      message += 'Network error.';
     } else if (error.contains('requires-recent-login')) {
-      message += 'Please sign in again to continue.';
+      message += 'Sign in again.';
     } else {
       message += error;
     }
@@ -53,88 +53,88 @@ class NotificationService {
   
   // Show validation error
   static void showValidationError(String field) {
-    showError('Please enter a valid $field.');
+    showError('Enter valid $field.');
   }
   
   // Show flight log notifications
   static void showFlightLogSaved() {
-    showSuccess('Flight log saved successfully!');
+    showSuccess('Flight saved!');
   }
   
   static void showFlightLogUpdated() {
-    showSuccess('Flight log updated successfully!');
+    showSuccess('Flight updated!');
   }
   
   static void showFlightLogDeleted() {
-    showSuccess('Flight log deleted successfully!');
+    showSuccess('Flight deleted!');
   }
   
   // Show currency alerts
   static void showCurrencyAlert(String type, int daysRemaining) {
     if (daysRemaining <= 0) {
-      showError('Your $type currency has expired! Log a flight to renew.');
+      showError('$type currency expired! Log flight to renew.');
     } else if (daysRemaining <= 7) {
-      showInfo('Your $type currency expires in $daysRemaining days.');
+      showInfo('$type currency expires in $daysRemaining days.');
     }
   }
   
   // Show email verification reminders
   static void showEmailVerificationReminder() {
-    showInfo('Please verify your email address to access all features.');
+    showInfo('Verify email to access all features.');
   }
   
   static void showEmailVerificationSent() {
-    showSuccess('Verification email sent! Please check your inbox.');
+    showSuccess('Verification email sent!');
   }
   
   // Show backup/sync notifications
   static void showBackupSuccess() {
-    showSuccess('Data backed up successfully!');
+    showSuccess('Data backed up!');
   }
   
   static void showSyncSuccess() {
-    showSuccess('Data synchronized successfully!');
+    showSuccess('Data synced!');
   }
   
   static void showBackupError() {
-    showError('Failed to backup data. Please try again.');
+    showError('Backup failed. Try again.');
   }
   
   // Show settings changes
   static void showSettingsSaved() {
-    showSuccess('Settings saved successfully!');
+    showSuccess('Settings saved!');
   }
   
   // Show import/export notifications
   static void showDataExported() {
-    showSuccess('Flight data exported successfully!');
+    showSuccess('Data exported!');
   }
   
   static void showDataImported(int count) {
-    showSuccess('$count flight logs imported successfully!');
+    showSuccess('$count flights imported!');
   }
   
   // Show permission requests
   static void showPermissionDenied(String permission) {
-    showError('$permission permission is required for this feature.');
+    showError('$permission permission required.');
   }
   
   // Show maintenance notifications
   static void showMaintenanceMode() {
-    showInfo('App is under maintenance. Some features may be unavailable.');
+    showInfo('Under maintenance. Some features unavailable.');
   }
   
   // Show update notifications
   static void showUpdateAvailable() {
-    showInfo('A new version of FalconLog is available!');
+    showInfo('Update available!');
   }
   
   // Show connection status
   static void showConnectionLost() {
-    showError('Connection lost. Some features may be unavailable.');
+    showError('Connection lost.');
   }
   
   static void showConnectionRestored() {
-    showSuccess('Connection restored!');
+    showSuccess('Connected!');
   }
 }

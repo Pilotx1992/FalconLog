@@ -217,7 +217,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Color(0xFF334155).withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -297,7 +297,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Color(0xFF334155).withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -326,7 +326,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -387,7 +387,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Color(0xFF334155).withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -416,7 +416,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -468,7 +468,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -493,7 +493,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                       vertical: 16,
                                     ),
                                     child: const Text(
-                                      'No aircraft types available. Please add one.',
+                                      'No aircraft available.',
                                       style: TextStyle(
                                         color: Color(0xFF94A3B8),
                                         fontWeight: FontWeight.w400,
@@ -509,10 +509,11 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                       ),
                                       hintText: 'Select Aircraft',
                                       hintStyle: TextStyle(
-                                        color: Color(0xFF94A3B8),
+                                        color: Colors.grey,
                                         fontWeight: FontWeight.w400,
                                       ),
                                     ),
+                                    dropdownColor: Colors.white,
                                     value: aircraftTypes.isNotEmpty && aircraftTypes.contains(_aircraftType)
                                         ? _aircraftType
                                         : null,
@@ -527,7 +528,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                                   child: Text(
                                                     type,
                                                     style: const TextStyle(
-                                                      color: Color(0xFF334155),
+                                                      color: Colors.black,
                                                       fontWeight: FontWeight.w500,
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
@@ -590,7 +591,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Color(0xFF334155).withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -620,7 +621,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -628,7 +629,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                     const SizedBox(height: 16),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: const Color(0xFFE2E8F0),
@@ -644,10 +645,11 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           ),
                           hintText: 'Select Role',
                           hintStyle: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: Colors.grey,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
+                        dropdownColor: Colors.white,
                         value: _pilotRole,
                         items: PilotRole.values
                             .map(
@@ -656,7 +658,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                 child: Text(
                                   _getPilotRoleName(role),
                                   style: const TextStyle(
-                                    color: Color(0xFF334155),
+                                    color: Colors.black,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -690,7 +692,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -807,7 +809,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF334155),
                           ),
                         ),
                       ],
@@ -1021,7 +1023,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                 ),
               ),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
             ],
           ),
         ),

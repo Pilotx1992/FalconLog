@@ -56,12 +56,13 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                             'Smart Backup',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: Colors.black,
                             ),
                           ),
                           Text(
                             _getStatusMessage(backupStatus, recommendation),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
+                              color: const Color.fromARGB(255, 3, 3, 3),
                             ),
                           ),
                         ],
@@ -83,6 +84,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   'Backup Provider',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -146,7 +148,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   child: ElevatedButton.icon(
                     onPressed: () => _performManualBackup(context, ref),
                     icon: const Icon(Icons.backup_rounded),
-                    label: const Text('Create Backup Now'),
+                    label: const Text('Backup Now'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -166,8 +168,8 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                       Navigator.pop(context);
                       _showSmartBackupOptions(context, ref);
                     },
-                    icon: const Icon(Icons.smart_toy_rounded),
-                    label: const Text('Smart Backup Options'),
+                    icon: const Icon(Icons.settings),
+                    label: const Text('Smart Options'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -187,12 +189,13 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => _showRestoreConfirmation(context, ref),
                     icon: const Icon(Icons.restore_rounded),
-                    label: const Text('Restore from Backup'),
+                    label: const Text('Restore Data'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                      ),
+                      ), backgroundColor: const Color.fromARGB(255, 83, 22, 189),
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ),
@@ -229,7 +232,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                 if (ref.read(isOnlineProvider)) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Switched to Cloud Backup - Note: Firebase may need setup'),
+                      content: Text('Switched to Cloud Backup'),
                       backgroundColor: Colors.orange,
                       duration: Duration(seconds: 3),
                     ),
@@ -247,7 +250,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                 if (ref.read(isOnlineProvider)) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Google Drive temporarily using Firebase cloud storage'),
+                      content: Text('Google Drive using Firebase storage'),
                       backgroundColor: Colors.orange,
                       duration: Duration(seconds: 3),
                     ),
@@ -324,21 +327,21 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
   
   String _getStatusMessage(BackupStatus status, BackupRecommendation recommendation) {
     if (status.toString().contains('Error')) {
-      return 'Last backup failed. Please try again.';
+      return 'Last backup failed. Try again.';
     }
     if (status.toString().contains('Success')) {
-      return 'Last backup completed successfully.';
+      return 'Last backup completed.';
     }
     if (recommendation.toString().contains('FirstBackup')) {
-      return 'Create your first backup to secure your flight data.';
+      return 'Create your first backup.';
     }
     if (recommendation.toString().contains('Overdue')) {
-      return 'Your backup is overdue. Regular backups help protect your data.';
+      return 'Backup overdue.';
     }
     if (recommendation.toString().contains('Recommended')) {
-      return 'A backup is recommended to keep your data safe.';
+      return 'Backup recommended.';
     }
-    return 'Your flight data is ready for backup.';
+    return 'Ready for backup.';
   }
   
   void _performManualBackup(BuildContext context, WidgetRef ref) async {
@@ -358,7 +361,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text('Performing ${provider.displayName} backup...'),
+            Text('Creating backup...'),
           ],
         ),
       ),
@@ -374,7 +377,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Backup completed successfully!'),
+          content: Text('Backup completed!'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 3),
         ),
@@ -387,7 +390,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Backup failed: $e'),
+          content: Text('Backup failed'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),
@@ -400,10 +403,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Restore Data'),
-        content: const Text(
-          'This will replace all current flight data with the backup. '
-          'This action cannot be undone. Continue?'
-        ),
+        content: const Text('Replace all current data with backup? Cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -424,7 +424,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                     children: [
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
-                      const Text('Restoring data...'),
+                      const Text('Restoring...'),
                     ],
                   ),
                 ),
@@ -446,7 +446,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   // Show success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Data restored successfully!'),
+                      content: Text('Data restored!'),
                       backgroundColor: Colors.green,
                       duration: Duration(seconds: 3),
                     ),
@@ -459,7 +459,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                   // Show no backup found message
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('No backup found for the selected provider'),
+                      content: Text('No backup found'),
                       backgroundColor: Colors.orange,
                       duration: Duration(seconds: 3),
                     ),
@@ -473,7 +473,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
                 // Show error message
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Restore failed: $e'),
+                    content: Text('Restore failed'),
                     backgroundColor: Colors.red,
                     duration: const Duration(seconds: 5),
                   ),
@@ -569,7 +569,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Create your first backup to see it here',
+                        'Create first backup to see it here',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[500],
                         ),
@@ -688,7 +688,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Failed to load backup history',
+                    'Failed to load history',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.red[600],
                     ),
@@ -710,10 +710,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Restore Backup'),
-        content: Text(
-          'Restore ${backup.logsCount} flights from ${backup.formattedDate}? '
-          'This will replace all current data.'
-        ),
+        content: Text('Restore ${backup.logsCount} flights from ${backup.formattedDate}? Replaces all data.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -734,7 +731,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                     children: [
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
-                      Text('Restoring ${backup.logsCount} flights...'),
+                      Text('Restoring...'),
                     ],
                   ),
                 ),
@@ -750,7 +747,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                 // Show success message
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Data restored successfully!'),
+                    content: Text('Data restored!'),
                     backgroundColor: Colors.green,
                     duration: Duration(seconds: 3),
                   ),
@@ -763,7 +760,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                 // Show error message
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Restore failed: $e'),
+                    content: Text('Restore failed'),
                     backgroundColor: Colors.red,
                     duration: const Duration(seconds: 5),
                   ),
@@ -782,10 +779,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Backup'),
-        content: Text(
-          'Delete backup from ${backup.formattedDate}? '
-          'This action cannot be undone.'
-        ),
+        content: Text('Delete backup from ${backup.formattedDate}? Cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -806,7 +800,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                     children: [
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
-                      const Text('Deleting backup...'),
+                      const Text('Deleting...'),
                     ],
                   ),
                 ),
@@ -825,7 +819,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                   
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Backup deleted successfully'),
+                      content: Text('Backup deleted'),
                       backgroundColor: Colors.green,
                       duration: Duration(seconds: 2),
                     ),
@@ -833,7 +827,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Failed to delete backup'),
+                      content: Text('Delete failed'),
                       backgroundColor: Colors.red,
                       duration: Duration(seconds: 3),
                     ),
@@ -846,7 +840,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
                 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Delete failed: $e'),
+                    content: Text('Delete failed'),
                     backgroundColor: Colors.red,
                     duration: const Duration(seconds: 5),
                   ),

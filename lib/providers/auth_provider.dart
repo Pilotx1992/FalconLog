@@ -68,7 +68,7 @@ class AuthService {
   Future<UserCredential?> signInWithGoogle() async {
     try {
       // TODO: Google Sign-In implementation temporarily disabled due to API compatibility issues
-      throw Exception('Google Sign-In is currently under maintenance. Please use email/password login.');
+      throw Exception('Google Sign-In unavailable. Use email/password.');
       
       /* Original implementation commented out
       // Check if Google Play services are available first
@@ -176,23 +176,23 @@ class AuthService {
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
-        return 'No user found with this email address.';
+        return 'User not found.';
       case 'wrong-password':
-        return 'Incorrect password.';
+        return 'Wrong password.';
       case 'email-already-in-use':
-        return 'An account already exists with this email address.';
+        return 'Email already exists.';
       case 'weak-password':
-        return 'Password is too weak.';
+        return 'Weak password.';
       case 'invalid-email':
-        return 'Invalid email address.';
+        return 'Invalid email.';
       case 'user-disabled':
-        return 'This account has been disabled.';
+        return 'Account disabled.';
       case 'too-many-requests':
-        return 'Too many failed attempts. Please try again later.';
+        return 'Too many attempts. Try later.';
       case 'operation-not-allowed':
-        return 'This sign-in method is not enabled.';
+        return 'Sign-in method disabled.';
       default:
-        return 'An error occurred: ${e.message}';
+        return 'Error: ${e.message}';
     }
   }
 }

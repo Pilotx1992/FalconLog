@@ -2,28 +2,13 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:googleapis/drive/v3.dart' as drive;
 // import 'package:google_sign_in/google_sign_in.dart' as gsi; // Temporarily disabled (Google sign-in under maintenance)
-import 'package:http/http.dart' as http;
 import 'encryption_service.dart';
 import '../models/flight_log.dart';
 import 'backup_service.dart';
 import 'package:path_provider/path_provider.dart';
 
-class _AuthHttpClient extends http.BaseClient {
-  final Map<String, String> _headers;
-  final http.Client _inner = http.Client();
-  _AuthHttpClient(this._headers);
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers.addAll(_headers);
-    return _inner.send(request);
-  }
-  @override
-  void close() => _inner.close();
-}
-
 class DriveBackupService {
   static const _folderName = 'FalconLog Backups';
-  static const _scopes = ['https://www.googleapis.com/auth/drive.file'];
 
   static Future<drive.DriveApi?> _getDriveApi() async {
     // TODO: Re-enable Google Sign-In flow when authentication service restored

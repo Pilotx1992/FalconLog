@@ -180,7 +180,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter your current password';
+                            return 'Enter current password';
                           }
                           return null;
                         },
@@ -201,10 +201,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter a new password';
+                            return 'Enter new password';
                           }
                           if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
+                            return 'Min 6 characters';
                           }
                           return null;
                         },
@@ -225,10 +225,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please confirm your new password';
+                            return 'Confirm new password';
                           }
                           if (value != _newPasswordController.text) {
-                            return 'Passwords do not match';
+                            return 'Passwords don\'t match';
                           }
                           return null;
                         },
@@ -484,7 +484,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
               SizedBox(width: 12),
               Text(
-                'Password updated successfully!',
+                'Password updated!',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
@@ -513,7 +513,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Failed to update password: ${e.toString()}',
+                  'Update failed',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),

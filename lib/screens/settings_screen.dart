@@ -296,21 +296,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  AuthStateHelper.isGoogleUser ? Icons.g_mobiledata_rounded : Icons.star_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  AuthStateHelper.isGoogleUser ? localizations.googleAccount : localizations.premiumMember,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.2,
+                                if (AuthStateHelper.isGoogleUser) ...[
+                                  Image.asset(
+                                    'assets/google.png',
+                                    width: 20,
+                                    height: 20,
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    localizations.googleAccount,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    localizations.premiumMember,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -1287,7 +1305,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
+                              color: const Color.fromARGB(255, 5, 5, 5),
                             ),
                           ),
                         ),
@@ -1467,9 +1485,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 12),
-            Text(
-              message,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
@@ -1556,6 +1576,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.4,
+                    color: Color(0xFF000000),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1709,50 +1730,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           children: [
             Icon(Icons.email_rounded, color: Color(0xFF6366F1), size: 24),
             SizedBox(width: 8),
-            Text('Contact Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Contact Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Copy the email address and contact us:', style: TextStyle(fontSize: 14)),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      _supportEmail,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: _supportEmail));
-                      if (!mounted) return;
-                      Navigator.pop(context);
-                      _showSuccessSnackBar('📋 تم نسخ الإيميل');
-                    },
-                    icon: const Icon(Icons.copy_rounded, size: 20),
-                    tooltip: 'Copy',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        content: const Text('No email client found. Please install an email app to send support emails.', 
+                    style: TextStyle(fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('OK'),
           ),
         ],
       ),
