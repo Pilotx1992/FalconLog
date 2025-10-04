@@ -137,9 +137,9 @@ class AutoBackupConfigWidget extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: statusInfo.color.withOpacity(0.1),
+        color: statusInfo.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusInfo.color.withOpacity(0.3)),
+        border: Border.all(color: statusInfo.color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -167,30 +167,6 @@ class AutoBackupConfigWidget extends ConsumerWidget {
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = dateTime.difference(now);
-
-    if (difference.inDays > 0) {
-      return 'in ${difference.inDays} day${difference.inDays > 1 ? 's' : ''}';
-    } else if (difference.inHours > 0) {
-      return 'in ${difference.inHours} hour${difference.inHours > 1 ? 's' : ''}';
-    } else if (difference.inMinutes > 0) {
-      return 'in ${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''}';
-    } else {
-      return 'soon';
-    }
-  }
-
-  String _formatDuration(Duration duration) {
-    if (duration.inDays > 0) {
-      return '${duration.inDays} day${duration.inDays > 1 ? 's' : ''}';
-    } else if (duration.inHours > 0) {
-      return '${duration.inHours} hour${duration.inHours > 1 ? 's' : ''}';
-    } else {
-      return '${duration.inMinutes} minute${duration.inMinutes > 1 ? 's' : ''}';
-    }
-  }
 
   void _showIntervalPicker(BuildContext context, WidgetRef ref, AutoBackupConfig config) {
     showDialog(
@@ -226,7 +202,9 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: Text(_getTriggerDescription(trigger)),
               value: trigger,
               groupValue: config.trigger,
-              onChanged: null, // TODO: Implement state management
+              onChanged: (value) {
+                // TODO: Implement state management
+              },
             );
           }).toList(),
         ),
@@ -247,14 +225,18 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               subtitle: const Text('Secure cloud storage'),
               value: BackupProvider.firebase,
               groupValue: config.preferredProvider,
-              onChanged: null, // TODO: Implement state management
+              onChanged: (value) {
+                // TODO: Implement state management
+              },
             ),
             RadioListTile<BackupProvider>(
               title: const Text('Local Backup'),
               subtitle: const Text('Store on device'),
               value: BackupProvider.local,
               groupValue: config.preferredProvider,
-              onChanged: null, // TODO: Implement state management
+              onChanged: (value) {
+                // TODO: Implement state management
+              },
             ),
           ],
         ),
@@ -274,7 +256,9 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               title: Text('$count backups'),
               value: count,
               groupValue: config.maxBackups,
-              onChanged: null, // TODO: Implement state management
+              onChanged: (value) {
+                // TODO: Implement state management
+              },
             );
           }).toList(),
         ),
