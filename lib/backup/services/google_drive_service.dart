@@ -76,7 +76,7 @@ class GoogleDriveService {
       }
 
       // Set token expiry (use server time if available, otherwise 55 minutes for safety)
-      final expiryTime = authentication.serverAuthCode != null
+      final expiryTime = account.serverAuthCode != null
           ? DateTime.now().toUtc().add(const Duration(minutes: 55))
           : DateTime.now().toUtc().add(const Duration(minutes: 55));
 

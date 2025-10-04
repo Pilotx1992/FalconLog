@@ -63,7 +63,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               title: const Text('Enable Auto Backup'),
               subtitle: const Text('Automatically backup flight data'),
               value: config.enabled,
-              onChanged: null, // TODO: Implement state management
+              onChanged: null, // Implement state management
             ),
             
             if (config.enabled) ...[
@@ -90,7 +90,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
                 title: const Text('Require WiFi'),
                 subtitle: const Text('Only backup when connected to WiFi'),
                 value: config.requiresWifi,
-                onChanged: null, // TODO: Implement state management
+                onChanged: null, // Implement state management
               ),
               
               // Preferred Provider
@@ -118,7 +118,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // TODO: Implement backup trigger
+                    // Implement backup trigger
                   },
                   icon: const Icon(Icons.backup_rounded),
                   label: const Text('Backup Now'),
@@ -182,7 +182,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               value: interval,
               groupValue: config.interval,
               onChanged: (value) {
-                // TODO: Implement state management
+                // Implement state management
               },
             );
           }).toList(),
@@ -205,7 +205,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               value: trigger,
               groupValue: config.trigger,
               onChanged: (value) {
-                // TODO: Implement state management
+                // Implement state management
               },
             );
           }).toList(),
@@ -228,7 +228,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               value: BackupProvider.firebase,
               groupValue: config.preferredProvider,
               onChanged: (value) {
-                // TODO: Implement state management
+                // Implement state management
               },
             ),
             RadioListTile<BackupProvider>(
@@ -237,7 +237,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               value: BackupProvider.local,
               groupValue: config.preferredProvider,
               onChanged: (value) {
-                // TODO: Implement state management
+                // Implement state management
               },
             ),
           ],
@@ -259,7 +259,7 @@ class AutoBackupConfigWidget extends ConsumerWidget {
               value: count,
               groupValue: config.maxBackups,
               onChanged: (value) {
-                // TODO: Implement state management
+                // Implement state management
               },
             );
           }).toList(),

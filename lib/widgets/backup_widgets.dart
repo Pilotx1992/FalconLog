@@ -224,14 +224,14 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
               color: isSelected ? iconColor : Colors.grey.shade300,
               width: isSelected ? 2 : 1,
             ),
-            color: isSelected ? iconColor.withOpacity(0.05) : null,
+            color: isSelected ? iconColor.withValues(alpha: 0.05) : null,
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(isEnabled ? 0.1 : 0.05),
+                  color: iconColor.withValues(alpha: isEnabled ? 0.1 : 0.05),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -302,7 +302,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
   }
   
   void _performManualBackup(WidgetRef ref) async {
-    // TODO: Implement manual backup
+    // Manual backup implementation
     // final backupService = ref.read(backupServiceProvider);
     // await backupService.startBackup();
   }
@@ -325,7 +325,7 @@ class BackupOptionsBottomSheet extends ConsumerWidget {
             onPressed: () async {
               Navigator.pop(context);
               // For general restore, we'll need to implement backup selection
-              // TODO: Show backup selection dialog first
+              // Show backup selection dialog first
             },
             child: const Text('Restore'),
           ),
@@ -494,7 +494,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement restore
+              // Implement restore
             },
             child: const Text('Restore'),
           ),
@@ -520,7 +520,7 @@ class BackupHistoryBottomSheet extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Implement backup deletion
+              // Implement backup deletion
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

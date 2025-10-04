@@ -18,11 +18,11 @@ class BackupSettingsPage extends ConsumerStatefulWidget {
 class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   final BackupService _backupService = BackupService();
   final BackupScheduler _backupScheduler = BackupScheduler();
-
+  
   bool _isLoading = true;
   DateTime? _lastBackupTime;
   GoogleSignInAccount? _currentUser;
-
+  
   String _backupFrequency = 'off';
   bool _wifiOnly = true;
 
@@ -40,13 +40,13 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       final wifiOnly = await _backupScheduler.isWifiOnly();
 
       if (mounted) {
-        setState(() {
+      setState(() {
           _currentUser = _backupService.currentUser;
           _lastBackupTime = backupMetadata?.createdAt;
           _backupFrequency = frequency;
           _wifiOnly = wifiOnly;
-          _isLoading = false;
-        });
+        _isLoading = false;
+      });
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -66,7 +66,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
 
     final surfaceCard = isDark ? const Color(0xFF1C2B39) : Colors.white;
-    final sectionTitleColor = isDark ? Colors.white.withOpacity(0.92) : cs.onSurface;
+    final sectionTitleColor = isDark ? Colors.white.withValues(alpha: 0.92) : cs.onSurface;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1C28) : cs.surface,
@@ -117,11 +117,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       Expanded(
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          children: [
+              children: [
                             _buildAutoBackupCard(surfaceCard, sectionTitleColor),
-                            const SizedBox(height: 16),
+                const SizedBox(height: 16),
                             _buildBackupActions(surfaceCard, sectionTitleColor),
-                            const SizedBox(height: 16),
+                const SizedBox(height: 16),
                             _buildDataManagement(surfaceCard, sectionTitleColor),
 
                             const SizedBox(height: 22),
@@ -131,7 +131,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.white.withOpacity(0.55) : cs.onSurfaceVariant,
+                                  color: isDark ? Colors.white.withValues(alpha: 0.55) : cs.onSurfaceVariant,
                                 ),
                               ),
                             ),
@@ -142,8 +142,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                     ],
                   ),
           ),
-        ],
-      ),
+              ],
+            ),
     );
   }
 
@@ -159,31 +159,31 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10)),
         ],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+                children: [
               // الصورة في المنتصف
               Center(
                 child: CircleAvatar(
                   radius: 22,
                   backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
-                  backgroundColor: cs.primary.withOpacity(0.12),
+                  backgroundColor: cs.primary.withValues(alpha: 0.12),
                   child: user?.photoUrl == null
                       ? Icon(isConnected ? Icons.person : Icons.cloud_off, color: cs.primary)
-                      : null,
+                        : null,
                 ),
-              ),
-              const SizedBox(width: 16),
+                  ),
+                  const SizedBox(width: 16),
               // النصوص تلف حول الصورة
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -209,18 +209,18 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                     const SizedBox(height: 2),
                     Text(
                       isConnected ? user.email : 'Sign in to enable backup',
-                      style: TextStyle(color: sectionTitleColor.withOpacity(0.65), fontSize: 13),
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.65), fontSize: 13),
                     ),
                     if (hasBackup) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Last backup: ${_formatBackupTime(_lastBackupTime!)}',
-                        style: TextStyle(color: sectionTitleColor.withOpacity(0.72), fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ],
-                ),
+                        style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.72), fontSize: 13, fontWeight: FontWeight.w500),
               ),
+            ],
+          ],
+        ),
+      ),
               // زر Choose account في المنتصف العمودي
               Align(
                 alignment: Alignment.center,
@@ -266,12 +266,12 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }) {
       return Column(
         children: [
-          if (topDivider) Divider(height: 1, color: sectionTitleColor.withOpacity(0.12)),
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               children: [
-                Icon(icon, color: sectionTitleColor.withOpacity(0.8)),
+                Icon(icon, color: sectionTitleColor.withValues(alpha: 0.8)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -291,12 +291,12 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Text('Auto Backup', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           row(
@@ -305,7 +305,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             trailing: Switch.adaptive(
               value: _backupFrequency != 'off',
               onChanged: (v) => _onBackupFrequencyChanged(v ? 'daily' : 'off'),
-              activeColor: cs.primary,
+              activeTrackColor: cs.primary,
             ),
           ),
           row(
@@ -318,7 +318,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                 children: [
                   Text(
                     _backupFrequency == 'off' ? 'Off' : toBeginningOfSentenceCase(_backupFrequency)!,
-                    style: TextStyle(color: sectionTitleColor.withOpacity(0.75)),
+                    style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
                   ),
                   const SizedBox(width: 6),
                   Icon(Icons.chevron_right, color: sectionTitleColor),
@@ -334,7 +334,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               onTap: () => _onNetworkPreferenceChanged(!_wifiOnly),
               child: Row(
                 children: [
-                  Text(_wifiOnly ? 'Wi-Fi only' : 'Any network', style: TextStyle(color: sectionTitleColor.withOpacity(0.75))),
+                  Text(_wifiOnly ? 'Wi-Fi only' : 'Any network', style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75))),
                   const SizedBox(width: 6),
                   Icon(Icons.chevron_right, color: sectionTitleColor),
                 ],
@@ -355,12 +355,12 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Text('Cloud Backup Actions', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
 
@@ -375,7 +375,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF12C9B6).withOpacity(0.35),
+                      color: const Color(0xFF12C9B6).withValues(alpha: 0.35),
                       blurRadius: 24,
                       spreadRadius: 1,
                       offset: const Offset(0, 8),
@@ -423,22 +423,20 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
               const Icon(Icons.folder_open, color: orange),
               const SizedBox(width: 8),
               Text('Data Management', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Export and import your data for sharing or migration.',
-              style: TextStyle(color: sectionTitleColor.withOpacity(0.70), fontSize: 13)),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: () {},
@@ -453,15 +451,15 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () {},
-            icon: const Icon(Icons.file_download, color: Color.fromARGB(255, 255, 0, 123)),
-            label: const Text('Import Data', style: TextStyle(color: Color.fromARGB(255, 230, 0, 255), fontWeight: FontWeight.w700, fontSize: 15)),
+            icon: const Icon(Icons.file_download, color: Color(0xFF10B981)),
+            label: const Text('Import Data', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w700, fontSize: 15)),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
               side: const BorderSide(color: Color.fromARGB(255, 0, 166, 255), width: 1.3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(45)),
-            ),
-          ),
-        ],
+                  ),
+                ),
+              ],
       ),
     );
   }
@@ -517,9 +515,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     await _backupScheduler.scheduleBackup(frequency: frequency, wifiOnly: _wifiOnly);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
             frequency == 'off' ? 'Auto backup disabled' : 'Auto backup set to $frequency'),
         backgroundColor: const Color(0xFF1A1F36),
         behavior: SnackBarBehavior.floating,
@@ -575,8 +573,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     ref.read(flightLogsProvider.notifier).refresh();
     _initializeAndLoadSettings();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
         content: const Text('Data restored successfully'),
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,

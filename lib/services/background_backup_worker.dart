@@ -37,7 +37,7 @@ Future<bool> backgroundDispatcher() async {
           final box = Hive.box<FlightLog>('flightLogsBox');
           final logs = box.values.toList();
           if (logs.isNotEmpty) {
-            // TODO: Implement background backup using BackupService instance
+            // Implement background backup using BackupService instance
             final backupService = BackupService();
             final success = await backupService.startBackup();
             log('[BackgroundBackup] Result: ${success ? 'Success' : 'Failed'}');

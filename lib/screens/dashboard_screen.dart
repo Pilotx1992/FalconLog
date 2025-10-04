@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_logs_provider.dart';
 import '../providers/summary_provider.dart';
 import '../providers/currency_status_provider.dart';
-import '../services/sample_flights_service.dart';
-import '../models/flight_log.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -36,160 +34,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _addSampleFlights(BuildContext context) async {
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Sample Flights'),
-        content: const Text(
-          'This will add 500 random flight logs to your database. '
-          'This action cannot be undone. Continue?'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Add Flights'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed == true) {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text('Adding flights...'),
-            ],
-          ),
-        ),
-      );
-
-      try {
-        // Generate 500 sample flights
-        final sampleFlights = <FlightLog>[];
-        for (int i = 0; i < 5; i++) {
-          sampleFlights.addAll(SampleFlightsService.generateSampleFlights());
-        }
-
-        // Add flights to database
-        final flightLogsNotifier = ref.read(flightLogsProvider.notifier);
-        for (final flight in sampleFlights) {
-          await flightLogsNotifier.addFlightLog(flight);
-        }
-
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Successfully added ${sampleFlights.length} flight logs'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error adding flights: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _clearAllFlights(BuildContext context) async {
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Flights'),
-        content: const Text(
-          'This will permanently delete ALL flight logs from your database. '
-          'This action cannot be undone. Are you absolutely sure?'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text('Clearing flights...'),
-            ],
-          ),
-        ),
-      );
-
-      try {
-        // Clear all flights
-        final flightLogsNotifier = ref.read(flightLogsProvider.notifier);
-        await flightLogsNotifier.clearAllFlights();
-
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('All flight logs have been deleted'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } catch (e) {
-        // Close loading dialog
-        if (mounted) Navigator.pop(context);
-
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error clearing flights: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -543,28 +388,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         Navigator.of(context)
                                             .pushNamed('/settings');
                                       },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _ActionButton(
-                                      icon: Icons.add_circle_outline_rounded,
-                                      label: 'Add 500 Flights',
-                                      color: const Color(0xFF10b981),
-                                      onPressed: () => _addSampleFlights(context),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _ActionButton(
-                                      icon: Icons.delete_forever_rounded,
-                                      label: 'Clear All',
-                                      color: const Color(0xFFef4444),
-                                      onPressed: () => _clearAllFlights(context),
                                     ),
                                   ),
                                 ],

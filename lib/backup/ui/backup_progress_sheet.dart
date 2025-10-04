@@ -262,9 +262,10 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              final navigator = Navigator.of(context);
+              navigator.pop();
               await _backupService.cancelCurrentOperation();
-              if (mounted) Navigator.pop(context);
+              if (mounted) navigator.pop();
             },
             child: const Text('Yes', style: TextStyle(color: Colors.red)),
           ),
