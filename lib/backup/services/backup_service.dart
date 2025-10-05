@@ -250,7 +250,8 @@ class BackupService extends ChangeNotifier {
   }
 
   /// Start restore process (AlKhazna style)
-  Future<RestoreResult> startRestore() async {
+  /// Default mode is merge to preserve existing data
+  Future<RestoreResult> startRestore({RestoreMode mode = RestoreMode.merge}) async {
     if (_isRestoreInProgress) {
       if (kDebugMode) {
         print('⚠️ Restore already in progress, skipping...');
@@ -377,10 +378,10 @@ class BackupService extends ChangeNotifier {
         print('✅ Decryption completed: ${databaseBytes.length} bytes');
       }
 
-      // Step 7: Restore database
+      // Step 7: Restore database with selected mode
       _updateProgress(85, null, 'Restoring your data...', RestoreStatus.applying);
-      final restoreResult = await _restoreDatabase(databaseBytes);
-      
+      final restoreResult = await _restoreDatabase(databaseBytes, mode: mode);
+
       if (!restoreResult.success) {
         _updateProgress(0, null, 'Failed to restore data', RestoreStatus.failed);
         return restoreResult;
@@ -566,10 +567,14 @@ class BackupService extends ChangeNotifier {
   }
 
   /// Restore database from backup (FalconLog specific)
-  Future<RestoreResult> _restoreDatabase(Uint8List databaseBytes) async {
+  /// Default mode is merge to preserve existing data
+  Future<RestoreResult> _restoreDatabase(
+    Uint8List databaseBytes, {
+    RestoreMode mode = RestoreMode.merge,
+  }) async {
     try {
       if (kDebugMode) {
-        print('💾 Restoring Hive database from backup...');
+        print('💾 Restoring Hive database from backup (mode: ${mode.name})...');
       }
 
       if (databaseBytes.isEmpty) {
@@ -587,30 +592,59 @@ class BackupService extends ChangeNotifier {
       // Parse JSON from backup
       final jsonString = utf8.decode(databaseBytes);
       final Map<String, dynamic> backupData = json.decode(jsonString);
-      
+
       int restoredFlightLogs = 0;
 
       // Restore flight logs
       if (backupData.containsKey('flight_logs')) {
         final flightLogsBox = await Hive.openBox<FlightLog>('flightLogsBox');
-        await flightLogsBox.clear(); // Clear existing data
-        
+
+        // Get existing flights if in merge mode
+        final existingFlights = mode == RestoreMode.merge
+            ? flightLogsBox.values.toList()
+            : <FlightLog>[];
+
+        // Create a set of existing flight IDs for quick lookup
+        final existingFlightIds = mode == RestoreMode.merge
+            ? existingFlights.map((f) => f.id).toSet()
+            : <String>{};
+
+        // Clear existing data only in replace mode
+        if (mode == RestoreMode.replace) {
+          await flightLogsBox.clear();
+          if (kDebugMode) {
+            print('🗑️ Cleared existing flight logs (Replace mode)');
+          }
+        } else {
+          if (kDebugMode) {
+            print('🔄 Merging with ${existingFlights.length} existing flights (Merge mode)');
+          }
+        }
+
         final flightLogsData = backupData['flight_logs'] as Map<String, dynamic>;
         for (final entry in flightLogsData.entries) {
           try {
+            FlightLog flightLog;
+
             if (entry.value is Map<String, dynamic>) {
-              final flightLog = FlightLog.fromJson(entry.value);
-              await flightLogsBox.put(entry.key, flightLog);
-              restoredFlightLogs++;
+              flightLog = FlightLog.fromJson(entry.value);
             } else if (entry.value is FlightLog) {
-              await flightLogsBox.put(entry.key, entry.value);
-              restoredFlightLogs++;
+              flightLog = entry.value;
             } else {
               // Try to convert from dynamic
-              final flightLog = FlightLog.fromJson(entry.value as Map<String, dynamic>);
-              await flightLogsBox.put(entry.key, flightLog);
-              restoredFlightLogs++;
+              flightLog = FlightLog.fromJson(entry.value as Map<String, dynamic>);
             }
+
+            // In merge mode, skip if flight already exists
+            if (mode == RestoreMode.merge && existingFlightIds.contains(flightLog.id)) {
+              if (kDebugMode) {
+                print('⏭️ Skipping duplicate flight: ${flightLog.id}');
+              }
+              continue;
+            }
+
+            await flightLogsBox.put(entry.key, flightLog);
+            restoredFlightLogs++;
           } catch (e) {
             if (kDebugMode) {
               print('⚠️ Error converting flight log ${entry.key}: $e');
@@ -620,9 +654,12 @@ class BackupService extends ChangeNotifier {
             continue;
           }
         }
-        
+
         if (kDebugMode) {
-          print('📊 Restored ${flightLogsData.length} flight logs total');
+          print('📊 Restored $restoredFlightLogs flight logs from backup');
+          if (mode == RestoreMode.merge) {
+            print('   Total flights now: ${flightLogsBox.length}');
+          }
         }
       }
 
@@ -885,6 +922,12 @@ class OperationProgress {
     if (restoreStatus == RestoreStatus.applying) return '🔄';
     return '⏳';
   }
+}
+
+/// Restore mode enum
+enum RestoreMode {
+  replace,  // Clear all existing data and replace with backup
+  merge,    // Merge backup data with existing data (no duplicates)
 }
 
 /// Restore status enum

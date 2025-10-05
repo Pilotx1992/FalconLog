@@ -6,12 +6,14 @@ import '../services/backup_service.dart';
 
 class BackupProgressSheet extends StatefulWidget {
   final bool isRestore;
+  final RestoreMode? restoreMode;
   final VoidCallback? onRestoreComplete;
   final VoidCallback? onBackupComplete;
 
   const BackupProgressSheet({
     super.key,
     this.isRestore = false,
+    this.restoreMode,
     this.onRestoreComplete,
     this.onBackupComplete,
   });
@@ -94,7 +96,9 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
   Future<void> _startRestore() async {
     setState(() => _isOperationInProgress = true);
     try {
-      final result = await _backupService.startRestore();
+      // Default to merge mode to preserve existing data
+      final mode = widget.restoreMode ?? RestoreMode.merge;
+      final result = await _backupService.startRestore(mode: mode);
       if (mounted) {
         if (result.success) {
           widget.onRestoreComplete?.call();

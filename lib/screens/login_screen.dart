@@ -163,6 +163,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   child: Image.asset(
                                     'assets/airplane.png',
                                     fit: BoxFit.contain,
+                                    cacheWidth: 200,
+                                    cacheHeight: 200,
                                     filterQuality: FilterQuality.high,
                                     errorBuilder: (c, e, s) => const Icon(
                                       Icons.flight_takeoff_rounded,
@@ -719,6 +721,8 @@ class _GoogleButton extends StatelessWidget {
                   Image.asset(
                     'assets/google.png',
                     height: 22,
+                    cacheHeight: 44,
+                    filterQuality: FilterQuality.medium,
                     width: 22,
                     errorBuilder: (c, e, s) => const Icon(Icons.g_mobiledata,
                         size: 26, color: AppColors.accentSoftBlue),

@@ -68,6 +68,9 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 54,
                     height: 54,
                     fit: BoxFit.contain,
+                    cacheWidth: 108,
+                    cacheHeight: 108,
+                    filterQuality: FilterQuality.high,
                   ),
                   const SizedBox(width: 12),
                   const Text(

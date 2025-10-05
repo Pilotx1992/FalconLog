@@ -12,25 +12,22 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Good Morning';
-    } else if (hour < 17) {
-      return 'Good Afternoon';
-    } else {
-      return 'Good Evening';
-    }
-  }
+  late final String _greeting;
+  late final IconData _greetingIcon;
 
-  IconData _getGreetingIcon() {
+  @override
+  void initState() {
+    super.initState();
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return Icons.wb_sunny_rounded;
+      _greeting = 'Good Morning';
+      _greetingIcon = Icons.wb_sunny_rounded;
     } else if (hour < 17) {
-      return Icons.wb_sunny_outlined;
+      _greeting = 'Good Afternoon';
+      _greetingIcon = Icons.wb_sunny_outlined;
     } else {
-      return Icons.nights_stay_rounded;
+      _greeting = 'Good Evening';
+      _greetingIcon = Icons.nights_stay_rounded;
     }
   }
 
@@ -101,14 +98,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              _getGreetingIcon(),
+                              _greetingIcon,
                               color: const Color(0xFF003366), // Dark blue
                               size: 38, // Larger size
                               weight: 700, // Bold weight
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              '${_getGreeting()}, Pilot!',
+                              '$_greeting, Pilot!',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -268,18 +265,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               label: 'Day Flight Hours',
                               value: _formatHours(summary.dayTimeHours),
                               icon: Icons.wb_sunny_rounded,
+                              cardColor: const Color.fromARGB(255, 235, 203, 60),
                             ),
                             const SizedBox(height: 2),
                             _StatCard(
                               label: 'Night Flight Hours',
                               value: _formatHours(summary.nightTimeHours),
                               icon: Icons.nights_stay_rounded,
+                              cardColor: const Color.fromARGB(255, 133, 81, 176),
                             ),
                             const SizedBox(height: 2),
                             _StatCard(
                               label: 'Total Flight Hours',
                               value: _formatHours(summary.totalFlightHours),
                               icon: Icons.access_time_rounded,
+                              cardColor: const Color(0xFF4DB6AC),
                             ),
                           ],
                         ),
@@ -513,75 +513,66 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
+  final Color cardColor;
+
   const _StatCard({
     required this.label,
     required this.value,
     required this.icon,
+    required this.cardColor,
   });
-
-  Color _getCardColor(String label) {
-    if (label.contains('Day')) {
-      return const Color.fromARGB(255, 235, 203,
-          60); // Soft warm orange (more comfortable than bright yellow)
-    } else if (label.contains('Night')) {
-      return const Color.fromARGB(
-          255, 133, 81, 176); // Custom purple - comfortable night color
-    } else {
-      return const Color(
-          0xFF4DB6AC); // Soft teal (more pleasant than bright teal)
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = _getCardColor(label);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // Icon on top center
-            Icon(
-              icon,
-              size: 36,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 12),
-            // Large numeric value in center
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontFamily: 'Roboto',
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Label text underneath
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-                fontFamily: 'Roboto',
-              ),
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // Icon on top center
+              Icon(
+                icon,
+                size: 36,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 12),
+              // Large numeric value in center
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontFamily: 'Roboto',
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Label text underneath
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: 'Roboto',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -603,72 +594,61 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    return RepaintBoundary(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          onTap: onPressed,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [color, color.withValues(alpha: 0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+          border: Border.all(
+            color: color.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [color, color.withValues(alpha: 0.8)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 24,
+                  const SizedBox(height: 12),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF616161),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    letterSpacing: 0.3,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

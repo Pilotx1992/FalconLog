@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 
 class PerformanceOptimizer {
+  static bool _initialized = false;
+
   // تحسين الأداء للواجهة
   static void optimizeUI() {
+    if (_initialized) return;
+    _initialized = true;
+
     // تقليل رسم الإطارات غير الضرورية
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // تحسين الذاكرة
       PaintingBinding.instance.imageCache.clear();
-      PaintingBinding.instance.imageCache.maximumSize = 50; // Reduced from 100
-      PaintingBinding.instance.imageCache.maximumSizeBytes =
-          25 << 20; // 25 MB instead of 50 MB
+      PaintingBinding.instance.imageCache.maximumSize = 100;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // 50 MB
     });
 
     // تحسين إعدادات النظام
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    // Optimize rendering
+    debugProfilePaintsEnabled = false;
+    debugRepaintRainbowEnabled = false;
   }
 
   // تحسين العمليات الثقيلة مع تأخير
@@ -84,13 +93,42 @@ class PerformanceOptimizer {
     required int itemCount,
     ScrollController? controller,
     EdgeInsetsGeometry? padding,
+    bool addRepaintBoundaries = true,
+    bool addAutomaticKeepAlives = false,
   }) {
     return ListView.builder(
       controller: controller,
       padding: padding,
       physics: optimizedScrollPhysics,
       itemCount: itemCount,
-      cacheExtent: 500, // تحسين التخزين المؤقت
+      cacheExtent: 500,
+      addRepaintBoundaries: addRepaintBoundaries,
+      addAutomaticKeepAlives: addAutomaticKeepAlives,
+      itemBuilder: (context, index) {
+        return RepaintBoundary(
+          child: itemBuilder(context, index),
+        );
+      },
+    );
+  }
+
+  // Optimized GridView for grid layouts
+  static Widget optimizedGridView({
+    required IndexedWidgetBuilder itemBuilder,
+    required int itemCount,
+    required SliverGridDelegate gridDelegate,
+    ScrollController? controller,
+    EdgeInsetsGeometry? padding,
+  }) {
+    return GridView.builder(
+      controller: controller,
+      padding: padding,
+      physics: optimizedScrollPhysics,
+      gridDelegate: gridDelegate,
+      itemCount: itemCount,
+      cacheExtent: 500,
+      addRepaintBoundaries: true,
+      addAutomaticKeepAlives: false,
       itemBuilder: (context, index) {
         return RepaintBoundary(
           child: itemBuilder(context, index),
@@ -131,6 +169,51 @@ class PerformanceOptimizer {
     PaintingBinding.instance.imageCache.clear();
     SystemChannels.platform
         .invokeMethod('SystemChrome.setSystemUIOverlayStyle');
+  }
+
+  // Optimized animated widget builder
+  static Widget buildAnimatedWidget({
+    required Widget child,
+    Duration duration = const Duration(milliseconds: 200),
+    Curve curve = Curves.easeInOut,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: duration,
+      curve: curve,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  // Debounce function for search/filter operations
+  static void debounce(
+    VoidCallback callback, {
+    Duration delay = const Duration(milliseconds: 300),
+  }) {
+    Future.delayed(delay, callback);
+  }
+
+  // Throttle function for scroll events
+  static DateTime? _lastExecutionTime;
+  static void throttle(
+    VoidCallback callback, {
+    Duration interval = const Duration(milliseconds: 100),
+  }) {
+    final now = DateTime.now();
+    if (_lastExecutionTime == null ||
+        now.difference(_lastExecutionTime!) >= interval) {
+      _lastExecutionTime = now;
+      callback();
+    }
   }
 }
 

@@ -67,6 +67,10 @@ class AllFlightsScreen extends ConsumerStatefulWidget {
 }
 
 class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
+  List<FlightLog>? _cachedFilteredLogs;
+  FlightFilter? _lastFilter;
+  int? _lastLogsCount;
+
   @override
   Widget build(BuildContext context) {
     final logsAsyncValue = ref.watch(flightLogsProvider);
@@ -125,7 +129,17 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
   }
 
   List<FlightLog> _applyFilter(List<FlightLog> logs, FlightFilter filter) {
-    return logs.where((log) {
+    // Use cached results if filter hasn't changed AND logs count is same
+    if (_lastFilter != null &&
+        _lastFilter!.date == filter.date &&
+        _lastFilter!.aircraftType == filter.aircraftType &&
+        _lastFilter!.flightType == filter.flightType &&
+        _lastLogsCount == logs.length &&
+        _cachedFilteredLogs != null) {
+      return _cachedFilteredLogs!;
+    }
+
+    final filtered = logs.where((log) {
       if (filter.date != null) {
         if (log.date.year != filter.date!.year ||
             log.date.month != filter.date!.month ||
@@ -143,6 +157,13 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
       }
       return true;
     }).toList();
+
+    // Cache the results
+    _cachedFilteredLogs = filtered;
+    _lastFilter = filter;
+    _lastLogsCount = logs.length;
+
+    return filtered;
   }
 
   Future<void> _showFilterDialog(BuildContext context, WidgetRef ref) async {
