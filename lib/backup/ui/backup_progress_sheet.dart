@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import '../models/backup_provider_enum.dart' show BackupInfo;
 import '../models/backup_status.dart';
 import '../services/backup_service.dart';
 
 class BackupProgressSheet extends StatefulWidget {
   final bool isRestore;
   final RestoreMode? restoreMode;
+  final BackupInfo? restoreTarget;
   final VoidCallback? onRestoreComplete;
   final VoidCallback? onBackupComplete;
 
@@ -14,6 +16,7 @@ class BackupProgressSheet extends StatefulWidget {
     super.key,
     this.isRestore = false,
     this.restoreMode,
+    this.restoreTarget,
     this.onRestoreComplete,
     this.onBackupComplete,
   });
@@ -62,18 +65,32 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
         _currentProgress = _backupService.currentProgress;
       });
 
-      if (!_isRestore && !_hasCalledCallback) {
-        if (_currentProgress.backupStatus == BackupStatus.completed &&
-            _currentProgress.percentage == 100) {
+      if (!_hasCalledCallback) {
+        final completed = _isRestore
+            ? _currentProgress.isCompleted
+            : _currentProgress.backupStatus == BackupStatus.completed &&
+                _currentProgress.percentage == 100;
+
+        if (completed) {
           _hasCalledCallback = true;
           Future.delayed(const Duration(milliseconds: 500), () {
-            widget.onBackupComplete?.call();
+            if (_isRestore) {
+              widget.onRestoreComplete?.call();
+            } else {
+              widget.onBackupComplete?.call();
+            }
             if (mounted) Navigator.pop(context);
           });
-        } else if (_currentProgress.backupStatus == BackupStatus.failed) {
+        } else if (_isRestore
+            ? _currentProgress.isFailed
+            : _currentProgress.backupStatus == BackupStatus.failed) {
           _hasCalledCallback = true;
           if (mounted) {
-            _showErrorDialog('Backup failed. Please try again.');
+            _showErrorDialog(
+              _isRestore
+                  ? 'Restore failed. Please try again.'
+                  : 'Backup failed. Please try again.',
+            );
           }
         }
       }
@@ -98,7 +115,20 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     try {
       // Default to merge mode to preserve existing data
       final mode = widget.restoreMode ?? RestoreMode.merge;
-      final result = await _backupService.startRestore(mode: mode);
+      final target = widget.restoreTarget;
+      if (target == null) {
+        if (mounted) {
+          _showErrorDialog(
+            'No backup selected. Choose a backup from Recent Backups.',
+          );
+        }
+        return;
+      }
+
+      final result = await _backupService.startRestore(
+        mode: mode,
+        target: target,
+      );
       if (mounted) {
         if (result.success) {
           widget.onRestoreComplete?.call();

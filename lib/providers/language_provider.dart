@@ -54,6 +54,10 @@ class LanguageNotifier extends StateNotifier<AppLanguage> {
   }
 
   Future<void> _loadLanguage() async {
+    await reloadFromPrefs();
+  }
+
+  Future<void> reloadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final languageCode = prefs.getString(_languageKey) ?? 'en';
@@ -65,7 +69,6 @@ class LanguageNotifier extends StateNotifier<AppLanguage> {
 
       state = language;
     } catch (e) {
-      // If loading fails, keep default language
       state = availableLanguages.first;
     }
   }

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'backup/models/backup_metadata.dart';
+import 'backup/services/backup_service.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/cleanup_old_workers.dart';
+import 'core/services/app_data_migration_service.dart';
 import 'core/services/hive_initialization_service.dart';
 import 'falcon_log_app.dart';
 import 'firebase_options.dart';
@@ -34,18 +36,16 @@ Future<void> main() async {
 
   await _initializeCriticalComponents();
 
-  // Clean up old WorkManager tasks (one-time cleanup)
-  try {
-    await WorkManagerCleanup.cleanupOldTasks();
-    debugPrint('Old WorkManager tasks cleaned up.');
-  } catch (error) {
-    debugPrint('WorkManager cleanup warning: $error');
-  }
-
   // Initialize backup scheduler
   try {
     await BackupScheduler.initialize();
     debugPrint('Backup scheduler initialized successfully.');
+
+    // Clean up old WorkManager tasks once, then restore the user's saved
+    // auto-backup schedule so app restarts do not disable it.
+    await WorkManagerCleanup.cleanupOldTasks();
+    await BackupScheduler.restoreSavedSchedule();
+    debugPrint('Saved backup schedule restored.');
   } catch (error, stackTrace) {
     debugPrint('Backup scheduler initialization failed: $error');
     debugPrintStack(stackTrace: stackTrace);
@@ -64,6 +64,18 @@ Future<void> _initializeCriticalComponents() async {
 
     await HiveInitializationService.initialize();
     await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
+
+    await AppDataMigrationService.runMigrationsIfNeeded();
+
+    final pendingRestore =
+        await BackupService.recoverPendingReplaceRestoreIfNeeded();
+    if (pendingRestore.hadPendingJournal) {
+      if (pendingRestore.rollbackSucceeded) {
+        debugPrint('✅ ${pendingRestore.message}');
+      } else {
+        debugPrint('⚠️ ${pendingRestore.message}');
+      }
+    }
 
     // Initialize backup metadata box for backup system (MUST be typed!)
     await HiveInitializationService.openBox<BackupMetadata>('backupMetadata');

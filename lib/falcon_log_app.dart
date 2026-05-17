@@ -15,7 +15,6 @@ import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
 import 'debug/auth_debug_screen.dart';
-import 'widgets/auth_wrapper.dart';
 import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
 
@@ -84,22 +83,19 @@ class FalconLogApp extends ConsumerWidget {
       },
       initialRoute: '/splash',
       routes: {
-        '/': (context) => const AuthWrapper(),
+        '/': (context) => const SplashScreen(),
         '/splash': (context) => const SplashScreen(),
         '/home': (context) => const AuthGuard(child: DashboardScreen()),
         '/dashboard': (context) =>
             const AuthGuard(child: DashboardScreen()), // Alias for /home
-        '/logFlight': (context) => const LogFlightScreen(),
-        '/flights': (context) => const AllFlightsScreen(),
-        '/summary': (context) => const SummaryScreen(),
-        '/advanced': (context) => const AdvancedScreen(),
-        '/settings': (context) => const SettingsScreen(),
-        '/login': (context) =>
-            const AuthGuard(requireAuth: false, child: LoginScreen()),
-        '/register': (context) =>
-            const AuthGuard(requireAuth: false, child: RegisterScreen()),
-        '/forgot-password': (context) =>
-            const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
+        '/logFlight': (context) => const AuthGuard(child: LogFlightScreen()),
+        '/flights': (context) => const AuthGuard(child: AllFlightsScreen()),
+        '/summary': (context) => const AuthGuard(child: SummaryScreen()),
+        '/advanced': (context) => const AuthGuard(child: AdvancedScreen()),
+        '/settings': (context) => const AuthGuard(child: SettingsScreen()),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/debug-auth': (context) => const AuthDebugScreen(),
       },
       onGenerateRoute: (settings) {

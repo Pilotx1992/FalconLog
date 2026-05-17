@@ -24,7 +24,7 @@ class GoogleDriveService {
   DateTime? _tokenExpiry;
 
   /// Initialize Google Drive API (AlKhazna style)
-  Future<bool> initialize() async {
+  Future<bool> initialize({bool interactive = true}) async {
     try {
       if (kDebugMode) {
         print('🔧 Initializing Google Drive service...');
@@ -38,7 +38,8 @@ class GoogleDriveService {
         // Refresh if less than 5 minutes remaining
         if (timeUntilExpiry.inMinutes > 5) {
           if (kDebugMode) {
-            print('✅ Using existing valid token (expires in ${timeUntilExpiry.inMinutes} minutes)');
+            print(
+                '✅ Using existing valid token (expires in ${timeUntilExpiry.inMinutes} minutes)');
           }
           return true;
         } else {
@@ -51,7 +52,9 @@ class GoogleDriveService {
       // Get authenticated account
       var account = _googleSignIn.currentUser;
       account ??= await _googleSignIn.signInSilently();
-      account ??= await _googleSignIn.signIn();
+      if (account == null && interactive) {
+        account = await _googleSignIn.signIn();
+      }
 
       if (account == null) {
         if (kDebugMode) {
@@ -72,7 +75,8 @@ class GoogleDriveService {
       }
 
       if (kDebugMode) {
-        print('🔑 Access token obtained: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
+        print(
+            '🔑 Access token obtained: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
       }
 
       // Set token expiry (use server time if available, otherwise 55 minutes for safety)
@@ -187,7 +191,7 @@ class GoogleDriveService {
       }
 
       final result = Uint8List.fromList(dataBytes);
-      
+
       if (kDebugMode) {
         print('✅ File downloaded: ${result.length} bytes');
       }
@@ -225,11 +229,12 @@ class GoogleDriveService {
       );
 
       final files = fileList.files ?? [];
-      
+
       if (kDebugMode) {
         print('📋 Found ${files.length} files');
         for (final file in files) {
-          print('  - ${file.name} (${file.id}) - Size: ${file.size} - ${file.modifiedTime}');
+          print(
+              '  - ${file.name} (${file.id}) - Size: ${file.size} - ${file.modifiedTime}');
         }
       }
 
@@ -267,11 +272,11 @@ class GoogleDriveService {
       }
 
       await _driveApi!.files.delete(fileId);
-      
+
       if (kDebugMode) {
         print('✅ File deleted successfully');
       }
-      
+
       return true;
     } catch (e) {
       if (kDebugMode) {
@@ -306,13 +311,13 @@ class GoogleDriveService {
 
       final about = await _driveApi!.about.get();
       final quota = about.storageQuota;
-      
+
       if (quota?.limit != null && quota?.usage != null) {
         final limit = int.parse(quota!.limit!);
         final usage = int.parse(quota.usage!);
         return limit - usage;
       }
-      
+
       return null;
     } catch (e) {
       if (kDebugMode) {
@@ -355,15 +360,16 @@ class AuthenticatedClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    final authHeader = '${_credentials.accessToken.type} ${_credentials.accessToken.data}';
+    final authHeader =
+        '${_credentials.accessToken.type} ${_credentials.accessToken.data}';
     request.headers['Authorization'] = authHeader;
-    
+
     if (kDebugMode) {
       print('🌐 Making request to: ${request.url}');
-      print('🔑 Auth header: ${authHeader.substring(0, authHeader.length > 30 ? 30 : authHeader.length)}...');
+      print(
+          '🔑 Auth header: ${authHeader.substring(0, authHeader.length > 30 ? 30 : authHeader.length)}...');
     }
-    
+
     return _inner.send(request);
   }
 }
-

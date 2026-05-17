@@ -5,10 +5,15 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
+import '../utils/backup_constants.dart';
 import '../utils/backup_scheduler.dart';
 import 'backup_progress_sheet.dart';
+import '../../providers/backup_service_provider.dart';
+import '../../providers/aircraft_types_provider.dart';
 import '../../providers/flight_logs_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/flight_data_sharing_service.dart';
 
 // Export RestoreMode for use in this file
@@ -40,10 +45,12 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   Future<void> _initializeAndLoadSettings() async {
     try {
+      await ref.read(backupProviderProvider.notifier).reload();
       await _backupService.initialize();
       final backupMetadata = await _backupService.findExistingBackup();
       final frequency = await _backupScheduler.getBackupFrequency();
       final wifiOnly = await _backupScheduler.isWifiOnly();
+      await ref.read(backupHistoryProvider.notifier).refresh();
 
       if (mounted) {
         setState(() {
@@ -61,6 +68,15 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedProvider = ref.watch(backupProviderProvider);
+    final backupHistory = ref.watch(backupHistoryProvider);
+    final operationRunning = ref.watch(isBackupInProgressProvider) ||
+        ref.watch(isRestoreInProgressProvider);
+    final providerHistory = backupHistory
+        .where((entry) => entry.provider == selectedProvider)
+        .take(5)
+        .toList();
+
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
@@ -118,8 +134,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                                 const SizedBox(width: 48),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _buildAccountCard(surfaceCard, sectionTitleColor),
+                            if (selectedProvider ==
+                                BackupProvider.googleDrive) ...[
+                              const SizedBox(height: 12),
+                              _buildAccountCard(surfaceCard, sectionTitleColor),
+                            ],
                           ],
                         ),
                       ),
@@ -130,10 +149,30 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 16),
                           children: [
+                            _buildProviderCard(
+                              surfaceCard,
+                              sectionTitleColor,
+                              selectedProvider,
+                            ),
+                            const SizedBox(height: 16),
                             _buildAutoBackupCard(
                                 surfaceCard, sectionTitleColor),
                             const SizedBox(height: 16),
-                            _buildBackupActions(surfaceCard, sectionTitleColor),
+                            _buildBackupActions(
+                              surfaceCard,
+                              sectionTitleColor,
+                              selectedProvider,
+                              operationRunning,
+                            ),
+                            if (providerHistory.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              _buildRecentBackupsCard(
+                                surfaceCard,
+                                sectionTitleColor,
+                                providerHistory,
+                                operationRunning,
+                              ),
+                            ],
                             const SizedBox(height: 16),
                             _buildDataManagement(
                                 surfaceCard, sectionTitleColor),
@@ -289,6 +328,221 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
+  // ---------------- Backup Provider ----------------
+  Widget _buildProviderCard(
+    Color surfaceCard,
+    Color sectionTitleColor,
+    BackupProvider selectedProvider,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Backup Location',
+            style: TextStyle(
+              color: sectionTitleColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            selectedProvider.displayName,
+            style: TextStyle(
+              color: sectionTitleColor.withValues(alpha: 0.75),
+              fontSize: 14,
+            ),
+          ),
+          if (_lastBackupTime != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Last backup: ${_formatBackupTime(_lastBackupTime!)}',
+              style: TextStyle(
+                color: sectionTitleColor.withValues(alpha: 0.72),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SegmentedButton<BackupProvider>(
+            segments: const [
+              ButtonSegment(
+                value: BackupProvider.googleDrive,
+                label: Text('Google Drive'),
+                icon: Icon(Icons.cloud_outlined, size: 18),
+              ),
+              ButtonSegment(
+                value: BackupProvider.local,
+                label: Text('Local'),
+                icon: Icon(Icons.sd_storage_outlined, size: 18),
+              ),
+            ],
+            selected: {selectedProvider},
+            onSelectionChanged: (selection) {
+              final provider = selection.first;
+              if (provider != selectedProvider) {
+                _onProviderChanged(provider);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildPortabilityNotice(sectionTitleColor, selectedProvider),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortabilityNotice(
+    Color sectionTitleColor,
+    BackupProvider selectedProvider,
+  ) {
+    final isLocal = selectedProvider == BackupProvider.local;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: (isLocal ? Colors.orange : Colors.blue).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: (isLocal ? Colors.orange : Colors.blue).withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isLocal ? Icons.phonelink_lock_outlined : Icons.cloud_done_outlined,
+            size: 20,
+            color: isLocal ? Colors.orange.shade800 : Colors.blue.shade800,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isLocal
+                  ? 'Local backups stay on this device only. They cannot be restored on a new phone.'
+                  : 'Google Drive backups can be restored on a new phone when you sign in with the Google account used for backup.',
+              style: TextStyle(
+                color: sectionTitleColor.withValues(alpha: 0.85),
+                fontSize: 12.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onProviderChanged(BackupProvider provider) async {
+    await ref.read(backupProviderProvider.notifier).setProvider(provider);
+    if (!mounted) return;
+    await _initializeAndLoadSettings();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Backup location set to ${provider.displayName}'),
+        backgroundColor: const Color(0xFF1A1F36),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _buildRecentBackupsCard(
+    Color surfaceCard,
+    Color sectionTitleColor,
+    List<BackupInfo> entries,
+    bool operationRunning,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent Backups',
+            style: TextStyle(
+              color: sectionTitleColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...entries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: sectionTitleColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          '${entry.formattedDate} · ${entry.formattedSize} · ${entry.logsCount} flights',
+                          style: TextStyle(
+                            color: sectionTitleColor.withValues(alpha: 0.65),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Restore this backup',
+                    onPressed: operationRunning
+                        ? null
+                        : () => _confirmAndRestore(entry),
+                    icon: Icon(
+                      Icons.restore,
+                      color: operationRunning
+                          ? sectionTitleColor.withValues(alpha: 0.35)
+                          : Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------------- Auto Backup Card ----------------
   Widget _buildAutoBackupCard(Color surfaceCard, Color sectionTitleColor) {
     final cs = Theme.of(context).colorScheme;
@@ -398,10 +652,20 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
-  // ---------------- Cloud Backup Actions ----------------
-  Widget _buildBackupActions(Color surfaceCard, Color sectionTitleColor) {
+  // ---------------- Backup Actions ----------------
+  Widget _buildBackupActions(
+    Color surfaceCard,
+    Color sectionTitleColor,
+    BackupProvider selectedProvider,
+    bool operationRunning,
+  ) {
     final cs = Theme.of(context).colorScheme;
-    final enabled = _currentUser != null;
+    final isGoogleDrive = selectedProvider == BackupProvider.googleDrive;
+    final canBackup = !operationRunning &&
+        (selectedProvider == BackupProvider.local || _currentUser != null);
+    final canRestore = !operationRunning &&
+        (selectedProvider == BackupProvider.local ||
+            (isGoogleDrive && _currentUser != null));
 
     return Container(
       decoration: BoxDecoration(
@@ -418,16 +682,26 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Cloud Backup Actions',
+          Text('Backup Actions',
               style: TextStyle(
                   color: sectionTitleColor,
                   fontSize: 16,
                   fontWeight: FontWeight.w700)),
+          if (isGoogleDrive && _currentUser == null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Sign in to Google to back up to Drive.',
+              style: TextStyle(
+                color: sectionTitleColor.withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Opacity(
-            opacity: enabled ? 1 : .55,
+            opacity: canBackup ? 1 : .55,
             child: GestureDetector(
-              onTap: enabled ? _startBackupNow : null,
+              onTap: canBackup ? _startBackupNow : null,
               child: Container(
                 height: 54,
                 decoration: BoxDecoration(
@@ -447,7 +721,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.cloud_upload_outlined,
+                      Icon(Icons.backup_outlined,
                           color: Colors.white, size: 22),
                       SizedBox(width: 8),
                       Text('Backup Now',
@@ -463,9 +737,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           ),
           const SizedBox(height: 12),
           Opacity(
-            opacity: enabled ? 1 : .55,
+            opacity: canRestore ? 1 : .55,
             child: OutlinedButton.icon(
-              onPressed: enabled ? _startRestore : null,
+              onPressed: canRestore ? () => _confirmAndRestoreLatest() : null,
               icon: Icon(Icons.restore, color: cs.primary),
               label: Text('Restore',
                   style: TextStyle(
@@ -599,9 +873,17 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   }
 
   Future<void> _onBackupFrequencyChanged(String frequency) async {
+    final previousFrequency = _backupFrequency;
     setState(() => _backupFrequency = frequency);
-    await _backupScheduler.scheduleBackup(
+    final scheduled = await _backupScheduler.scheduleBackup(
         frequency: frequency, wifiOnly: _wifiOnly);
+
+    if (!scheduled) {
+      if (!mounted) return;
+      setState(() => _backupFrequency = previousFrequency);
+      _showErrorSnackBar('Could not update auto backup schedule');
+      return;
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -624,14 +906,23 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
     // Save the preference even if backup is off
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('wifi_only_backup', wifiOnly);
+    await prefs.setBool(
+      BackupConstants.settingsKeys['wifi_only']!,
+      wifiOnly,
+    );
 
     // If backup is enabled, reschedule with new network preference
     if (_backupFrequency != 'off') {
-      await _backupScheduler.scheduleBackup(
+      final scheduled = await _backupScheduler.scheduleBackup(
         frequency: _backupFrequency,
         wifiOnly: wifiOnly,
       );
+      if (!scheduled) {
+        if (!mounted) return;
+        setState(() => _wifiOnly = !wifiOnly);
+        _showErrorSnackBar('Could not update auto backup network setting');
+        return;
+      }
     }
 
     if (!mounted) return;
@@ -651,19 +942,117 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const BackupProgressSheet(isRestore: false),
+      builder: (context) => BackupProgressSheet(
+        isRestore: false,
+        onBackupComplete: () {
+          ref.read(backupHistoryProvider.notifier).refresh();
+          _initializeAndLoadSettings();
+        },
+      ),
     );
   }
 
-  void _startRestore() {
-    // Always use merge mode to preserve existing data
+  Future<void> _confirmAndRestoreLatest() async {
+    final latest = await _backupService.resolveDefaultRestoreTarget();
+    if (!mounted) return;
+    if (latest == null) {
+      _showErrorSnackBar('No backup found to restore for this location.');
+      return;
+    }
+    await _confirmAndRestore(latest);
+  }
+
+  Future<void> _confirmAndRestore(BackupInfo target) async {
+    RestoreMode selectedMode = RestoreMode.replace;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Restore backup?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Restore "${target.fileName}" from ${target.provider.displayName}.',
+              ),
+              if (target.provider == BackupProvider.local) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'This is a device-bound local backup. It will not restore on another phone.',
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ] else if (target.provider == BackupProvider.googleDrive) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Sign in with the same Google account used for this backup on a new device.',
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: Colors.blue.shade800,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SegmentedButton<RestoreMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: RestoreMode.replace,
+                    label: Text('Replace'),
+                    icon: Icon(Icons.swap_horiz, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: RestoreMode.merge,
+                    label: Text('Merge'),
+                    icon: Icon(Icons.merge, size: 18),
+                  ),
+                ],
+                selected: {selectedMode},
+                onSelectionChanged: (selection) {
+                  setDialogState(() => selectedMode = selection.first);
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                selectedMode == RestoreMode.replace
+                    ? 'Validates backup, saves a local safety snapshot, then replaces flight logs.'
+                    : 'Adds flights from backup. Existing UUIDs are not duplicated.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    _startRestore(target: target, mode: selectedMode);
+  }
+
+  void _startRestore({
+    required BackupInfo target,
+    RestoreMode mode = RestoreMode.replace,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => BackupProgressSheet(
         isRestore: true,
-        restoreMode: RestoreMode.merge,
+        restoreMode: mode,
+        restoreTarget: target,
         onRestoreComplete: _refreshAfterRestore,
       ),
     );
@@ -671,6 +1060,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   void _refreshAfterRestore() {
     ref.read(flightLogsProvider.notifier).refresh();
+    ref.read(aircraftTypesProvider.notifier).reload();
+    ref.read(languageProvider.notifier).reloadFromPrefs();
+    ref.read(backupHistoryProvider.notifier).refresh();
     _initializeAndLoadSettings();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -746,7 +1138,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           content: Text('${flights.length} flights exported successfully'),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } catch (e) {
@@ -756,7 +1149,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           content: Text('Export failed: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     }
@@ -817,7 +1211,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           content: Text('$flightCount flights imported successfully'),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } catch (e) {
@@ -872,7 +1267,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               ),
             ),
             const SizedBox(height: 16),
-            _buildPreviewRow('Flight Count', '${preview['flightCount']} flights'),
+            _buildPreviewRow(
+                'Flight Count', '${preview['flightCount']} flights'),
             _buildPreviewRow('App Version', preview['appVersion'] ?? 'Unknown'),
             _buildPreviewRow(
               'Export Date',

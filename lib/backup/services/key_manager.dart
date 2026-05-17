@@ -23,6 +23,7 @@ class KeyManagerNew {
 
   static const String _keyFileName = 'falconlog_backup_keys.json';
   static const String _localKeyName = 'falconlog_master_key_v3';
+  static const String _localKeyOwnerEmailKey = 'falconlog_master_key_owner_email';
 
   KeyManagerNew(this._driveService, this._googleSignIn);
 
@@ -58,40 +59,49 @@ class KeyManagerNew {
         }
 
         // Store locally for quick access
-        await _storeKeyLocally(existingKey);
+        await _storeKeyLocally(existingKey, ownerEmail: userEmail);
         return existingKey;
       }
 
-      // Step 3: Try local storage (fallback)
-      final localKey = await _getLocalKey();
-      if (localKey != null) {
+      // Step 3: If a cloud key file exists but could not be read, do not mutate keys.
+      final keyFileExists = await _cloudKeyFileExists();
+      if (keyFileExists) {
         if (kDebugMode) {
-          print('📱 Found local key, uploading to cloud...');
+          print(
+            '⚠️ Key exists in cloud but retrieval failed; aborting to avoid overwrite',
+          );
         }
-
-        // Upload local key to cloud for future use
-        final uploaded = await _uploadKeyToCloud(userEmail, googleId, localKey, interactive: interactive);
-        if (uploaded) {
-          return localKey;
-        }
+        return null;
       }
 
-      // Step 4: Check if key exists in cloud before creating new one
-      try {
-        final files = await _driveService.listFiles(query: "name contains '$_keyFileName'");
-        final keyFileExists = files.any((f) => f.name == _keyFileName);
-        if (keyFileExists) {
+      // Step 4: Local cache may only be uploaded for the same Google account.
+      final localKey = await _getLocalKey();
+      if (localKey != null) {
+        final cachedOwner = await _readLocalKeyOwnerEmail();
+        if (cachedOwner != null && cachedOwner != userEmail) {
           if (kDebugMode) {
-            print('⚠️ Key exists in cloud but retrieval failed; aborting to avoid overwrite');
+            print(
+              '⚠️ Local encryption key belongs to another Google account; '
+              'not uploading or reusing it.',
+            );
           }
           return null;
         }
-      } catch (e) {
+
         if (kDebugMode) {
-          print('⚠️ Error checking for existing key: $e');
+          print('📱 Found local key for current account, uploading to cloud...');
         }
-        // Fail safe - don't create new key if we can't check
-        return null;
+
+        final uploaded = await _uploadKeyToCloud(
+          userEmail,
+          googleId,
+          localKey,
+          interactive: interactive,
+        );
+        if (uploaded) {
+          await _storeKeyLocally(localKey, ownerEmail: userEmail);
+          return localKey;
+        }
       }
 
       // Step 5: Generate new master key
@@ -110,7 +120,7 @@ class KeyManagerNew {
         return null;
       }
 
-      await _storeKeyLocally(newKey);
+      await _storeKeyLocally(newKey, ownerEmail: userEmail);
 
       if (kDebugMode) {
         print('✅ Created and stored new master key');
@@ -284,7 +294,23 @@ class KeyManagerNew {
   }
 
   /// Store key in local secure storage
-  Future<void> _storeKeyLocally(Uint8List masterKey) async {
+  Future<bool> _cloudKeyFileExists() async {
+    try {
+      final files =
+          await _driveService.listFiles(query: "name contains '$_keyFileName'");
+      return files.any((f) => f.name == _keyFileName);
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Error checking for existing key: $e');
+      }
+      return true;
+    }
+  }
+
+  Future<void> _storeKeyLocally(
+    Uint8List masterKey, {
+    String? ownerEmail,
+  }) async {
     try {
       final hex = StringBuffer();
       for (final byte in masterKey) {
@@ -295,6 +321,12 @@ class KeyManagerNew {
         key: _localKeyName,
         value: hex.toString(),
       );
+      if (ownerEmail != null) {
+        await _secureStorage.write(
+          key: _localKeyOwnerEmailKey,
+          value: ownerEmail,
+        );
+      }
 
       if (kDebugMode) {
         print('📱 Master key stored locally');
@@ -303,6 +335,14 @@ class KeyManagerNew {
       if (kDebugMode) {
         print('❌ Error storing key locally: $e');
       }
+    }
+  }
+
+  Future<String?> _readLocalKeyOwnerEmail() async {
+    try {
+      return await _secureStorage.read(key: _localKeyOwnerEmailKey);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -326,10 +366,30 @@ class KeyManagerNew {
     }
   }
 
+  /// Device-local master key for local-only backups (no Google account required).
+  Future<Uint8List?> getOrCreateDeviceMasterKey() async {
+    try {
+      final existing = await _getLocalKey();
+      if (existing != null) {
+        return existing;
+      }
+
+      final newKey = await _generateSecureMasterKey();
+      await _storeKeyLocally(newKey);
+      return newKey;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error getting device master key: $e');
+      }
+      return null;
+    }
+  }
+
   /// Clear all keys (for testing/reset)
   Future<void> clearAllKeys() async {
     try {
       await _secureStorage.delete(key: _localKeyName);
+      await _secureStorage.delete(key: _localKeyOwnerEmailKey);
       if (kDebugMode) {
         print('🗑️ Local keys cleared');
       }

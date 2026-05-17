@@ -27,20 +27,18 @@ class AuthMiddleware {
     if (currentContext == null) return;
 
     if (user == null) {
-      // User signed out - redirect to login if not already there
+      // Sign-out only: Splash + AuthGuard own cold-start and route protection.
       final currentRoute = ModalRoute.of(currentContext)?.settings.name;
-      final publicRoutes = ['/login', '/register', '/forgot-password'];
+      const publicRoutes = [
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/splash',
+        '/',
+      ];
 
       if (currentRoute != null && !publicRoutes.contains(currentRoute)) {
         NavigationService.goToLogin();
-      }
-    } else {
-      // User signed in - redirect to dashboard if on auth pages
-      final currentRoute = ModalRoute.of(currentContext)?.settings.name;
-      final authRoutes = ['/login', '/register', '/forgot-password'];
-
-      if (currentRoute != null && authRoutes.contains(currentRoute)) {
-        NavigationService.goToDashboard();
       }
     }
   }

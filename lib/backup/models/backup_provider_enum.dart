@@ -1,3 +1,5 @@
+import 'backup_metadata.dart';
+
 /// Backup provider options
 enum BackupProvider {
   firebase,
@@ -20,6 +22,7 @@ enum BackupProvider {
 enum AutoBackupInterval {
   daily,
   weekly,
+  monthly,
   afterEachFlight,
   manual;
 
@@ -29,6 +32,8 @@ enum AutoBackupInterval {
         return 'Daily';
       case AutoBackupInterval.weekly:
         return 'Weekly';
+      case AutoBackupInterval.monthly:
+        return 'Monthly';
       case AutoBackupInterval.afterEachFlight:
         return 'After Each Flight';
       case AutoBackupInterval.manual:
@@ -42,6 +47,8 @@ enum AutoBackupInterval {
         return const Duration(days: 1);
       case AutoBackupInterval.weekly:
         return const Duration(days: 7);
+      case AutoBackupInterval.monthly:
+        return const Duration(days: 30);
       case AutoBackupInterval.afterEachFlight:
       case AutoBackupInterval.manual:
         return null;
@@ -111,9 +118,15 @@ class AutoBackupConfig {
   }
 }
 
-/// Backup information for UI display
+/// Backup information for UI display and targeted restore.
 class BackupInfo {
+  /// Display / lookup id (Drive file id or Hive metadata id).
   final String id;
+
+  /// Hive metadata record id.
+  final String metadataId;
+  final String? driveFileId;
+  final String? localPath;
   final String fileName;
   final DateTime createdAt;
   final int sizeBytes;
@@ -122,6 +135,9 @@ class BackupInfo {
 
   const BackupInfo({
     required this.id,
+    required this.metadataId,
+    this.driveFileId,
+    this.localPath,
     required this.fileName,
     required this.createdAt,
     required this.sizeBytes,
@@ -129,9 +145,27 @@ class BackupInfo {
     required this.provider,
   });
 
+  factory BackupInfo.fromMetadata(BackupMetadata metadata) {
+    return BackupInfo(
+      id: metadata.driveFileId ?? metadata.id,
+      metadataId: metadata.id,
+      driveFileId: metadata.driveFileId,
+      localPath: metadata.localPath,
+      fileName: metadata.fileName,
+      createdAt: metadata.createdAt,
+      sizeBytes: metadata.sizeBytes,
+      logsCount: metadata.flightLogsCount,
+      provider: metadata.location == BackupLocation.local
+          ? BackupProvider.local
+          : BackupProvider.googleDrive,
+    );
+  }
+
   String get formattedSize {
     if (sizeBytes < 1024) return '${sizeBytes}B';
-    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)}KB';
+    if (sizeBytes < 1024 * 1024) {
+      return '${(sizeBytes / 1024).toStringAsFixed(1)}KB';
+    }
     if (sizeBytes < 1024 * 1024 * 1024) {
       return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)}MB';
     }
@@ -148,24 +182,46 @@ class BackupInfo {
 
 /// Backup status information
 class BackupStatus {
+  final BackupStatusType type;
   final String message;
   final DateTime timestamp;
   final bool isSuccess;
 
   const BackupStatus({
+    this.type = BackupStatusType.idle,
     required this.message,
     required this.timestamp,
     required this.isSuccess,
   });
+
+  bool get isError => type == BackupStatusType.error || !isSuccess;
+  bool get isInProgress => type == BackupStatusType.inProgress;
+  bool get hasSucceeded => type == BackupStatusType.success || isSuccess;
 }
 
 /// Backup recommendation
 class BackupRecommendation {
+  final BackupRecommendationType type;
   final String message;
   final bool isUrgent;
 
   const BackupRecommendation({
+    this.type = BackupRecommendationType.none,
     required this.message,
     this.isUrgent = false,
   });
+}
+
+enum BackupStatusType {
+  idle,
+  inProgress,
+  success,
+  error,
+}
+
+enum BackupRecommendationType {
+  none,
+  firstBackup,
+  overdue,
+  recommended,
 }

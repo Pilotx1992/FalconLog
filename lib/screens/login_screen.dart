@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_colors.dart';
 // Use enhanced auth + biometric providers
 import '../services/enhanced_auth_service.dart';
+import '../services/navigation_service.dart';
 import '../providers/enhanced_biometric_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -336,7 +337,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       if (mounted) {
         _maybeEnableBiometric(authService);
         // Navigate to main app
-        Navigator.of(context).pushReplacementNamed('/home');
+        await NavigationService.goToDashboard();
       }
     } catch (e) {
       if (mounted) {
@@ -367,7 +368,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final result = await authService.signInWithGoogle();
       if (result != null && mounted) {
         _maybeEnableBiometric(authService);
-        Navigator.of(context).pushReplacementNamed('/home');
+        await NavigationService.goToDashboard();
       }
     } catch (e) {
       if (mounted) {
@@ -386,7 +387,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final authService = ref.read(enhancedAuthServiceProvider);
       final result = await authService.signInWithBiometric();
       if (result != null && mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        await NavigationService.goToDashboard();
       }
     } catch (e) {
       if (mounted) {

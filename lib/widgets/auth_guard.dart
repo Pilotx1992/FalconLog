@@ -65,29 +65,3 @@ Route<dynamic>? generateAuthProtectedRoute(
     ),
   );
 }
-
-// Auth state provider for checking current user
-class AuthStateHelper {
-  static User? get currentUser => FirebaseAuth.instance.currentUser;
-
-  static bool get isLoggedIn => currentUser != null;
-
-  static String? get userEmail => currentUser?.email;
-
-  static String? get displayName => currentUser?.displayName;
-
-  static String? get userPhoto => currentUser?.photoURL;
-
-  static Future<void> signOut() async {
-    await FirebaseAuth.instance.signOut();
-  }
-
-  // Check if user has verified email
-  static bool get isEmailVerified => currentUser?.emailVerified ?? false;
-
-  // Get user creation time
-  static DateTime? get userCreationTime => currentUser?.metadata.creationTime;
-
-  // Get last sign in time
-  static DateTime? get lastSignInTime => currentUser?.metadata.lastSignInTime;
-}

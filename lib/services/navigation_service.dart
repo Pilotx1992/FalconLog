@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/auth_guard.dart';
+import '../helpers/auth_state_helper.dart';
 
 class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey =

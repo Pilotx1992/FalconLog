@@ -88,6 +88,10 @@ class FlightDataSharingService {
     try {
       // Get app directory
       final directory = await getApplicationDocumentsDirectory();
+
+      // Delete all old export files before creating new one
+      await _deleteOldExportFiles(directory);
+
       final filePath = '${directory.path}/$filename$_fileExtension';
 
       // Create file
@@ -120,6 +124,30 @@ class FlightDataSharingService {
         rethrow;
       } else {
         throw Exception('Failed to create and share file: $e');
+      }
+    }
+  }
+
+  /// Delete all old export files to keep only the latest one
+  static Future<void> _deleteOldExportFiles(Directory directory) async {
+    try {
+      final files = directory.listSync();
+      for (final file in files) {
+        if (file is File && file.path.endsWith(_fileExtension)) {
+          // Check if it's a FalconLog export file
+          final filename = file.path.split(Platform.pathSeparator).last;
+          if (filename.startsWith('FalconLog_Export_')) {
+            await file.delete();
+            if (kDebugMode) {
+              debugPrint('Deleted old export file: $filename');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Don't throw error if deletion fails, just log it
+      if (kDebugMode) {
+        debugPrint('Error deleting old export files: $e');
       }
     }
   }
