@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -23,10 +24,17 @@ import '../utils/backup_constants.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
 import '../utils/pre_restore_snapshot_service.dart';
+import '../utils/merge_restore_transaction.dart';
 import '../utils/replace_restore_transaction.dart';
 import '../utils/restore_dispatch.dart';
 import 'google_drive_service.dart';
 import 'key_manager.dart';
+
+/// Thrown when a backup is cancelled cooperatively between phases.
+class BackupCancelledException implements Exception {}
+
+/// Thrown when a restore is cancelled before the mutating apply phase.
+class RestoreCancelledException implements Exception {}
 
 /// Simplified backup service following AlKhazna's approach
 class BackupService extends ChangeNotifier {
@@ -59,10 +67,16 @@ class BackupService extends ChangeNotifier {
 
   bool _isBackupInProgress = false;
   bool _isRestoreInProgress = false;
+  bool _backupOperationActive = false;
+  bool _cancelRequested = false;
+  bool _restoreMutating = false;
 
   OperationProgress get currentProgress => _currentProgress;
   bool get isBackupInProgress => _isBackupInProgress;
   bool get isRestoreInProgress => _isRestoreInProgress;
+  bool get isBackupOperationActive => _backupOperationActive;
+  bool get isRestoreMutating => _restoreMutating;
+  bool get canCancelRestore => _isRestoreInProgress && !_restoreMutating;
 
   static const String _backupPrefix = 'falconlog_backup_';
 
@@ -91,7 +105,7 @@ class BackupService extends ChangeNotifier {
     bool interactive = true,
     BackupProvider? providerOverride,
   }) async {
-    if (_isBackupInProgress) {
+    if (_backupOperationActive || _isBackupInProgress) {
       if (kDebugMode) {
         print('⚠️ Backup already in progress, skipping...');
       }
@@ -105,7 +119,9 @@ class BackupService extends ChangeNotifier {
       return false;
     }
 
+    _cancelRequested = false;
     _isBackupInProgress = true;
+    _backupOperationActive = true;
 
     try {
       final provider = providerOverride ??
@@ -127,139 +143,240 @@ class BackupService extends ChangeNotifier {
           );
           return false;
       }
+    } on BackupCancelledException {
+      if (!_currentProgress.isCancelled) {
+        _updateProgress(
+          _currentProgress.percentage,
+          BackupStatus.cancelled,
+          'Backup cancelled',
+        );
+      }
+      return false;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Backup failed: $e');
         print('💥 Stack trace: ${StackTrace.current}');
       }
-      _updateProgress(0, BackupStatus.failed, 'Backup failed: ${e.toString()}');
+      if (!_cancelRequested) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Backup failed: ${e.toString()}');
+      }
       return false;
     } finally {
+      _backupOperationActive = false;
       _isBackupInProgress = false;
+      _cancelRequested = false;
+    }
+  }
+
+  void _checkBackupCancelled() {
+    if (_cancelRequested) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_CANCEL_CHECK_THROW');
+      }
+      throw BackupCancelledException();
+    }
+  }
+
+  void _checkRestoreCancelled() {
+    if (_cancelRequested && !_restoreMutating) {
+      if (kDebugMode) {
+        debugPrint('RESTORE_CANCEL_CHECK_THROW');
+      }
+      throw RestoreCancelledException();
+    }
+  }
+
+  Future<void> _deleteUploadedDriveFileAfterCancel(String driveFileId) async {
+    try {
+      final deleted = await _driveService.deleteFile(driveFileId);
+      if (kDebugMode) {
+        debugPrint(
+          'BACKUP_UPLOADED_FILE_DELETED_AFTER_CANCEL id=$driveFileId deleted=$deleted',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_UPLOADED_FILE_DELETE_FAILED_AFTER_CANCEL: $e');
+      }
+    }
+  }
+
+  Future<void> _deleteLocalBackupFileAfterCancel(String localPath) async {
+    try {
+      final file = File(localPath);
+      if (await file.exists()) {
+        await file.delete();
+        if (kDebugMode) {
+          debugPrint(
+            'BACKUP_LOCAL_FILE_DELETED_AFTER_CANCEL path=$localPath',
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_LOCAL_FILE_DELETE_FAILED_AFTER_CANCEL: $e');
+      }
     }
   }
 
   Future<bool> _startGoogleDriveBackup({required bool interactive}) async {
-    _updateProgress(
-        0, BackupStatus.checkingConnectivity, 'Checking connectivity...');
+    String? uploadedDriveFileId;
 
-    final isConnected = await _checkConnectivity(interactive: interactive);
-    if (!isConnected) {
-      _updateProgress(0, BackupStatus.failed, 'No internet connection');
-      return false;
-    }
-
-    _updateProgress(
-        10, BackupStatus.initializingDrive, 'Connecting to Google Drive...');
-    final driveInitialized =
-        await _driveService.initialize(interactive: interactive);
-    if (!driveInitialized) {
+    try {
+      _checkBackupCancelled();
       _updateProgress(
-          0, BackupStatus.failed, 'Failed to connect to Google Drive');
-      return false;
+          0, BackupStatus.checkingConnectivity, 'Checking connectivity...');
+
+      final isConnected = await _checkConnectivity(interactive: interactive);
+      if (!isConnected) {
+        _updateProgress(0, BackupStatus.failed, 'No internet connection');
+        return false;
+      }
+
+      _checkBackupCancelled();
+      _updateProgress(
+          10, BackupStatus.initializingDrive, 'Connecting to Google Drive...');
+      final driveInitialized =
+          await _driveService.initialize(interactive: interactive);
+      if (!driveInitialized) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to connect to Google Drive');
+        return false;
+      }
+
+      final payload = await _prepareEncryptedBackup(
+        interactive: interactive,
+        useDeviceKey: false,
+      );
+      if (payload == null) {
+        return false;
+      }
+
+      _checkBackupCancelled();
+      _updateProgress(
+          70, BackupStatus.uploading, 'Uploading to Google Drive...');
+      final fileName =
+          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      uploadedDriveFileId = await _driveService.uploadFile(
+        fileName: fileName,
+        content: payload.encryptedBytes,
+        mimeType: 'application/json',
+      );
+
+      if (uploadedDriveFileId == null) {
+        _updateProgress(0, BackupStatus.failed, 'Failed to upload backup');
+        return false;
+      }
+
+      _checkBackupCancelled();
+      await _pruneOldBackups(keep: 5);
+
+      _checkBackupCancelled();
+      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
+      await _saveBackupMetadata(
+        backupId: payload.backupId,
+        driveFileId: uploadedDriveFileId,
+        fileName: fileName,
+        originalSize: payload.originalSize,
+        encryptedSize: payload.encryptedBytes.length,
+        flightLogsCount: payload.flightLogsCount,
+        location: BackupLocation.cloud,
+      );
+      await _recordSuccessfulBackup();
+
+      _checkBackupCancelled();
+      _updateProgress(
+          100, BackupStatus.completed, 'Backup completed successfully!');
+      return true;
+    } on BackupCancelledException {
+      if (uploadedDriveFileId != null) {
+        await _deleteUploadedDriveFileAfterCancel(uploadedDriveFileId);
+      }
+      rethrow;
     }
-
-    final payload = await _prepareEncryptedBackup(
-      interactive: interactive,
-      useDeviceKey: false,
-    );
-    if (payload == null) {
-      return false;
-    }
-
-    _updateProgress(70, BackupStatus.uploading, 'Uploading to Google Drive...');
-    final fileName =
-        '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
-    final driveFileId = await _driveService.uploadFile(
-      fileName: fileName,
-      content: payload.encryptedBytes,
-      mimeType: 'application/json',
-    );
-
-    if (driveFileId == null) {
-      _updateProgress(0, BackupStatus.failed, 'Failed to upload backup');
-      return false;
-    }
-
-    await _pruneOldBackups(keep: 5);
-
-    _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-    await _saveBackupMetadata(
-      backupId: payload.backupId,
-      driveFileId: driveFileId,
-      fileName: fileName,
-      originalSize: payload.originalSize,
-      encryptedSize: payload.encryptedBytes.length,
-      flightLogsCount: payload.flightLogsCount,
-      location: BackupLocation.cloud,
-    );
-    await _recordSuccessfulBackup();
-
-    _updateProgress(
-        100, BackupStatus.completed, 'Backup completed successfully!');
-    return true;
   }
 
   Future<bool> _startLocalBackup({required bool interactive}) async {
-    _updateProgress(
-        10, BackupStatus.creatingBackup, 'Preparing local backup...');
+    String? writtenLocalPath;
 
-    final payload = await _prepareEncryptedBackup(
-      interactive: interactive,
-      useDeviceKey: true,
-    );
-    if (payload == null) {
-      return false;
+    try {
+      _checkBackupCancelled();
+      _updateProgress(
+          10, BackupStatus.creatingBackup, 'Preparing local backup...');
+
+      final payload = await _prepareEncryptedBackup(
+        interactive: interactive,
+        useDeviceKey: true,
+      );
+      if (payload == null) {
+        return false;
+      }
+
+      _checkBackupCancelled();
+      _updateProgress(70, BackupStatus.uploading, 'Saving backup on device...');
+      final fileName =
+          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      writtenLocalPath = await _writeLocalBackupFile(
+        fileName: fileName,
+        content: payload.encryptedBytes,
+      );
+      if (writtenLocalPath == null) {
+        _updateProgress(0, BackupStatus.failed, 'Failed to save local backup');
+        return false;
+      }
+
+      _checkBackupCancelled();
+      await _pruneLocalBackups(keep: BackupConstants.defaultKeepCount);
+
+      _checkBackupCancelled();
+      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
+      await _saveBackupMetadata(
+        backupId: payload.backupId,
+        driveFileId: null,
+        localPath: writtenLocalPath,
+        fileName: fileName,
+        originalSize: payload.originalSize,
+        encryptedSize: payload.encryptedBytes.length,
+        flightLogsCount: payload.flightLogsCount,
+        location: BackupLocation.local,
+      );
+      await _recordSuccessfulBackup();
+
+      _checkBackupCancelled();
+      _updateProgress(
+          100, BackupStatus.completed, 'Local backup completed successfully!');
+      return true;
+    } on BackupCancelledException {
+      if (writtenLocalPath != null) {
+        await _deleteLocalBackupFileAfterCancel(writtenLocalPath);
+      }
+      rethrow;
     }
-
-    _updateProgress(70, BackupStatus.uploading, 'Saving backup on device...');
-    final fileName =
-        '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
-    final localPath = await _writeLocalBackupFile(
-      fileName: fileName,
-      content: payload.encryptedBytes,
-    );
-    if (localPath == null) {
-      _updateProgress(0, BackupStatus.failed, 'Failed to save local backup');
-      return false;
-    }
-
-    await _pruneLocalBackups(keep: BackupConstants.defaultKeepCount);
-
-    _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-    await _saveBackupMetadata(
-      backupId: payload.backupId,
-      driveFileId: null,
-      localPath: localPath,
-      fileName: fileName,
-      originalSize: payload.originalSize,
-      encryptedSize: payload.encryptedBytes.length,
-      flightLogsCount: payload.flightLogsCount,
-      location: BackupLocation.local,
-    );
-    await _recordSuccessfulBackup();
-
-    _updateProgress(
-        100, BackupStatus.completed, 'Local backup completed successfully!');
-    return true;
   }
 
   Future<_EncryptedBackupPayload?> _prepareEncryptedBackup({
     required bool interactive,
     required bool useDeviceKey,
   }) async {
+    _checkBackupCancelled();
     _updateProgress(20, BackupStatus.gettingKey, 'Preparing encryption...');
 
     final backupId = const Uuid().v4();
 
+    _checkBackupCancelled();
     _updateProgress(30, BackupStatus.creatingBackup, 'Preparing your data...');
     final databaseBytes = await _createDatabaseBackup(backupId: backupId);
     if (databaseBytes == null) {
+      if (_cancelRequested) {
+        throw BackupCancelledException();
+      }
       _updateProgress(
           0, BackupStatus.failed, 'Failed to create database backup');
       return null;
     }
 
+    _checkBackupCancelled();
     _updateProgress(45, BackupStatus.encrypting, 'Getting encryption key...');
     final masterKey = useDeviceKey
         ? await _keyManager.getOrCreateDeviceMasterKey()
@@ -267,10 +384,14 @@ class BackupService extends ChangeNotifier {
             interactive: interactive,
           );
     if (masterKey == null) {
+      if (_cancelRequested) {
+        throw BackupCancelledException();
+      }
       _updateProgress(0, BackupStatus.failed, 'Failed to get encryption key');
       return null;
     }
 
+    _checkBackupCancelled();
     _updateProgress(50, BackupStatus.encrypting, 'Encrypting your data...');
     final encryptedBackup = await _encryptionService.encryptDatabase(
       databaseBytes: databaseBytes,
@@ -360,6 +481,8 @@ class BackupService extends ChangeNotifier {
     }
 
     _isRestoreInProgress = true;
+    _restoreMutating = false;
+    _cancelRequested = false;
 
     try {
       final resolved = target ?? await resolveDefaultRestoreTarget();
@@ -392,6 +515,14 @@ class BackupService extends ChangeNotifier {
                 'Unsupported backup provider.',
           );
       }
+    } on RestoreCancelledException {
+      _updateProgress(
+        _currentProgress.percentage,
+        null,
+        'Restore cancelled',
+        RestoreStatus.cancelled,
+      );
+      return RestoreResult.failure(error: 'Restore cancelled');
     } catch (e) {
       if (kDebugMode) {
         print('💥 Restore failed: $e');
@@ -400,6 +531,8 @@ class BackupService extends ChangeNotifier {
       return RestoreResult.failure(error: 'Restore failed: ${e.toString()}');
     } finally {
       _isRestoreInProgress = false;
+      _restoreMutating = false;
+      _cancelRequested = false;
     }
   }
 
@@ -416,6 +549,7 @@ class BackupService extends ChangeNotifier {
     required RestoreMode mode,
     required bool interactive,
   }) async {
+    _checkRestoreCancelled();
     _updateProgress(
       0,
       null,
@@ -486,6 +620,7 @@ class BackupService extends ChangeNotifier {
     BackupInfo target, {
     required RestoreMode mode,
   }) async {
+    _checkRestoreCancelled();
     _updateProgress(
       10,
       null,
@@ -604,6 +739,7 @@ class BackupService extends ChangeNotifier {
     required String sourceDevice,
     required String backupTargetId,
   }) async {
+    _checkRestoreCancelled();
     _updateProgress(
       50,
       null,
@@ -623,14 +759,15 @@ class BackupService extends ChangeNotifier {
       );
     }
 
-    if (!_verifyBackupIntegrity(encryptedBackup)) {
+    if (!_validateEncryptedBackupEnvelope(encryptedBackup)) {
       _updateProgress(0, null, 'Backup corrupted', RestoreStatus.failed);
       return RestoreResult.failure(
         error:
-            'Backup failed integrity check. Please try another backup from Recent Backups.',
+            'Backup envelope is invalid or incomplete. Please try another backup from Recent Backups.',
       );
     }
 
+    _checkRestoreCancelled();
     _updateProgress(
       60,
       null,
@@ -654,6 +791,7 @@ class BackupService extends ChangeNotifier {
       );
     }
 
+    _checkRestoreCancelled();
     _updateProgress(70, null, 'Decrypting backup...', RestoreStatus.decrypting);
 
     final databaseBytes = await _encryptionService.decryptDatabase(
@@ -675,7 +813,14 @@ class BackupService extends ChangeNotifier {
       return RestoreResult.failure(error: payloadError);
     }
 
-    _updateProgress(85, null, 'Restoring your data...', RestoreStatus.applying);
+    _checkRestoreCancelled();
+    _updateProgress(
+      85,
+      null,
+      'Restoring your data... Do not close the app.',
+      RestoreStatus.applying,
+    );
+    _restoreMutating = true;
     final restoreResult = await _restoreDatabase(
       databaseBytes,
       mode: mode,
@@ -716,12 +861,10 @@ class BackupService extends ChangeNotifier {
   }
 
   /// Latest backup for [provider] or the currently selected provider.
-  Future<BackupMetadata?> findExistingBackup({
-    BackupProvider? provider,
-  }) async {
-    final selected =
+  Future<BackupMetadata?> findExistingBackup({BackupProvider? provider}) async {
+    final resolved =
         provider ?? await BackupProviderPreferences.getSelectedProvider();
-    switch (selected) {
+    switch (resolved) {
       case BackupProvider.local:
         return _findLatestLocalBackupMetadata();
       case BackupProvider.googleDrive:
@@ -761,9 +904,36 @@ class BackupService extends ChangeNotifier {
         return null;
       }
 
-      final backupFile = backupFiles.first;
+      _sortDriveFilesNewestFirst(backupFiles);
+      final storedByDriveId = await _loadStoredMetadataByDriveFileId();
 
-      // Get detailed file info to ensure we have the correct size
+      // Prefer the newest Drive file that has app-confirmed metadata (successful
+      // backup). Orphan uploads from a cancelled backup are ignored here.
+      drive.File? backupFile;
+      BackupMetadata? stored;
+      for (final file in backupFiles) {
+        if (file.id == null || file.name == null) continue;
+        final entry = storedByDriveId[file.id!];
+        if (entry != null) {
+          backupFile = file;
+          stored = entry;
+          break;
+        }
+      }
+
+      backupFile ??= backupFiles.firstWhere(
+        (f) => f.id != null && f.name != null,
+        orElse: () => backupFiles.first,
+      );
+      stored ??= storedByDriveId[backupFile.id!];
+
+      if (stored == null && kDebugMode) {
+        debugPrint(
+          'BACKUP_FIND_EXISTING_USING_DRIVE_FILE_WITHOUT_LOCAL_METADATA '
+          'id=${backupFile.id}',
+        );
+      }
+
       final detailedFileInfo = await _driveService.getFileInfo(backupFile.id!);
       final fileSize =
           int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
@@ -775,18 +945,19 @@ class BackupService extends ChangeNotifier {
       }
 
       return BackupMetadata(
-        id: backupFile.id!,
+        id: stored?.id ?? backupFile.id!,
         fileName: backupFile.name!,
         location: BackupLocation.cloud,
-        createdAt: backupFile.modifiedTime ?? DateTime.now(),
+        createdAt:
+            stored?.createdAt ?? backupFile.modifiedTime ?? DateTime.now(),
         sizeBytes: fileSize,
-        flightLogsCount: 0,
-        checksum: 'unknown',
+        flightLogsCount: stored?.flightLogsCount ?? 0,
+        checksum: stored?.checksum ?? 'unknown',
         driveFileId: backupFile.id!,
         isEncrypted: true,
         encryptionAlgorithm: 'AES-256-GCM',
-        health: BackupHealth.healthy,
-        deviceId: 'Unknown Device',
+        health: stored?.health ?? BackupHealth.healthy,
+        deviceId: stored?.deviceId ?? 'Unknown Device',
       );
     } catch (e) {
       if (kDebugMode) {
@@ -806,23 +977,27 @@ class BackupService extends ChangeNotifier {
       final backupFiles = await _driveService.listFiles(
           query: "name contains '$_backupPrefix'");
 
+      _sortDriveFilesNewestFirst(backupFiles);
+      final storedByDriveId = await _loadStoredMetadataByDriveFileId();
+
       return backupFiles
           .where((file) => file.id != null && file.name != null)
           .map((file) {
+        final stored = storedByDriveId[file.id!];
         final fileSize = int.tryParse(file.size ?? '0') ?? 0;
         return BackupMetadata(
-          id: file.id!,
+          id: stored?.id ?? file.id!,
           fileName: file.name!,
           location: BackupLocation.cloud,
           createdAt: file.modifiedTime ?? file.createdTime ?? DateTime.now(),
           sizeBytes: fileSize,
-          flightLogsCount: 0,
-          checksum: 'unknown',
+          flightLogsCount: stored?.flightLogsCount ?? 0,
+          checksum: stored?.checksum ?? 'unknown',
           driveFileId: file.id!,
           isEncrypted: true,
           encryptionAlgorithm: 'AES-256-GCM',
-          health: BackupHealth.unverified,
-          deviceId: 'Unknown Device',
+          health: stored?.health ?? BackupHealth.unverified,
+          deviceId: stored?.deviceId ?? 'Unknown Device',
         );
       }).toList();
     } catch (e) {
@@ -881,6 +1056,27 @@ class BackupService extends ChangeNotifier {
     );
   }
 
+  MergeRestoreTransaction _createMergeTransaction() {
+    final snapshotService = _preRestoreSnapshotService;
+    return MergeRestoreTransaction(
+      createSnapshot: () async {
+        final payload = await _buildBackupPayload(backupId: const Uuid().v4());
+        if (payload == null) {
+          return (
+            path: null,
+            error: 'Could not create safety snapshot before merge restore.',
+          );
+        }
+        return snapshotService.savePayload(payload);
+      },
+      applyBackupPayload: (data) => BackupPayloadCodec.applyPayload(
+        backupData: data,
+        mode: RestoreMode.merge,
+      ),
+      rollbackFromSnapshot: _rollbackFromPreRestoreSnapshot,
+    );
+  }
+
   Future<({bool ok, String? error})> _rollbackFromPreRestoreSnapshot(
     String snapshotPath,
     int expectedFlightCount,
@@ -917,7 +1113,7 @@ class BackupService extends ChangeNotifier {
   static Future<PendingRestoreRecoveryResult>
       recoverPendingReplaceRestoreIfNeeded() async {
     final service = BackupService();
-    return ReplaceRestoreTransaction.recoverPendingOnStartup(
+    return MergeRestoreTransaction.recoverPendingOnStartup(
       rollbackFromSnapshot: service._rollbackFromPreRestoreSnapshot,
     );
   }
@@ -972,27 +1168,24 @@ class BackupService extends ChangeNotifier {
         );
       }
 
-      final applyResult = await BackupPayloadCodec.applyPayload(
+      final txResult = await _createMergeTransaction().execute(
         backupData: backupData,
-        mode: mode,
+        backupTargetId: targetId,
       );
 
-      if (!applyResult.success) {
-        return RestoreResult.failure(
-          error: applyResult.error ?? 'Failed to restore database.',
-        );
+      if (!txResult.success) {
+        return RestoreResult.failure(error: txResult.error);
       }
 
       if (kDebugMode) {
         print(
-          '✅ Restored ${applyResult.flightLogsRestored} flights, '
-          '${applyResult.aircraftTypesRestored} aircraft types, '
-          '${applyResult.settingsRestored} settings',
+          '✅ Merge restored ${txResult.flightLogsRestored} flights '
+          '(rolledBack=${txResult.rolledBack})',
         );
       }
 
       return RestoreResult.success(
-        flightLogsRestored: applyResult.flightLogsRestored,
+        flightLogsRestored: txResult.flightLogsRestored,
         backupDate: DateTime.now(),
         sourceDevice: 'Unknown Device',
       );
@@ -1003,6 +1196,25 @@ class BackupService extends ChangeNotifier {
       return RestoreResult.failure(
         error: 'Failed to restore database: ${e.toString()}',
       );
+    }
+  }
+
+  /// Hive metadata keyed by Google Drive file id (saved at backup time).
+  Future<Map<String, BackupMetadata>> _loadStoredMetadataByDriveFileId() async {
+    try {
+      final box = await HiveInitializationService.openBox<BackupMetadata>(
+        'backupMetadata',
+      );
+      final byDriveId = <String, BackupMetadata>{};
+      for (final metadata in box.values) {
+        final driveId = metadata.driveFileId;
+        if (driveId != null && driveId.isNotEmpty) {
+          byDriveId[driveId] = metadata;
+        }
+      }
+      return byDriveId;
+    } catch (_) {
+      return {};
     }
   }
 
@@ -1017,6 +1229,13 @@ class BackupService extends ChangeNotifier {
     String? driveFileId,
     String? localPath,
   }) async {
+    if (_cancelRequested) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_METADATA_SAVE_BLOCKED_BY_CANCEL');
+      }
+      throw BackupCancelledException();
+    }
+    _checkBackupCancelled();
     try {
       final currentUser = _driveService.currentUser;
       final metadata = BackupMetadata(
@@ -1039,6 +1258,7 @@ class BackupService extends ChangeNotifier {
           await HiveInitializationService.openBox<BackupMetadata>(
         'backupMetadata',
       );
+      _checkBackupCancelled();
       await metadataBox.put(backupId, metadata);
 
       if (kDebugMode) {
@@ -1050,6 +1270,8 @@ class BackupService extends ChangeNotifier {
         print('   Encrypted size: $encryptedSize bytes');
         print('   Flight logs: $flightLogsCount');
       }
+    } on BackupCancelledException {
+      rethrow;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error saving backup metadata: $e');
@@ -1115,6 +1337,13 @@ class BackupService extends ChangeNotifier {
   }
 
   Future<void> _recordSuccessfulBackup() async {
+    if (_cancelRequested) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_SUCCESS_RECORD_SKIPPED_BY_CANCEL');
+      }
+      throw BackupCancelledException();
+    }
+    _checkBackupCancelled();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
       BackupConstants.settingsKeys['last_backup_time']!,
@@ -1126,6 +1355,15 @@ class BackupService extends ChangeNotifier {
   void _updateProgress(
       int percentage, BackupStatus? backupStatus, String action,
       [RestoreStatus? restoreStatus]) {
+    if (_cancelRequested &&
+        _isBackupInProgress &&
+        backupStatus == BackupStatus.completed) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_COMPLETED_PROGRESS_SKIPPED_BY_CANCEL');
+      }
+      return;
+    }
+
     _currentProgress = OperationProgress(
       percentage: percentage,
       backupStatus: backupStatus,
@@ -1135,19 +1373,50 @@ class BackupService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cancel current operation
+  /// Request cooperative cancellation of the active backup/restore.
   Future<void> cancelCurrentOperation() async {
+    if (!_isBackupInProgress && !_isRestoreInProgress) {
+      return;
+    }
+
+    _cancelRequested = true;
+
     if (_isBackupInProgress) {
-      _updateProgress(_currentProgress.percentage, BackupStatus.cancelled,
-          'Backup cancelled');
-      _isBackupInProgress = false;
+      if (kDebugMode) {
+        debugPrint('BACKUP_CANCEL_REQUESTED');
+      }
+      _updateProgress(
+        _currentProgress.percentage,
+        BackupStatus.cancelled,
+        'Backup cancelled',
+      );
     }
 
     if (_isRestoreInProgress) {
-      _updateProgress(_currentProgress.percentage, null, 'Restore cancelled',
-          RestoreStatus.cancelled);
-      _isRestoreInProgress = false;
+      if (_restoreMutating) {
+        if (kDebugMode) {
+          debugPrint('RESTORE_CANCEL_IGNORED_DURING_APPLY');
+        }
+        return;
+      }
+      _updateProgress(
+        _currentProgress.percentage,
+        null,
+        'Restore cancelled',
+        RestoreStatus.cancelled,
+      );
     }
+  }
+
+  static void _sortDriveFilesNewestFirst(List<drive.File> files) {
+    files.sort((a, b) {
+      final aTime = a.modifiedTime ?? a.createdTime;
+      final bTime = b.modifiedTime ?? b.createdTime;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
   }
 
   /// Get available storage in Google Drive
@@ -1178,10 +1447,9 @@ class BackupService extends ChangeNotifier {
   /// Get current user
   dynamic get currentUser => _driveService.currentUser;
 
-  /// Verify backup file integrity
-  bool _verifyBackupIntegrity(Map<String, dynamic> encryptedBackup) {
+  /// Validates encrypted backup JSON envelope shape (not cryptographic integrity).
+  bool _validateEncryptedBackupEnvelope(Map<String, dynamic> encryptedBackup) {
     try {
-      // Check required fields
       if (!encryptedBackup.containsKey('encrypted') ||
           !encryptedBackup.containsKey('version') ||
           !encryptedBackup.containsKey('backup_id') ||
@@ -1189,12 +1457,11 @@ class BackupService extends ChangeNotifier {
           !encryptedBackup.containsKey('iv') ||
           !encryptedBackup.containsKey('tag')) {
         if (kDebugMode) {
-          print('❌ Missing required backup fields');
+          print('❌ Missing required backup envelope fields');
         }
         return false;
       }
 
-      // Verify encryption flag
       if (encryptedBackup['encrypted'] != true) {
         if (kDebugMode) {
           print('❌ Backup is not marked as encrypted');
@@ -1202,23 +1469,22 @@ class BackupService extends ChangeNotifier {
         return false;
       }
 
-      // Verify version compatibility
       final version = encryptedBackup['version'] as String?;
       if (version == null || version.isEmpty) {
         if (kDebugMode) {
-          print('❌ Invalid backup version');
+          print('❌ Invalid backup version in envelope');
         }
         return false;
       }
 
       if (kDebugMode) {
-        print('✅ Backup integrity verified (version: $version)');
+        print('✅ Backup envelope validated (version: $version)');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error verifying backup integrity: $e');
+        print('❌ Error validating backup envelope: $e');
       }
       return false;
     }

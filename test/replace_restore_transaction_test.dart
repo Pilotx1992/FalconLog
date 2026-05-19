@@ -14,7 +14,8 @@ void main() {
   });
 
   group('ReplaceRestoreTransaction', () {
-    test('snapshot encryption failure aborts before journal and apply', () async {
+    test('snapshot encryption failure aborts before journal and apply',
+        () async {
       var applyCalled = false;
 
       final tx = ReplaceRestoreTransaction(
@@ -40,7 +41,8 @@ void main() {
       expect(await RestoreJournal.read(), isNull);
     });
 
-    test('apply failure after clear triggers rollback and restores original flights',
+    test(
+        'apply failure after clear triggers rollback and restores original flights',
         () async {
       var dbState = <String, String>{'flight-a': 'original'};
       const snapshotPath = '/fake/snapshot.pre_restore.crypt14';
@@ -135,6 +137,29 @@ void main() {
 
       expect(result.success, isTrue);
       expect(await RestoreJournal.read(), isNull);
+    });
+
+    test('failed rollback keeps journal for startup recovery', () async {
+      const snapshotPath = '/snap-fail';
+
+      final tx = ReplaceRestoreTransaction(
+        createSnapshot: () async => (path: snapshotPath, error: null),
+        applyBackupPayload: (_) async =>
+            BackupRestoreApplyResult.failure('apply failed'),
+        rollbackFromSnapshot: (_, __) async =>
+            (ok: false, error: 'rollback failed'),
+      );
+
+      final result = await tx.execute(
+        backupData: {'flight_logs': {}},
+        backupTargetId: 'backup-fail',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.rolledBack, isFalse);
+      final journal = await RestoreJournal.read();
+      expect(journal, isNotNull);
+      expect(journal!.snapshotPath, snapshotPath);
     });
   });
 

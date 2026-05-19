@@ -83,8 +83,7 @@ typedef RollbackFromSnapshotFn = Future<({bool ok, String? error})> Function(
 /// Journal-backed Replace restore with automatic rollback on failure.
 class ReplaceRestoreTransaction {
   ReplaceRestoreTransaction({
-    required Future<({String? path, String? error})> Function()
-        createSnapshot,
+    required Future<({String? path, String? error})> Function() createSnapshot,
     required ApplyPayloadFn applyBackupPayload,
     required RollbackFromSnapshotFn rollbackFromSnapshot,
     Future<int> Function()? countFlights,
@@ -105,8 +104,7 @@ class ReplaceRestoreTransaction {
     return Hive.box<FlightLog>('flightLogsBox').length;
   }
 
-  /// Replace restore: snapshot → journal → apply → verify → clear journal.
-  /// On any apply/verify failure, rolls back from snapshot before returning.
+  /// Replace restore: snapshot → journal → apply → commit marker → clear journal.
   Future<ReplaceRestoreTransactionResult> execute({
     required Map<String, dynamic> backupData,
     required String backupTargetId,
@@ -129,10 +127,22 @@ class ReplaceRestoreTransaction {
         backupTargetId: backupTargetId,
         createdAtMs: DateTime.now().millisecondsSinceEpoch,
         originalFlightCount: originalFlightCount,
+        phase: RestoreJournalPhase.started,
       ),
     );
 
     try {
+      await RestoreJournal.write(
+        RestoreJournalEntry(
+          snapshotPath: snapshotPath,
+          restoreMode: RestoreMode.replace.name,
+          backupTargetId: backupTargetId,
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+          originalFlightCount: originalFlightCount,
+          phase: RestoreJournalPhase.applying,
+        ),
+      );
+
       BackupRestoreApplyResult applyResult;
       try {
         applyResult = await _applyBackupPayload(backupData);
@@ -150,7 +160,18 @@ class ReplaceRestoreTransaction {
         );
       }
 
+      await RestoreJournal.write(
+        RestoreJournalEntry(
+          snapshotPath: snapshotPath,
+          restoreMode: RestoreMode.replace.name,
+          backupTargetId: backupTargetId,
+          createdAtMs: DateTime.now().millisecondsSinceEpoch,
+          originalFlightCount: originalFlightCount,
+          phase: RestoreJournalPhase.committed,
+        ),
+      );
       await RestoreJournal.clear();
+
       return ReplaceRestoreTransactionResult.success(
         flightLogsRestored: applyResult.flightLogsRestored,
         aircraftTypesRestored: applyResult.aircraftTypesRestored,
@@ -174,8 +195,10 @@ class ReplaceRestoreTransaction {
       snapshotPath,
       originalFlightCount,
     );
-    await RestoreJournal.clear();
     final rolledBack = rollback.ok;
+    if (rolledBack) {
+      await RestoreJournal.clear();
+    }
     return ReplaceRestoreTransactionResult.failure(
       error: rolledBack
           ? '$reason Your previous data was restored.'
@@ -185,7 +208,7 @@ class ReplaceRestoreTransaction {
     );
   }
 
-  /// If a journal exists from a crashed/interrupted Replace, roll back on startup.
+  /// If a journal exists from a crashed/interrupted restore, recover safely.
   static Future<PendingRestoreRecoveryResult> recoverPendingOnStartup({
     required RollbackFromSnapshotFn rollbackFromSnapshot,
   }) async {
@@ -194,8 +217,18 @@ class ReplaceRestoreTransaction {
       return PendingRestoreRecoveryResult.none;
     }
 
+    if (journal.phase == RestoreJournalPhase.committed) {
+      await RestoreJournal.clear();
+      developer.log(
+        '[RestoreJournal] Cleared committed journal for backup ${journal.backupTargetId}.',
+        name: 'ReplaceRestoreTransaction',
+      );
+      return PendingRestoreRecoveryResult.none;
+    }
+
     developer.log(
-      '[RestoreJournal] Pending Replace detected for backup ${journal.backupTargetId}; rolling back.',
+      '[RestoreJournal] Pending ${journal.restoreMode} (${journal.phase.name}) '
+      'for backup ${journal.backupTargetId}; rolling back.',
       name: 'ReplaceRestoreTransaction',
     );
 
@@ -203,9 +236,9 @@ class ReplaceRestoreTransaction {
       journal.snapshotPath,
       journal.originalFlightCount,
     );
-    await RestoreJournal.clear();
 
     if (rollback.ok) {
+      await RestoreJournal.clear();
       final msg =
           'Recovered from an interrupted restore. Your previous data was restored.';
       if (kDebugMode) {
