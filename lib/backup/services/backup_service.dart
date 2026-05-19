@@ -220,8 +220,47 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  Future<bool> _deleteBackupMetadataAfterCancel(String backupId) async {
+    try {
+      final box = await HiveInitializationService.openBox<BackupMetadata>(
+        'backupMetadata',
+      );
+      if (!box.containsKey(backupId)) {
+        return false;
+      }
+      await box.delete(backupId);
+      if (kDebugMode) {
+        debugPrint('BACKUP_METADATA_DELETED_AFTER_CANCEL id=$backupId');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_METADATA_DELETE_FAILED_AFTER_CANCEL: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Reverts partial backup artifacts when a cooperative cancel aborts the flow.
+  Future<void> _rollbackCancelledBackupArtifacts({
+    String? metadataBackupId,
+    String? uploadedDriveFileId,
+    String? writtenLocalPath,
+  }) async {
+    if (uploadedDriveFileId != null) {
+      await _deleteUploadedDriveFileAfterCancel(uploadedDriveFileId);
+    }
+    if (writtenLocalPath != null) {
+      await _deleteLocalBackupFileAfterCancel(writtenLocalPath);
+    }
+    if (metadataBackupId != null) {
+      await _deleteBackupMetadataAfterCancel(metadataBackupId);
+    }
+  }
+
   Future<bool> _startGoogleDriveBackup({required bool interactive}) async {
     String? uploadedDriveFileId;
+    String? savedMetadataBackupId;
 
     try {
       _checkBackupCancelled();
@@ -274,7 +313,7 @@ class BackupService extends ChangeNotifier {
 
       _checkBackupCancelled();
       _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-      await _saveBackupMetadata(
+      savedMetadataBackupId = await _saveBackupMetadata(
         backupId: payload.backupId,
         driveFileId: uploadedDriveFileId,
         fileName: fileName,
@@ -283,6 +322,9 @@ class BackupService extends ChangeNotifier {
         flightLogsCount: payload.flightLogsCount,
         location: BackupLocation.cloud,
       );
+      if (savedMetadataBackupId == null) {
+        return false;
+      }
       await _recordSuccessfulBackup();
 
       _checkBackupCancelled();
@@ -290,15 +332,17 @@ class BackupService extends ChangeNotifier {
           100, BackupStatus.completed, 'Backup completed successfully!');
       return true;
     } on BackupCancelledException {
-      if (uploadedDriveFileId != null) {
-        await _deleteUploadedDriveFileAfterCancel(uploadedDriveFileId);
-      }
+      await _rollbackCancelledBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        uploadedDriveFileId: uploadedDriveFileId,
+      );
       rethrow;
     }
   }
 
   Future<bool> _startLocalBackup({required bool interactive}) async {
     String? writtenLocalPath;
+    String? savedMetadataBackupId;
 
     try {
       _checkBackupCancelled();
@@ -331,7 +375,7 @@ class BackupService extends ChangeNotifier {
 
       _checkBackupCancelled();
       _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-      await _saveBackupMetadata(
+      savedMetadataBackupId = await _saveBackupMetadata(
         backupId: payload.backupId,
         driveFileId: null,
         localPath: writtenLocalPath,
@@ -341,6 +385,9 @@ class BackupService extends ChangeNotifier {
         flightLogsCount: payload.flightLogsCount,
         location: BackupLocation.local,
       );
+      if (savedMetadataBackupId == null) {
+        return false;
+      }
       await _recordSuccessfulBackup();
 
       _checkBackupCancelled();
@@ -348,9 +395,10 @@ class BackupService extends ChangeNotifier {
           100, BackupStatus.completed, 'Local backup completed successfully!');
       return true;
     } on BackupCancelledException {
-      if (writtenLocalPath != null) {
-        await _deleteLocalBackupFileAfterCancel(writtenLocalPath);
-      }
+      await _rollbackCancelledBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        writtenLocalPath: writtenLocalPath,
+      );
       rethrow;
     }
   }
@@ -879,11 +927,19 @@ class BackupService extends ChangeNotifier {
       final box = await HiveInitializationService.openBox<BackupMetadata>(
         'backupMetadata',
       );
-      final localEntries = box.values
-          .where((entry) => entry.location == BackupLocation.local)
-          .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return localEntries.isEmpty ? null : localEntries.first;
+      BackupMetadata? latest;
+      for (final entry in box.values) {
+        if (entry.location != BackupLocation.local) continue;
+
+        final path = entry.localPath;
+        if (path == null || path.isEmpty) continue;
+        if (!await File(path).exists()) continue;
+
+        if (latest == null || entry.createdAt.isAfter(latest.createdAt)) {
+          latest = entry;
+        }
+      }
+      return latest;
     } catch (_) {
       return null;
     }
@@ -1218,8 +1274,8 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  /// Save backup metadata
-  Future<void> _saveBackupMetadata({
+  /// Save backup metadata. Returns [backupId] when persisted, null on failure.
+  Future<String?> _saveBackupMetadata({
     required String backupId,
     required String fileName,
     required int originalSize,
@@ -1270,12 +1326,14 @@ class BackupService extends ChangeNotifier {
         print('   Encrypted size: $encryptedSize bytes');
         print('   Flight logs: $flightLogsCount');
       }
+      return backupId;
     } on BackupCancelledException {
       rethrow;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error saving backup metadata: $e');
       }
+      return null;
     }
   }
 
@@ -1372,6 +1430,42 @@ class BackupService extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  @visibleForTesting
+  Future<void> rollbackCancelledBackupArtifactsForTesting({
+    String? metadataBackupId,
+    String? uploadedDriveFileId,
+    String? writtenLocalPath,
+  }) =>
+      _rollbackCancelledBackupArtifacts(
+        metadataBackupId: metadataBackupId,
+        uploadedDriveFileId: uploadedDriveFileId,
+        writtenLocalPath: writtenLocalPath,
+      );
+
+  @visibleForTesting
+  Future<bool> deleteBackupMetadataForTesting(String backupId) =>
+      _deleteBackupMetadataAfterCancel(backupId);
+
+  @visibleForTesting
+  Future<void> recordSuccessfulBackupForTesting() => _recordSuccessfulBackup();
+
+  @visibleForTesting
+  void setCancelRequestedForTesting(bool value) => _cancelRequested = value;
+
+  @visibleForTesting
+  void setBackupInProgressForTesting(bool value) {
+    _isBackupInProgress = value;
+    _backupOperationActive = value;
+  }
+
+  @visibleForTesting
+  void updateProgressForTesting(
+    int percentage,
+    BackupStatus backupStatus,
+    String action,
+  ) =>
+      _updateProgress(percentage, backupStatus, action);
 
   /// Request cooperative cancellation of the active backup/restore.
   Future<void> cancelCurrentOperation() async {
