@@ -86,8 +86,11 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  /// Start backup using the persisted provider selection.
-  Future<bool> startBackup({bool interactive = true}) async {
+  /// Start backup using [providerOverride] or the persisted provider selection.
+  Future<bool> startBackup({
+    bool interactive = true,
+    BackupProvider? providerOverride,
+  }) async {
     if (_isBackupInProgress) {
       if (kDebugMode) {
         print('⚠️ Backup already in progress, skipping...');
@@ -105,7 +108,8 @@ class BackupService extends ChangeNotifier {
     _isBackupInProgress = true;
 
     try {
-      final provider = await BackupProviderPreferences.getSelectedProvider();
+      final provider = providerOverride ??
+          await BackupProviderPreferences.getSelectedProvider();
       if (kDebugMode) {
         print('🐛 DEBUG: Backup started with provider: ${provider.name}');
       }
@@ -197,7 +201,8 @@ class BackupService extends ChangeNotifier {
   }
 
   Future<bool> _startLocalBackup({required bool interactive}) async {
-    _updateProgress(10, BackupStatus.creatingBackup, 'Preparing local backup...');
+    _updateProgress(
+        10, BackupStatus.creatingBackup, 'Preparing local backup...');
 
     final payload = await _prepareEncryptedBackup(
       interactive: interactive,
@@ -250,7 +255,8 @@ class BackupService extends ChangeNotifier {
     _updateProgress(30, BackupStatus.creatingBackup, 'Preparing your data...');
     final databaseBytes = await _createDatabaseBackup(backupId: backupId);
     if (databaseBytes == null) {
-      _updateProgress(0, BackupStatus.failed, 'Failed to create database backup');
+      _updateProgress(
+          0, BackupStatus.failed, 'Failed to create database backup');
       return null;
     }
 
@@ -397,9 +403,11 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  /// Latest backup for the active provider as a [BackupInfo].
-  Future<BackupInfo?> resolveDefaultRestoreTarget() async {
-    final metadata = await findExistingBackup();
+  /// Latest backup for [provider] or the active provider as a [BackupInfo].
+  Future<BackupInfo?> resolveDefaultRestoreTarget({
+    BackupProvider? provider,
+  }) async {
+    final metadata = await findExistingBackup(provider: provider);
     return metadata == null ? null : BackupInfo.fromMetadata(metadata);
   }
 
@@ -508,8 +516,7 @@ class BackupService extends ChangeNotifier {
         RestoreStatus.failed,
       );
       return RestoreResult.failure(
-        error:
-            'Local backup file not found at: $localPath',
+        error: 'Local backup file not found at: $localPath',
       );
     }
 
@@ -638,7 +645,8 @@ class BackupService extends ChangeNotifier {
           );
 
     if (masterKey == null) {
-      _updateProgress(0, null, 'Failed to get encryption key', RestoreStatus.failed);
+      _updateProgress(
+          0, null, 'Failed to get encryption key', RestoreStatus.failed);
       return RestoreResult.failure(
         error: useDeviceKey
             ? 'Failed to get device encryption key. Restore this backup on the same device.'
@@ -707,10 +715,13 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  /// Latest backup for the currently selected provider.
-  Future<BackupMetadata?> findExistingBackup() async {
-    final provider = await BackupProviderPreferences.getSelectedProvider();
-    switch (provider) {
+  /// Latest backup for [provider] or the currently selected provider.
+  Future<BackupMetadata?> findExistingBackup({
+    BackupProvider? provider,
+  }) async {
+    final selected =
+        provider ?? await BackupProviderPreferences.getSelectedProvider();
+    switch (selected) {
       case BackupProvider.local:
         return _findLatestLocalBackupMetadata();
       case BackupProvider.googleDrive:
@@ -1212,7 +1223,6 @@ class BackupService extends ChangeNotifier {
       return false;
     }
   }
-
 }
 
 class _EncryptedBackupPayload {
