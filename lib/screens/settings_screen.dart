@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import '../services/navigation_service.dart';
 import '../helpers/auth_state_helper.dart';
 import '../providers/biometric_provider.dart';
+import '../security/ui/settings_security_section.dart';
 import '../providers/language_provider.dart';
 import '../localization/app_localizations.dart';
 import 'change_password_screen.dart';
@@ -20,7 +21,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   static final _logger = Logger('SettingsScreen');
-  
+
   // Design tokens
   static const _primaryGradient = LinearGradient(
     colors: [Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFA855F7)],
@@ -492,6 +493,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           },
                         );
                       },
+                    ),
+                  ]),
+
+                  const SizedBox(height: 24),
+
+                  _buildSectionTitle('Security'),
+                  const SizedBox(height: 16),
+                  _buildSettingsCard([
+                    SettingsSecuritySection(
+                      buildTile: ({
+                        required icon,
+                        required title,
+                        required subtitle,
+                        onTap,
+                        trailing,
+                        bareTrailing = false,
+                      }) =>
+                          _buildSettingsTile(
+                        icon: icon,
+                        title: title,
+                        subtitle: subtitle,
+                        onTap: onTap ?? () {},
+                        trailing: trailing,
+                      ),
+                      buildDivider: _buildDivider,
                     ),
                   ]),
 

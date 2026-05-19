@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/login_screen.dart';
+import '../security/ui/security_wrapper.dart';
 
 class AuthGuard extends StatelessWidget {
   final Widget child;
@@ -49,7 +50,7 @@ class AuthGuard extends StatelessWidget {
         }
 
         // If auth is not required or user is logged in
-        return child;
+        return SecurityWrapper(child: child);
       },
     );
   }

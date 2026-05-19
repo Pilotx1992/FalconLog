@@ -18,6 +18,7 @@ import 'screens/splash_screen.dart';
 import 'debug/auth_debug_screen.dart';
 import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
+import 'security/security_lifecycle_handler.dart';
 
 class FalconLogApp extends ConsumerWidget {
   const FalconLogApp({super.key});
@@ -27,97 +28,97 @@ class FalconLogApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final isRTL = ref.watch(isRTLProvider);
 
-    return MaterialApp(
-      title: 'FalconLog',
-      navigatorKey: NavigationService.navigatorKey,
-      locale: locale,
-      supportedLocales: availableLanguages.map((lang) => lang.locale).toList(),
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      // --- ابدأ التعديل هنا ---
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3949ab), // لون بنفسجي ليتناسب مع تصميمك
-          // قم بتغيير السطر التالي إلى Brightness.light
-          brightness: Brightness.light,
-        ),
-        // يمكنك الآن تحديد ألوان إضافية للوضع الفاتح
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC), // خلفية فاتحة للشاشات
-        cardColor: Colors.white, // خلفية بيضاء للكروت
-        dialogTheme: const DialogThemeData(
-          backgroundColor: Colors.white, // خلفية بيضاء لمربعات الحوار
-        ),
+    return SecurityLifecycleBinder(
+      child: MaterialApp(
+        title: 'FalconLog',
+        navigatorKey: NavigationService.navigatorKey,
+        locale: locale,
+        supportedLocales:
+            availableLanguages.map((lang) => lang.locale).toList(),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        // --- ابدأ التعديل هنا ---
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF3949ab), // لون بنفسجي ليتناسب مع تصميمك
+            // قم بتغيير السطر التالي إلى Brightness.light
+            brightness: Brightness.light,
+          ),
+          // يمكنك الآن تحديد ألوان إضافية للوضع الفاتح
+          scaffoldBackgroundColor:
+              const Color(0xFFF8FAFC), // خلفية فاتحة للشاشات
+          cardColor: Colors.white, // خلفية بيضاء للكروت
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Colors.white, // خلفية بيضاء لمربعات الحوار
+          ),
 
-        // تخصيص لون النص ليكون داكنًا في الوضع الفاتح
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Color(0xFF334155)), // لون نص داكن
-          titleLarge:
-              TextStyle(color: Color(0xFF334155)), // لون للعناوين الكبيرة
-          titleMedium:
-              TextStyle(color: Color(0xFF334155)), // لون للعناوين المتوسطة
-        ),
+          // تخصيص لون النص ليكون داكنًا في الوضع الفاتح
+          textTheme: const TextTheme(
+            bodyMedium: TextStyle(color: Color(0xFF334155)), // لون نص داكن
+            titleLarge:
+                TextStyle(color: Color(0xFF334155)), // لون للعناوين الكبيرة
+            titleMedium:
+                TextStyle(color: Color(0xFF334155)), // لون للعناوين المتوسطة
+          ),
 
-        // تخصيص مظهر الـ AppBar ليكون متناسقًا
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent, // شفاف ليظهر التدرج اللوني
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.white), // لون الأيقونات
-          titleTextStyle: TextStyle(
-            // تصميم نص العنوان
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+          // تخصيص مظهر الـ AppBar ليكون متناسقًا
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.transparent, // شفاف ليظهر التدرج اللوني
+            elevation: 0,
+            iconTheme: IconThemeData(color: Colors.white), // لون الأيقونات
+            titleTextStyle: TextStyle(
+              // تصميم نص العنوان
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
+        // --- انتهى التعديل ---
+        builder: (context, child) {
+          return Directionality(
+            textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          );
+        },
+        initialRoute: '/splash',
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/splash': (context) => const SplashScreen(),
+          '/home': (context) => const AuthGuard(child: DashboardScreen()),
+          '/dashboard': (context) =>
+              const AuthGuard(child: DashboardScreen()), // Alias for /home
+          '/logFlight': (context) => const AuthGuard(child: LogFlightScreen()),
+          '/flights': (context) => const AuthGuard(child: AllFlightsScreen()),
+          '/summary': (context) => const AuthGuard(child: SummaryScreen()),
+          '/advanced': (context) => const AuthGuard(child: AdvancedScreen()),
+          '/settings': (context) => const AuthGuard(child: SettingsScreen()),
+          '/login': (context) => const LoginScreen(),
+          '/register': (context) => const RegisterScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
+          if (kDebugMode) '/debug-auth': (context) => const AuthDebugScreen(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/debug-auth' && !kDebugMode) {
+            return null;
+          }
+          if (settings.name != null &&
+              settings.name!.startsWith('/editFlight/')) {
+            final id = settings.name!.split('/').last;
+            return MaterialPageRoute(
+              builder: (context) => AuthGuard(
+                child: EditFlightScreen(flightId: id),
+              ),
+            );
+          }
+          return null;
+        },
       ),
-      // --- انتهى التعديل ---
-      builder: (context, child) {
-        return Directionality(
-          textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-          child: child!,
-        );
-      },
-      initialRoute: '/splash',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/splash': (context) => const SplashScreen(),
-        '/home': (context) => const AuthGuard(child: DashboardScreen()),
-        '/dashboard': (context) =>
-            const AuthGuard(child: DashboardScreen()), // Alias for /home
-        '/logFlight': (context) => const AuthGuard(child: LogFlightScreen()),
-        '/flights': (context) => const AuthGuard(child: AllFlightsScreen()),
-        '/summary': (context) => const AuthGuard(child: SummaryScreen()),
-        '/advanced': (context) => const AuthGuard(child: AdvancedScreen()),
-        '/settings': (context) => const AuthGuard(child: SettingsScreen()),
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/forgot-password': (context) => const ForgotPasswordScreen(),
-        if (kDebugMode) '/debug-auth': (context) => const AuthDebugScreen(),
-      },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/debug-auth' && !kDebugMode) {
-          return MaterialPageRoute<void>(
-            builder: (context) => const Scaffold(
-              body: Center(child: Text('Not found')),
-            ),
-          );
-        }
-        if (settings.name != null &&
-            settings.name!.startsWith('/editFlight/')) {
-          final id = settings.name!.split('/').last;
-          return MaterialPageRoute(
-            builder: (context) => AuthGuard(
-              child: EditFlightScreen(flightId: id),
-            ),
-          );
-        }
-        return null;
-      },
     );
   }
 }

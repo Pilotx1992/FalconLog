@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>FalconLog uses Face ID to unlock the app when app lock is enabled.</string>
 </dict>
 </plist>
