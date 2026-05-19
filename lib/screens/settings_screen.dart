@@ -432,29 +432,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         );
                       },
                     ),
-                    _buildDivider(),
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final biometricEnabled =
-                            ref.watch(biometricEnabledProvider);
-                        final biometricAvailability =
-                            ref.watch(biometricAvailabilityProvider);
-                        final setupState = ref.watch(biometricSetupProvider);
-
-                        return biometricAvailability.when(
-                          data: (availability) => _buildBiometricTile(
-                            availability: availability,
-                            isEnabled: biometricEnabled,
-                            setupState: setupState,
-                            onChanged: (value) => _handleBiometricToggle(
-                                ref, value, availability),
-                          ),
-                          loading: () => _buildBiometricLoadingTile(),
-                          error: (error, stack) =>
-                              _buildBiometricErrorTile(error.toString()),
-                        );
-                      },
-                    ),
                     if (!AuthStateHelper.isEmailVerified) ...[
                       _buildDivider(),
                       _buildSettingsTile(
@@ -1066,7 +1043,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // Biometric authentication methods
+  // Legacy login-biometric Settings UI (hidden in PR3.1; LoginScreen unchanged).
+  // ignore: unused_element
   Future<void> _handleBiometricToggle(
       WidgetRef ref, bool value, BiometricAvailability availability) async {
     final localizations = AppLocalizations.of(context)!;
@@ -1096,6 +1074,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  // ignore: unused_element
   Widget _buildBiometricTile({
     required BiometricAvailability availability,
     required bool isEnabled,
@@ -1175,6 +1154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildBiometricLoadingTile() {
     final localizations = AppLocalizations.of(context)!;
 
@@ -1234,6 +1214,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildBiometricErrorTile(String error) {
     final localizations = AppLocalizations.of(context)!;
 
@@ -1290,6 +1271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // ignore: unused_element
   IconData _getBiometricIcon(List<dynamic> availableBiometrics) {
     // Convert to proper type and check for face ID
     final types = availableBiometrics.cast<dynamic>();
@@ -1303,6 +1285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  // ignore: unused_element
   void _showBiometricNotAvailableDialog(BiometricAvailability availability) {
     final localizations = AppLocalizations.of(context)!;
 

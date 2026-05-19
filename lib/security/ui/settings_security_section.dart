@@ -49,23 +49,25 @@ class SettingsSecuritySection extends ConsumerWidget {
             onChanged: (value) => _onPinToggle(context, ref, value),
           ),
         ),
-        if (pinEnabled) ...[
-          buildDivider(),
-          buildTile(
-            icon: Icons.fingerprint,
-            title: 'Biometric',
-            subtitle: biometricAvailable
-                ? 'Unlock with fingerprint or face'
-                : 'Set up in phone Settings',
-            onTap: () {},
-            bareTrailing: true,
-            trailing: Switch.adaptive(
-              value: service.settings.isAppLockBiometricEnabled,
-              onChanged: biometricAvailable
-                  ? (v) => _onBiometricToggle(context, ref, v)
-                  : null,
-            ),
+        buildDivider(),
+        buildTile(
+          icon: Icons.fingerprint,
+          title: 'Biometric App Unlock',
+          subtitle: pinEnabled
+              ? (biometricAvailable
+                  ? 'Unlock the app with fingerprint or face after PIN lock'
+                  : 'Set up fingerprint or face in phone Settings')
+              : 'Enable PIN Lock first to use biometric app unlock.',
+          onTap: () {},
+          bareTrailing: true,
+          trailing: Switch.adaptive(
+            value: pinEnabled && service.settings.isAppLockBiometricEnabled,
+            onChanged: pinEnabled && biometricAvailable
+                ? (v) => _onBiometricToggle(context, ref, v)
+                : null,
           ),
+        ),
+        if (pinEnabled) ...[
           buildDivider(),
           buildTile(
             icon: Icons.edit_outlined,
