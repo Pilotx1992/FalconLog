@@ -9,6 +9,7 @@ import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/cleanup_old_workers.dart';
 import 'core/services/app_data_migration_service.dart';
 import 'core/services/hive_initialization_service.dart';
+import 'core/services/storage_migration_service.dart';
 import 'falcon_log_app.dart';
 import 'firebase_options.dart';
 import 'middleware/auth_middleware.dart';
@@ -66,6 +67,7 @@ Future<void> _initializeCriticalComponents() async {
     await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
 
     await AppDataMigrationService.runMigrationsIfNeeded();
+    await StorageMigrationService.ensureCurrentSchemaRecorded();
 
     final pendingRestore =
         await BackupService.recoverPendingReplaceRestoreIfNeeded();

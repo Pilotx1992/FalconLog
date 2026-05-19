@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -96,9 +97,16 @@ class FalconLogApp extends ConsumerWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/debug-auth': (context) => const AuthDebugScreen(),
+        if (kDebugMode) '/debug-auth': (context) => const AuthDebugScreen(),
       },
       onGenerateRoute: (settings) {
+        if (settings.name == '/debug-auth' && !kDebugMode) {
+          return MaterialPageRoute<void>(
+            builder: (context) => const Scaffold(
+              body: Center(child: Text('Not found')),
+            ),
+          );
+        }
         if (settings.name != null &&
             settings.name!.startsWith('/editFlight/')) {
           final id = settings.name!.split('/').last;

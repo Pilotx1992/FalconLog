@@ -1,121 +1,82 @@
-import 'dart:developer';
+﻿import 'dart:developer';
 import 'dart:io';
-import 'package:hive_flutter/hive_flutter.dart';
+
+import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../../models/flight_log.dart';
 
-/// Service to handle Hive database migrations and data corruption recovery
+/// Safe handling of Hive corruption — never silently deletes user flight logs.
 class HiveMigrationService {
-
-  /// Fix corrupted FlightLog data by creating a backup and cleaning null values
-  static Future<bool> fixCorruptedFlightLogData() async {
+  /// Copies corrupted [flightLogsBox] files to a timestamped quarantine folder.
+  /// Original files are left on disk so recovery/backup restore can be attempted.
+  static Future<String?> quarantineCorruptedFlightLogFiles({
+    String? basePathForTests,
+  }) async {
     try {
-      log('[Migration] Starting FlightLog data corruption fix...');
-
-      // Create backup before attempting fix
-      await _createDataBackup();
-
-      // Clear the corrupted box and recreate it
-      await _clearCorruptedBox();
-
-      log('[Migration] FlightLog data corruption fix completed successfully');
-      return true;
-
-    } catch (e, stackTrace) {
-      log('[Migration] Failed to fix corrupted data: $e');
-      log('[Migration] Stack trace: $stackTrace');
-      return false;
-    }
-  }
-
-  /// Create a backup of existing data before migration
-  static Future<void> _createDataBackup() async {
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${appDir.path}/hive_backup');
-      if (!await backupDir.exists()) {
-        await backupDir.create(recursive: true);
+      final appDir = basePathForTests != null
+          ? Directory(basePathForTests)
+          : await getApplicationDocumentsDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final quarantineDir = Directory('${appDir.path}/hive_quarantine/$stamp');
+      if (!await quarantineDir.exists()) {
+        await quarantineDir.create(recursive: true);
       }
 
-      // Copy existing Hive files to backup
-      final hiveDir = Directory(appDir.path);
-      final hiveFiles = hiveDir.listSync().where((file) =>
-        file.path.contains('flightLogsBox') && file is File
-      );
-
-      for (final file in hiveFiles) {
-        if (file is File) {
-          final backupFile = File('${backupDir.path}/${file.uri.pathSegments.last}');
-          await file.copy(backupFile.path);
-          log('[Migration] Backed up ${file.path} to ${backupFile.path}');
-        }
-      }
-
-    } catch (e) {
-      log('[Migration] Warning: Could not create backup: $e');
-      // Don't fail migration if backup fails
-    }
-  }
-
-  /// Clear corrupted box and let it be recreated fresh
-  static Future<void> _clearCorruptedBox() async {
-    try {
-      // Close box if it's open
-      if (Hive.isBoxOpen('flightLogsBox')) {
-        final box = Hive.box<FlightLog>('flightLogsBox');
-        await box.close();
-        log('[Migration] Closed corrupted flightLogsBox');
-      }
-
-      // Delete corrupted box files
-      final appDir = await getApplicationDocumentsDirectory();
       final hiveFiles = Directory(appDir.path)
-        .listSync()
-        .where((file) => file.path.contains('flightLogsBox'))
-        .toList();
+          .listSync()
+          .where((file) => file.path.contains('flightLogsBox') && file is File)
+          .cast<File>();
 
+      var copied = 0;
       for (final file in hiveFiles) {
-        if (file is File) {
-          await file.delete();
-          log('[Migration] Deleted corrupted file: ${file.path}');
-        }
+        final dest = File(
+          '${quarantineDir.path}/${file.uri.pathSegments.last}',
+        );
+        await file.copy(dest.path);
+        copied++;
+        log('[Migration] Quarantined ${file.path} ΓåÆ ${dest.path}');
       }
 
-      log('[Migration] Corrupted flightLogsBox files cleared successfully');
+      if (copied == 0) {
+        log('[Migration] No flightLogsBox files found to quarantine');
+        return null;
+      }
 
-    } catch (e) {
-      log('[Migration] Error clearing corrupted box: $e');
-      rethrow;
+      return quarantineDir.path;
+    } catch (e, stackTrace) {
+      log('[Migration] Quarantine failed: $e', stackTrace: stackTrace);
+      return null;
     }
   }
 
-  /// Attempt to recover specific records from corrupted data
+  /// @deprecated Use [quarantineCorruptedFlightLogFiles]. Never deletes user data.
+  static Future<bool> fixCorruptedFlightLogData() async {
+    final path = await quarantineCorruptedFlightLogFiles();
+    return path != null;
+  }
+
+  /// Attempt to recover specific records from quarantined copies (best-effort).
   static Future<List<Map<String, dynamic>>> recoverFlightLogData() async {
     final recoveredData = <Map<String, dynamic>>[];
 
     try {
-      log('[Migration] Attempting to recover flight log data...');
+      log('[Migration] Attempting to recover flight log data from quarantine...');
 
-      // Try to manually parse the corrupted data
       final appDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${appDir.path}/hive_backup');
+      final quarantineRoot = Directory('${appDir.path}/hive_quarantine');
 
-      if (await backupDir.exists()) {
-        final backupFiles = backupDir.listSync().where((file) =>
-          file.path.contains('flightLogsBox') && file is File
-        );
-
-        for (final file in backupFiles) {
-          if (file is File) {
-            // This would require complex binary parsing
-            // For now, just log that we found backup files
-            log('[Migration] Found backup file for recovery: ${file.path}');
+      if (await quarantineRoot.exists()) {
+        for (final dir in quarantineRoot.listSync().whereType<Directory>()) {
+          for (final file in dir.listSync().where(
+                (f) => f.path.contains('flightLogsBox') && f is File,
+              )) {
+            log('[Migration] Found quarantined file for recovery: ${file.path}');
           }
         }
       }
 
       log('[Migration] Recovered ${recoveredData.length} flight log records');
-
     } catch (e) {
       log('[Migration] Data recovery failed: $e');
     }
@@ -123,43 +84,41 @@ class HiveMigrationService {
     return recoveredData;
   }
 
-  /// Check if FlightLog data is corrupted
+  /// Check if FlightLog data is corrupted (read probe).
   static Future<bool> isFlightLogDataCorrupted() async {
     try {
-      // Try to open and read the box
       if (Hive.isBoxOpen('flightLogsBox')) {
         final box = Hive.box<FlightLog>('flightLogsBox');
-        // Try to access the first item to trigger the error
         if (box.isNotEmpty) {
           box.getAt(0);
         }
-        return false; // No error means not corrupted
+        return false;
       }
 
-      // Try to open the box
-      final testBox = await Hive.openBox<FlightLog>('flightLogsBox_test');
+      final testBox = await Hive.openBox<FlightLog>('flightLogsBox_probe');
       await testBox.close();
-      await Hive.deleteBoxFromDisk('flightLogsBox_test');
-
-      return false; // Successfully opened means not corrupted
-
+      await Hive.deleteBoxFromDisk('flightLogsBox_probe');
+      return false;
     } catch (e) {
-      if (e.toString().contains('type \'Null\' is not a subtype of type \'double\'')) {
-        return true; // This specific error indicates corruption
+      if (e
+          .toString()
+          .contains('type \'Null\' is not a subtype of type \'double\'')) {
+        return true;
       }
-      return false; // Other errors might not be corruption
+      return false;
     }
   }
 
-  /// Get corruption status and details
+  /// Corruption status for diagnostics (no destructive action).
   static Future<Map<String, dynamic>> getCorruptionStatus() async {
     try {
       final isCorrupted = await isFlightLogDataCorrupted();
       final appDir = await getApplicationDocumentsDirectory();
+      final quarantineRoot = Directory('${appDir.path}/hive_quarantine');
 
       return {
         'isCorrupted': isCorrupted,
-        'hasBackup': await Directory('${appDir.path}/hive_backup').exists(),
+        'hasQuarantine': await quarantineRoot.exists(),
         'timestamp': DateTime.now().toIso8601String(),
       };
     } catch (e) {

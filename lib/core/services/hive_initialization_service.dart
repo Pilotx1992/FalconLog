@@ -142,30 +142,27 @@ class HiveInitializationService {
           lastException = e is Exception ? e : Exception(e.toString());
           log('[HiveInit] Attempt $attempt failed for box $name: $e');
 
-          // Check if this is data corruption (null/double cast error)
-          if (e.toString().contains(
-                  'type \'Null\' is not a subtype of type \'double\'') &&
-              name == 'flightLogsBox' &&
-              attempt == 1) {
-            log('[HiveInit] Detected data corruption in $name, attempting fix...');
+          // Data corruption: quarantine copy only — never delete flight logs.
+          if (name == 'flightLogsBox' && attempt == 1) {
+            final isLikelyCorruption = e.toString().contains(
+                      'type \'Null\' is not a subtype of type \'double\'',
+                    ) ||
+                e.toString().contains('type cast');
 
-            final fixResult =
-                await HiveMigrationService.fixCorruptedFlightLogData();
-            if (fixResult) {
-              log('[HiveInit] Data corruption fix successful, trying to open fresh box...');
-              // Try to open the box again after corruption fix
-              try {
-                box = await Hive.openBox<T>(name).timeout(timeout);
-                log('[HiveInit] Successfully opened box after corruption fix: $name');
-                break;
-              } catch (fixError) {
-                log('[HiveInit] Still failed after corruption fix: $fixError');
-                lastException = fixError is Exception
-                    ? fixError
-                    : Exception(fixError.toString());
+            if (isLikelyCorruption) {
+              log('[HiveInit] Possible corruption in $name; quarantining files...');
+              final quarantinePath = await HiveMigrationService
+                  .quarantineCorruptedFlightLogFiles();
+              if (quarantinePath != null) {
+                log('[HiveInit] Quarantine created at $quarantinePath');
               }
-            } else {
-              log('[HiveInit] Data corruption fix failed');
+              lastException = Exception(
+                'Flight log data could not be opened safely. '
+                'Your original files were not deleted. '
+                'Please restore from a backup or contact support. '
+                'Technical detail: $e',
+              );
+              break;
             }
           }
 

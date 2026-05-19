@@ -1,0 +1,13 @@
+﻿# Copy to android/key.properties and fill in values. Do NOT commit key.properties.
+#
+# Generate a release keystore (one-time):
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Signing migration note:
+# - APKs signed with the debug keystore cannot be updated by a release-signed APK.
+# - Users on debug-signed builds must export/backup data before uninstalling, then install release build.
+#
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=../upload-keystore.jks
