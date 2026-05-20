@@ -99,28 +99,6 @@ class AuthService {
     }
   }
 
-  /// Links email/password to the signed-in user (e.g. after Google sign-in).
-  /// Wire from Account Settings when "Add password login" is implemented.
-  Future<void> linkEmailPasswordToCurrentUser({
-    required String email,
-    required String password,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw const AuthException('Sign in before linking a password.');
-    }
-    try {
-      await user.linkWithCredential(
-        EmailAuthProvider.credential(
-          email: email.trim(),
-          password: password,
-        ),
-      );
-    } on FirebaseAuthException catch (e) {
-      throw toAuthException(e);
-    }
-  }
-
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
@@ -199,8 +177,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'account-exists-with-different-credential') {
         throw const AuthException(
-          'This email is already registered with email and password. '
-          'Sign in with your email and password instead.',
+          kGoogleSignInPasswordAccountExistsMessage,
           code: 'account-exists-with-different-credential',
         );
       }

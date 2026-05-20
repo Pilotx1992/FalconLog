@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_error_mapper.dart';
 import '../auth/auth_exception.dart';
+import '../auth/auth_signup_guard.dart';
 
 enum AuthMethod {
   email,
@@ -107,8 +108,7 @@ class EnhancedAuthService {
     } on FirebaseAuthException catch (e) {
       if (e.code == 'account-exists-with-different-credential') {
         throw const AuthException(
-          'This email is already registered with email and password. '
-          'Sign in with your email and password instead.',
+          kGoogleSignInPasswordAccountExistsMessage,
           code: 'account-exists-with-different-credential',
         );
       }

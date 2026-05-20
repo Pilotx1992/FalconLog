@@ -34,7 +34,8 @@ void main() {
       expect(decision.allowSignup, isTrue);
     });
 
-    test('null fetch does not block (firebase_auth 6 production path)', () async {
+    test('null fetch does not block (firebase_auth 6 production path)',
+        () async {
       final decision = await checkPasswordSignupAllowed(
         'user@example.com',
         fetchSignInMethods: (_) async => null,
@@ -53,7 +54,8 @@ void main() {
 
     test('account-exists-with-different-credential maps safely', () {
       expect(
-        mapFirebaseAuthException(_e('account-exists-with-different-credential')),
+        mapFirebaseAuthException(
+            _e('account-exists-with-different-credential')),
         'This email is already registered with another sign-in method.',
       );
     });
@@ -71,6 +73,21 @@ void main() {
         'This sign-in method is already linked to another account.',
       );
     });
-  });
 
+    test('Google login password-account message has no linking promise', () {
+      expect(
+        kGoogleSignInPasswordAccountExistsMessage,
+        'This email is already registered with email and password. '
+        'Please sign in with email and password.',
+      );
+      expect(
+        kGoogleSignInPasswordAccountExistsMessage,
+        isNot(contains('Account Settings')),
+      );
+      expect(
+        kGoogleSignInPasswordAccountExistsMessage,
+        isNot(contains('add password')),
+      );
+    });
+  });
 }

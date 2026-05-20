@@ -1,10 +1,14 @@
 /// Messages for blocked email/password sign-up when another provider owns the email.
 const String kGoogleAccountExistsSignupMessage =
-    'This email is already registered with Google. '
-    'Sign in with Google, then add password login from Account Settings.';
+    'This email is already registered with Google. Please sign in with Google.';
 
 const String kPasswordAccountExistsSignupMessage =
     'An account already exists with this email. Please log in.';
+
+/// Shown when Google sign-in is attempted for an email/password account.
+const String kGoogleSignInPasswordAccountExistsMessage =
+    'This email is already registered with email and password. '
+    'Please sign in with email and password.';
 
 const String kOtherProviderSignupMessage =
     'This email is already registered with another sign-in method. '

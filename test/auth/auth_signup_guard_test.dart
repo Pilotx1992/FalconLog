@@ -11,7 +11,12 @@ void main() {
     test('google.com without password blocks with Google message', () {
       final decision = evaluateSignInMethodsForPasswordSignup(['google.com']);
       expect(decision.allowSignup, isFalse);
-      expect(decision.blockMessage, kGoogleAccountExistsSignupMessage);
+      expect(
+        decision.blockMessage,
+        'This email is already registered with Google. Please sign in with Google.',
+      );
+      expect(decision.blockMessage, isNot(contains('Account Settings')));
+      expect(decision.blockMessage, isNot(contains('add password')));
     });
 
     test('password method blocks with login message', () {
