@@ -15,9 +15,7 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
-  provider: ^6.1.5
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   shared_preferences: ^2.2.2
@@ -27,10 +25,8 @@ dependencies:
   flutter_feather_icons: ^2.0.0+1
   flutter_svg: ^2.0.10
   flutter_riverpod: ^2.4.10
-  riverpod_annotation: ^2.4.1
   firebase_core: ^4.0.0
   firebase_auth: ^6.0.0
-  cloud_firestore: ^6.0.0
   local_auth: ^2.1.8
   local_auth_android: ^1.0.35
   # Downgraded to v6 API for compatibility with existing sign-in code. Upgrade to 7.x requires migration.
@@ -38,7 +34,6 @@ dependencies:
   googleapis: ^13.1.0
   googleapis_auth: ^1.6.0
   http: ^1.2.0
-  encrypt: ^5.0.3
   cryptography: ^2.7.0
   connectivity_plus: ^6.0.5
   path_provider: ^2.1.5
@@ -50,7 +45,6 @@ dependencies:
   workmanager: ^0.9.0+2
   package_info_plus: ^8.0.2
   device_info_plus: ^10.1.2
-  oauth2: ^2.0.2
   pointycastle: ^3.9.1
   file_picker: ^8.1.2
   share_plus: ^10.0.2
@@ -65,9 +59,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.4.13
-  freezed: ^2.5.2
   hive_generator: ^2.0.1
-  riverpod_generator: ^2.4.0
   json_serializable: ^6.8.0
   mockito: ^5.4.4
   very_good_analysis: ^6.0.0

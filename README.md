@@ -1,16 +1,18 @@
-# falconlog
+# FalconLog
 
-FalconLog
+Offline-first flight log for pilots. Firebase Auth for sign-in; Hive for local flight data; optional Google Drive backup with AES-256-GCM payload encryption.
 
-## Getting Started
+## Documentation
 
-This project is a starting point for a Flutter application.
+- [Existing user update safety](docs/EXISTING_USER_UPDATE.md) — upgrade, signing, Hive, restore, and backup honesty
+- [Backup/restore verification notes](BACKUP_RESTORE_VERIFICATION.md) — technical backup/restore reference (not a production sign-off)
 
-A few resources to get you started if this is your first Flutter project:
+## Development
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+flutter pub get
+flutter analyze
+flutter test
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Release signing: see `android/key.properties.example` (never commit secrets).

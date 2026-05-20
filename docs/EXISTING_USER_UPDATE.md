@@ -41,7 +41,8 @@ Release signing: copy `android/key.properties.example` ΓåÆ `android/key.prope
 | Merge restore | Snapshot + journal + rollback (same as replace) |
 | Restore cancel | Allowed before apply; ignored during apply |
 | Android backup | `allowBackup=false` + data extraction excludes |
-| App lock | UI only; Hive files remain plaintext on disk |
+| App lock | UI only; Hive files remain plaintext on disk (encryption is a separate future migration) |
+| Backup retention | Latest successful backup kept after a new backup completes (PR2.2) |
 
 ## If migration fails
 
