@@ -31,8 +31,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final logsAsyncValue = ref.watch(flightLogsProvider);
@@ -81,8 +79,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       // Welcome message with horizontal gradient design
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(20.0),
-                        margin: const EdgeInsets.only(bottom: 16.0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 18,
+                        ),
+                        margin: const EdgeInsets.only(bottom: 20),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [
@@ -251,13 +252,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           children: [
                             Padding(
                               padding:
-                                  const EdgeInsets.only(left: 4, bottom: 12),
+                                  const EdgeInsets.only(left: 4, bottom: 14),
                               child: Text(
                                 'Overview',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black, // Bold black
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey.shade900,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ),
@@ -265,16 +267,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               label: 'Day Flight Hours',
                               value: _formatHours(summary.dayTimeHours),
                               icon: Icons.wb_sunny_rounded,
-                              cardColor: const Color.fromARGB(255, 235, 203, 60),
+                              cardColor:
+                                  const Color.fromARGB(255, 235, 203, 60),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 10),
                             _StatCard(
                               label: 'Night Flight Hours',
                               value: _formatHours(summary.nightTimeHours),
                               icon: Icons.nights_stay_rounded,
-                              cardColor: const Color.fromARGB(255, 133, 81, 176),
+                              cardColor:
+                                  const Color.fromARGB(255, 133, 81, 176),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 10),
                             _StatCard(
                               label: 'Total Flight Hours',
                               value: _formatHours(summary.totalFlightHours),
@@ -491,16 +495,97 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
         ),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) => Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: const Text(
+              'Dashboard',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF1a237e),
+                    Color(0xFF3949ab),
+                    Color(0xFF5e35b1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
+          body: Container(
+            color: const Color(0xFFF8FAFC),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        size: 48,
+                        color: Colors.red.shade400,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Could not load flights',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
+        tooltip: 'Log a flight',
         onPressed: () => Navigator.of(context).pushNamed('/logFlight'),
-        backgroundColor: const Color(0xFF1565C0), // Dark Blue
+        backgroundColor: const Color(0xFF1565C0),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
       ),
     );
   }
-
 }
 
 String _formatHours(double hours) {
@@ -527,10 +612,10 @@ class _StatCard extends StatelessWidget {
     return RepaintBoundary(
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: const [
             BoxShadow(
               color: Color(0x1A000000),

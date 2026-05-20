@@ -13,6 +13,7 @@ import '../../providers/backup_service_provider.dart';
 import '../../providers/aircraft_types_provider.dart';
 import '../../providers/flight_logs_provider.dart';
 import '../../providers/language_provider.dart';
+import '../../utils/app_snack_bar.dart';
 
 export '../services/backup_service.dart' show RestoreMode;
 
@@ -411,13 +412,25 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          Text(
+            autoBackupEnabled
+                ? 'On · ${toBeginningOfSentenceCase(_backupFrequency)}'
+                : 'Off · manual backup only',
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.3,
+              color: sectionTitleColor.withValues(alpha: 0.62),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
           row(
             icon: Icons.autorenew_rounded,
             title: 'Enable',
             subtitle: autoBackupEnabled
-                ? 'FalconLog will back up your data automatically.'
-                : 'Turn on to keep your data protected in the background.',
+                ? 'Runs in the background on the schedule you choose.'
+                : 'Turn on to schedule automatic backups.',
             trailing: Switch.adaptive(
               value: autoBackupEnabled,
               onChanged: operationRunning
@@ -544,12 +557,28 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               const Icon(Icons.cloud_done_rounded,
                   color: _BackupColors.cloudGradientEnd),
               const SizedBox(width: 8),
-              Text(
-                'Google Drive',
-                style: TextStyle(
-                  color: sectionTitleColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Google Drive',
+                      style: TextStyle(
+                        color: sectionTitleColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Keeps your latest successful cloud backup. Older cloud copies are removed when a new backup finishes.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.35,
+                        color: sectionTitleColor.withValues(alpha: 0.62),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -645,12 +674,28 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               const Icon(Icons.sd_storage_rounded,
                   color: _BackupColors.warning),
               const SizedBox(width: 8),
-              Text(
-                'Local Device',
-                style: TextStyle(
-                  color: sectionTitleColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Local Device',
+                      style: TextStyle(
+                        color: sectionTitleColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Device-only copies for quick backup and restore on this phone.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.35,
+                        color: sectionTitleColor.withValues(alpha: 0.62),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1003,7 +1048,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               Icon(Icons.restore_rounded),
               SizedBox(width: 10),
               Expanded(
-                child: Text('Restore backup?'),
+                child: Text('Restore backup'),
               ),
             ],
           ),
@@ -1013,7 +1058,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Restore "${target.fileName}" from ${target.provider.displayName}.',
+                  'Restore "${target.fileName}" from ${target.provider.displayName}. Choose how backup data is applied to this device.',
+                  style: const TextStyle(height: 1.4),
                 ),
                 if (target.provider == BackupProvider.local) ...[
                   const SizedBox(height: 16),
@@ -1060,7 +1106,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Use the same Google account on a new device to access this backup.',
+                            'After reinstall, sign in with the same Google account, then restore from Google Drive here.',
                             style: TextStyle(
                                 color: Colors.blue,
                                 fontWeight: FontWeight.w600,
@@ -1071,7 +1117,16 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                Text(
+                  'Restore mode',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
                 SegmentedButton<RestoreMode>(
                   segments: const [
                     ButtonSegment(
@@ -1090,14 +1145,47 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                     setDialogState(() => selectedMode = selection.first);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
+                if (selectedMode == RestoreMode.replace) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Replace overwrites backed-up app data on this device after a safety snapshot is saved. This cannot be undone from the app.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Text(
                   selectedMode == RestoreMode.replace
-                      ? 'Validates backup, saves a local safety snapshot, then replaces backed-up app data.'
-                      : 'Adds backed-up records using stable IDs. Existing IDs are not duplicated across backed-up records.',
+                      ? 'Use when this device should match the backup. FalconLog validates the file, saves a local safety snapshot, then applies the backup.'
+                      : 'Use to add missing records from the backup. Matching IDs are updated; other existing records stay on this device.',
                   style: TextStyle(
                     fontSize: 12.5,
-                    height: 1.4,
+                    height: 1.45,
                     color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
                 ),
@@ -1186,6 +1274,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
+        duration: AppSnackBar.success,
       ),
     );
   }
@@ -1199,6 +1288,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
+        duration: AppSnackBar.error,
       ),
     );
   }

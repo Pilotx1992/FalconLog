@@ -475,8 +475,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   const SizedBox(height: 24),
 
-                  _buildSectionTitle('Security'),
-                  const SizedBox(height: 16),
+                  _buildSectionTitle('App Lock'),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 18),
+                    child: Text(
+                      'PIN and biometric unlock for FalconLog',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _buildSettingsCard([
                     SettingsSecuritySection(
                       buildTile: ({
@@ -502,7 +514,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // Data & Storage
                   _buildSectionTitle(localizations.dataStorage),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 18),
+                    child: Text(
+                      'Back up and restore your flight logbook',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _buildSettingsCard([
                     // BACKUP SECTION COMMENTED OUT - Will be replaced with new WhatsApp-style backup system
                     // Consumer(
@@ -558,7 +582,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _buildSettingsTile(
                       icon: Icons.backup_rounded,
                       title: 'Backup Settings',
-                      subtitle: 'Manage your flight log backups',
+                      subtitle:
+                          'Cloud backup, restore, and scheduled auto backup',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

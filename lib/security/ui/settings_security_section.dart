@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../utils/app_snack_bar.dart';
 import '../providers/security_providers.dart';
 import '../security_constants.dart';
 import '../services/security_service.dart';
@@ -112,26 +113,18 @@ class SettingsSecuritySection extends ConsumerWidget {
       if (ok) {
         await service.setAppLockBiometricEnabled(true);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Biometric app unlock enabled'),
-          ),
-        );
+        _showSnack(context, 'Biometric app unlock enabled');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Biometric setup cancelled or failed. Try again.',
-            ),
-          ),
+        _showSnack(
+          context,
+          'Biometric setup cancelled or failed. Try again.',
+          isError: true,
         );
       }
     } else {
       await service.setAppLockBiometricEnabled(false);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biometric app unlock disabled')),
-      );
+      _showSnack(context, 'Biometric app unlock disabled');
     }
   }
 
@@ -146,9 +139,7 @@ class SettingsSecuritySection extends ConsumerWidget {
         MaterialPageRoute(builder: (_) => const PinSetupScreen()),
       );
       if (ok == true && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN lock enabled')),
-        );
+        _showSnack(context, 'PIN lock enabled');
       }
     } else {
       await _confirmDisablePin(context, ref, service);
@@ -163,11 +154,27 @@ class SettingsSecuritySection extends ConsumerWidget {
     final current = service.settings.autoLockTimeoutSeconds;
     final selected = await showModalBottomSheet<int>(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Auto-Lock',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
               for (final preset in SecurityConstants.autoLockPresets)
                 ListTile(
                   title: Text(preset.label),
@@ -196,6 +203,7 @@ class SettingsSecuritySection extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Disable PIN'),
         content: TextField(
           controller: pinController,
@@ -226,13 +234,29 @@ class SettingsSecuritySection extends ConsumerWidget {
     if (!context.mounted) return;
 
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN lock disabled')),
-      );
+      _showSnack(context, 'PIN lock disabled');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not disable PIN')),
-      );
+      _showSnack(context, 'Could not disable PIN', isError: true);
     }
+  }
+
+  void _showSnack(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: isError ? Colors.red.shade600 : null,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: AppSnackBar.forOutcome(isError: isError),
+      ),
+    );
   }
 }
