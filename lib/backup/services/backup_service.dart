@@ -102,11 +102,27 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  /// Test seam for scheduled backup worker tests.
+  @visibleForTesting
+  static Future<bool> Function({
+    bool interactive,
+    BackupProvider? providerOverride,
+  })?
+      startBackupForTesting;
+
   /// Start backup using [providerOverride] or the persisted provider selection.
   Future<bool> startBackup({
     bool interactive = true,
     BackupProvider? providerOverride,
   }) async {
+    final testingOverride = startBackupForTesting;
+    if (testingOverride != null) {
+      return testingOverride(
+        interactive: interactive,
+        providerOverride: providerOverride,
+      );
+    }
+
     if (_backupOperationActive || _isBackupInProgress) {
       if (kDebugMode) {
         print('⚠️ Backup already in progress, skipping...');

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
@@ -14,6 +16,52 @@ import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
 import 'backup_constants.dart';
 import 'backup_provider_preferences.dart';
+import 'scheduled_backup_logic.dart';
+
+/// Test seam for WorkManager calls (set only in tests).
+@visibleForTesting
+class BackupSchedulerWorkmanager {
+  static Future<void> Function(
+    String uniqueName,
+    String taskName, {
+    required Duration frequency,
+    required Constraints constraints,
+    required Duration initialDelay,
+    required BackoffPolicy backoffPolicy,
+    required Duration backoffPolicyDelay,
+    required ExistingPeriodicWorkPolicy existingWorkPolicy,
+    String? tag,
+  })? registerPeriodicTask;
+
+  static Future<void> Function(
+    String uniqueName,
+    String taskName, {
+    required Constraints constraints,
+    required Duration initialDelay,
+    required BackoffPolicy backoffPolicy,
+    required Duration backoffPolicyDelay,
+    required ExistingWorkPolicy existingWorkPolicy,
+    String? tag,
+  })? registerOneOffTask;
+
+  static Future<void> Function(String uniqueName)? cancelByUniqueName;
+  static Future<void> Function(String tag)? cancelByTag;
+  static Future<bool> Function(String uniqueName)? isScheduledByUniqueName;
+
+  static final List<String> cancelLog = [];
+  static final List<String> registerLog = [];
+
+  @visibleForTesting
+  static void resetTestHooks() {
+    registerPeriodicTask = null;
+    registerOneOffTask = null;
+    cancelByUniqueName = null;
+    cancelByTag = null;
+    isScheduledByUniqueName = null;
+    cancelLog.clear();
+    registerLog.clear();
+  }
+}
 
 /// Service for scheduling automatic backups using WorkManager.
 class BackupScheduler {
@@ -56,6 +104,7 @@ class BackupScheduler {
           defaultFrequency;
 
       if (!enabled || frequency == 'off') {
+        await BackupScheduler().cancelBackup(updateSettings: false);
         return;
       }
 
@@ -66,7 +115,7 @@ class BackupScheduler {
       final scheduler = BackupScheduler();
       var scheduled = false;
       try {
-        scheduled = await Workmanager().isScheduledByUniqueName(_uniqueName);
+        scheduled = await _isScheduledByUniqueName(_uniqueName);
       } catch (_) {
         // Some platforms do not support schedule inspection.
       }
@@ -119,17 +168,17 @@ class BackupScheduler {
         return false;
       }
 
-      await Workmanager().registerPeriodicTask(
-        _uniqueName,
-        _taskName,
+      final provider = await BackupProviderPreferences.getSelectedProvider();
+      final constraints = constraintsForProvider(
+        provider,
+        wifiOnly: wifiOnly,
+      );
+
+      await _registerPeriodicTask(
+        uniqueName: _uniqueName,
+        taskName: _taskName,
         frequency: Duration(seconds: interval),
-        constraints: Constraints(
-          networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
-          requiresBatteryNotLow: true,
-          requiresCharging: false,
-          requiresDeviceIdle: false,
-          requiresStorageNotLow: true,
-        ),
+        constraints: constraints,
         initialDelay: const Duration(minutes: 5),
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),
@@ -195,7 +244,7 @@ class BackupScheduler {
       }
 
       try {
-        return await Workmanager().isScheduledByUniqueName(_uniqueName);
+        return await _isScheduledByUniqueName(_uniqueName);
       } catch (_) {
         return enabled;
       }
@@ -233,16 +282,16 @@ class BackupScheduler {
   Future<bool> scheduleImmediateBackup({bool? wifiOnly}) async {
     try {
       final effectiveWifiOnly = wifiOnly ?? await isWifiOnly();
-      await Workmanager().registerOneOffTask(
-        _immediateUniqueName,
-        _taskName,
-        constraints: Constraints(
-          networkType:
-              effectiveWifiOnly ? NetworkType.unmetered : NetworkType.connected,
-          requiresBatteryNotLow: true,
-          requiresCharging: false,
-          requiresStorageNotLow: true,
-        ),
+      final provider = await BackupProviderPreferences.getSelectedProvider();
+      final constraints = constraintsForProvider(
+        provider,
+        wifiOnly: effectiveWifiOnly,
+      );
+
+      await _registerOneOffTask(
+        uniqueName: _immediateUniqueName,
+        taskName: _taskName,
+        constraints: constraints,
         initialDelay: const Duration(seconds: 10),
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),
@@ -358,13 +407,156 @@ class BackupScheduler {
     }
   }
 
-  Future<void> _cancelScheduledWork() async {
-    await Workmanager().cancelByUniqueName(_uniqueName);
-    await Workmanager().cancelByUniqueName(_immediateUniqueName);
-    await Workmanager().cancelByUniqueName(_legacyUniqueName);
-    await Workmanager().cancelByUniqueName(_legacyBackgroundUniqueName);
-    await Workmanager().cancelByTag(_taskTag);
+  /// Network/battery constraints for auto backup based on destination provider.
+  @visibleForTesting
+  static Constraints constraintsForProvider(
+    BackupProvider provider, {
+    required bool wifiOnly,
+  }) {
+    final networkType = switch (provider) {
+      BackupProvider.local => NetworkType.notRequired,
+      BackupProvider.googleDrive =>
+        wifiOnly ? NetworkType.unmetered : NetworkType.connected,
+      BackupProvider.firebase => NetworkType.connected,
+    };
+
+    return Constraints(
+      networkType: networkType,
+      requiresBatteryNotLow: true,
+      requiresCharging: false,
+      requiresDeviceIdle: false,
+      requiresStorageNotLow: true,
+    );
   }
+
+  Future<void> _cancelScheduledWork() async {
+    await _cancelByUniqueName(_uniqueName);
+    await _cancelByUniqueName(_immediateUniqueName);
+    await _cancelByUniqueName(_legacyUniqueName);
+    await _cancelByUniqueName(_legacyBackgroundUniqueName);
+    await _cancelByTag(_taskTag);
+  }
+
+  static Future<void> _registerPeriodicTask({
+    required String uniqueName,
+    required String taskName,
+    required Duration frequency,
+    required Constraints constraints,
+    required Duration initialDelay,
+    required BackoffPolicy backoffPolicy,
+    required Duration backoffPolicyDelay,
+    required ExistingPeriodicWorkPolicy existingWorkPolicy,
+    String? tag,
+  }) async {
+    final override = BackupSchedulerWorkmanager.registerPeriodicTask;
+    if (override != null) {
+      BackupSchedulerWorkmanager.registerLog.add(uniqueName);
+      await override(
+        uniqueName,
+        taskName,
+        frequency: frequency,
+        constraints: constraints,
+        initialDelay: initialDelay,
+        backoffPolicy: backoffPolicy,
+        backoffPolicyDelay: backoffPolicyDelay,
+        existingWorkPolicy: existingWorkPolicy,
+        tag: tag,
+      );
+      return;
+    }
+
+    await Workmanager().registerPeriodicTask(
+      uniqueName,
+      taskName,
+      frequency: frequency,
+      constraints: constraints,
+      initialDelay: initialDelay,
+      backoffPolicy: backoffPolicy,
+      backoffPolicyDelay: backoffPolicyDelay,
+      existingWorkPolicy: existingWorkPolicy,
+      tag: tag,
+    );
+  }
+
+  static Future<void> _registerOneOffTask({
+    required String uniqueName,
+    required String taskName,
+    required Constraints constraints,
+    required Duration initialDelay,
+    required BackoffPolicy backoffPolicy,
+    required Duration backoffPolicyDelay,
+    required ExistingWorkPolicy existingWorkPolicy,
+    String? tag,
+  }) async {
+    final override = BackupSchedulerWorkmanager.registerOneOffTask;
+    if (override != null) {
+      BackupSchedulerWorkmanager.registerLog.add(uniqueName);
+      await override(
+        uniqueName,
+        taskName,
+        constraints: constraints,
+        initialDelay: initialDelay,
+        backoffPolicy: backoffPolicy,
+        backoffPolicyDelay: backoffPolicyDelay,
+        existingWorkPolicy: existingWorkPolicy,
+        tag: tag,
+      );
+      return;
+    }
+
+    await Workmanager().registerOneOffTask(
+      uniqueName,
+      taskName,
+      constraints: constraints,
+      initialDelay: initialDelay,
+      backoffPolicy: backoffPolicy,
+      backoffPolicyDelay: backoffPolicyDelay,
+      existingWorkPolicy: existingWorkPolicy,
+      tag: tag,
+    );
+  }
+
+  static Future<void> _cancelByUniqueName(String uniqueName) async {
+    final override = BackupSchedulerWorkmanager.cancelByUniqueName;
+    if (override != null) {
+      BackupSchedulerWorkmanager.cancelLog.add(uniqueName);
+      await override(uniqueName);
+      return;
+    }
+    await Workmanager().cancelByUniqueName(uniqueName);
+  }
+
+  static Future<void> _cancelByTag(String tag) async {
+    final override = BackupSchedulerWorkmanager.cancelByTag;
+    if (override != null) {
+      BackupSchedulerWorkmanager.cancelLog.add('tag:$tag');
+      await override(tag);
+      return;
+    }
+    await Workmanager().cancelByTag(tag);
+  }
+
+  static Future<bool> _isScheduledByUniqueName(String uniqueName) async {
+    final override = BackupSchedulerWorkmanager.isScheduledByUniqueName;
+    if (override != null) {
+      return override(uniqueName);
+    }
+    return Workmanager().isScheduledByUniqueName(uniqueName);
+  }
+
+  /// Debug/QA: run the same path as the WorkManager callback (no UI).
+  @visibleForTesting
+  Future<bool> runScheduledBackupForTesting() async {
+    return _runScheduledBackup(_logger);
+  }
+
+  /// When set (tests only), skips Firebase/Hive bootstrap in the worker.
+  @visibleForTesting
+  static Future<void> Function(Logger logger)?
+      backgroundDependenciesInitializer;
+
+  @visibleForTesting
+  static Future<Box<FlightLog>> Function()? openFlightLogsBoxForTesting;
 }
 
 /// Callback dispatcher for WorkManager.
@@ -402,23 +594,35 @@ Future<bool> _runScheduledBackup(Logger logger) async {
       prefs.getString(BackupConstants.settingsKeys['backup_frequency']!) ??
           'off';
 
-  if (!enabled || frequency == 'off') {
-    logger.info('Auto backup is disabled; skipping task.');
-    return true;
+  final provider = await BackupProviderPreferences.getSelectedProvider();
+  final preInitPlan = planScheduledBackup(
+    autoBackupEnabled: enabled,
+    frequency: frequency,
+    provider: provider,
+    hasFlightLogs: true,
+  );
+
+  if (!preInitPlan.shouldRunBackup) {
+    switch (preInitPlan.skipReason) {
+      case ScheduledBackupSkipReason.disabled:
+        logger.info('Auto backup is disabled; skipping task.');
+        break;
+      case ScheduledBackupSkipReason.unsupportedProvider:
+        logger.warning(
+          'Scheduled backup skipped: selected provider is not supported.',
+        );
+        break;
+      case ScheduledBackupSkipReason.noFlightLogs:
+      case null:
+        break;
+    }
+    return preInitPlan.reportWorkmanagerSuccess;
   }
 
   await _initializeBackgroundBackupDependencies(logger);
 
-  final provider = await BackupProviderPreferences.getSelectedProvider();
-  if (provider == BackupProvider.firebase) {
-    logger.warning(
-      'Scheduled backup skipped: Firebase provider is not supported.',
-    );
-    return false;
-  }
-
-  final flightLogsBox =
-      await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
+  final flightLogsBox = await (BackupScheduler.openFlightLogsBoxForTesting ??
+          () => HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
   if (flightLogsBox.isEmpty) {
     logger.info('No flight logs to back up; skipping task.');
     return true;
@@ -435,6 +639,12 @@ Future<bool> _runScheduledBackup(Logger logger) async {
 }
 
 Future<void> _initializeBackgroundBackupDependencies(Logger logger) async {
+  final testInit = BackupScheduler.backgroundDependenciesInitializer;
+  if (testInit != null) {
+    await testInit(logger);
+    return;
+  }
+
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,

@@ -75,8 +75,7 @@ class GoogleDriveService {
       }
 
       if (kDebugMode) {
-        print(
-            '🔑 Access token obtained: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
+        print('🔑 Access token obtained for Drive API');
       }
 
       // Set token expiry (use server time if available, otherwise 55 minutes for safety)
