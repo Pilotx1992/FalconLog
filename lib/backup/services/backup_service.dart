@@ -24,6 +24,7 @@ export '../models/restore_mode.dart';
 import '../utils/backup_account_identity_guard.dart';
 import '../utils/backup_constants.dart';
 import '../utils/backup_filename.dart';
+import '../utils/drive_backup_discovery.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
 import '../utils/pre_restore_snapshot_service.dart';
@@ -1077,54 +1078,15 @@ class BackupService extends ChangeNotifier {
         return null;
       }
 
-      _sortDriveFilesNewestFirst(backupFiles);
       final storedByDriveId = await _loadStoredMetadataByDriveFileId();
+      final identity = await _cloudIdentitySnapshot();
 
-      // Prefer the newest Drive file that has app-confirmed metadata (successful
-      // backup). Orphan uploads from a cancelled backup are ignored here.
-      drive.File? backupFile;
-      BackupMetadata? stored;
-      for (final file in backupFiles) {
-        if (file.id == null || file.name == null) continue;
-        final entry = storedByDriveId[file.id!];
-        if (entry != null) {
-          backupFile = file;
-          stored = entry;
-          break;
-        }
-      }
-
-      if (backupFile == null || stored == null) {
-        return null;
-      }
-
-      final resolvedFile = backupFile;
-      final resolvedStored = stored;
-
-      final detailedFileInfo =
-          await _driveService.getFileInfo(resolvedFile.id!);
-      final fileSize =
-          int.tryParse(detailedFileInfo?.size ?? resolvedFile.size ?? '0') ?? 0;
-
-      if (kDebugMode) {
-        print('📊 Backup file size from API: ${resolvedFile.size}');
-        print('📊 Detailed file size: ${detailedFileInfo?.size}');
-        print('📊 Final file size: $fileSize bytes');
-      }
-
-      return BackupMetadata(
-        id: resolvedStored.id,
-        fileName: resolvedFile.name!,
-        location: BackupLocation.cloud,
-        createdAt: resolvedStored.createdAt,
-        sizeBytes: fileSize,
-        flightLogsCount: resolvedStored.flightLogsCount,
-        checksum: resolvedStored.checksum,
-        driveFileId: resolvedFile.id!,
-        isEncrypted: true,
-        encryptionAlgorithm: 'AES-256-GCM',
-        health: resolvedStored.health,
-        deviceId: resolvedStored.deviceId,
+      return _resolveLatestRestorableDriveBackup(
+        backupFiles: backupFiles,
+        storedByDriveId: storedByDriveId,
+        identitySnapshot: identity,
+        downloadFile: _driveService.downloadFile,
+        getFileInfo: _driveService.getFileInfo,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1147,27 +1109,38 @@ class BackupService extends ChangeNotifier {
 
       _sortDriveFilesNewestFirst(backupFiles);
       final storedByDriveId = await _loadStoredMetadataByDriveFileId();
+      final identity = await _cloudIdentitySnapshot();
+      final identityAllowed =
+          BackupAccountIdentityGuard.checkCloudRestore(identity).allowed;
 
-      return backupFiles
-          .where((file) => file.id != null && file.name != null)
-          .map((file) {
+      final results = <BackupMetadata>[];
+      for (final file in backupFiles) {
+        if (!DriveBackupDiscovery.isRecognizedDriveFile(file)) {
+          continue;
+        }
+
         final stored = storedByDriveId[file.id!];
-        final fileSize = int.tryParse(file.size ?? '0') ?? 0;
-        return BackupMetadata(
-          id: stored?.id ?? file.id!,
-          fileName: file.name!,
-          location: BackupLocation.cloud,
-          createdAt: file.modifiedTime ?? file.createdTime ?? DateTime.now(),
-          sizeBytes: fileSize,
-          flightLogsCount: stored?.flightLogsCount ?? 0,
-          checksum: stored?.checksum ?? 'unknown',
-          driveFileId: file.id!,
-          isEncrypted: true,
-          encryptionAlgorithm: 'AES-256-GCM',
-          health: stored?.health ?? BackupHealth.unverified,
-          deviceId: stored?.deviceId ?? 'Unknown Device',
-        );
-      }).toList();
+        if (stored != null) {
+          results.add(
+            DriveBackupDiscovery.metadataFromDriveFile(file, stored: stored),
+          );
+          continue;
+        }
+
+        if (!identityAllowed) {
+          continue;
+        }
+
+        final bytes = await _driveService.downloadFile(file.id!);
+        if (bytes == null ||
+            !DriveBackupDiscovery.validateBackupFileBytes(bytes)) {
+          continue;
+        }
+
+        results.add(DriveBackupDiscovery.metadataFromDriveFile(file));
+      }
+
+      return results;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error listing backups: $e');
@@ -1368,6 +1341,103 @@ class BackupService extends ChangeNotifier {
   }
 
   /// Hive metadata keyed by Google Drive file id (saved at backup time).
+  /// Resolves the newest restorable Drive backup (metadata-linked or reinstall recovery).
+  Future<BackupMetadata?> _resolveLatestRestorableDriveBackup({
+    required List<drive.File> backupFiles,
+    required Map<String, BackupMetadata> storedByDriveId,
+    required BackupAccountIdentitySnapshot identitySnapshot,
+    required Future<Uint8List?> Function(String fileId) downloadFile,
+    required Future<drive.File?> Function(String fileId) getFileInfo,
+  }) async {
+    _sortDriveFilesNewestFirst(backupFiles);
+
+    final identityCheck =
+        BackupAccountIdentityGuard.checkCloudRestore(identitySnapshot);
+    if (!identityCheck.allowed) {
+      if (kDebugMode) {
+        print(
+          '☁️ Drive backup discovery blocked: ${identityCheck.message}',
+        );
+      }
+      return null;
+    }
+
+    // Path A: newest file with local Hive metadata (normal operation).
+    for (final file in backupFiles) {
+      if (!DriveBackupDiscovery.isRecognizedDriveFile(file)) {
+        continue;
+      }
+      final stored = storedByDriveId[file.id!];
+      if (stored == null) {
+        continue;
+      }
+
+      final detailed = await getFileInfo(file.id!);
+      final fileSize = int.tryParse(detailed?.size ?? file.size ?? '0') ?? 0;
+
+      return DriveBackupDiscovery.metadataFromDriveFile(
+        file,
+        stored: stored,
+        sizeBytesOverride: fileSize,
+      );
+    }
+
+    // Path B: reinstall recovery — Drive file valid, local metadata wiped.
+    for (final file in backupFiles) {
+      if (!DriveBackupDiscovery.isRecognizedDriveFile(file)) {
+        continue;
+      }
+      if (storedByDriveId.containsKey(file.id!)) {
+        continue;
+      }
+
+      final bytes = await downloadFile(file.id!);
+      if (bytes == null ||
+          !DriveBackupDiscovery.validateBackupFileBytes(bytes)) {
+        if (kDebugMode) {
+          print('☁️ Skipping non-backup Drive file: ${file.name}');
+        }
+        continue;
+      }
+
+      final detailed = await getFileInfo(file.id!);
+      final fileSize =
+          int.tryParse(detailed?.size ?? file.size ?? '0') ?? bytes.length;
+
+      if (kDebugMode) {
+        print(
+          '☁️ Recovered restorable Drive backup without local metadata: '
+          '${file.name}',
+        );
+      }
+
+      return DriveBackupDiscovery.metadataFromDriveFile(
+        file,
+        sizeBytesOverride: fileSize,
+      );
+    }
+
+    return null;
+  }
+
+  @visibleForTesting
+  Future<BackupMetadata?> resolveLatestRestorableDriveBackupForTesting({
+    required List<drive.File> backupFiles,
+    required Map<String, BackupMetadata> storedByDriveId,
+    required BackupAccountIdentitySnapshot identitySnapshot,
+    required Future<Uint8List?> Function(String fileId) downloadFile,
+    Future<drive.File?> Function(String fileId)? getFileInfo,
+  }) {
+    return _resolveLatestRestorableDriveBackup(
+      backupFiles: backupFiles,
+      storedByDriveId: storedByDriveId,
+      identitySnapshot: identitySnapshot,
+      downloadFile: downloadFile,
+      getFileInfo:
+          getFileInfo ?? (id) async => drive.File(id: id, size: '1024'),
+    );
+  }
+
   Future<Map<String, BackupMetadata>> _loadStoredMetadataByDriveFileId() async {
     try {
       final box = await HiveInitializationService.openBox<BackupMetadata>(
@@ -1662,45 +1732,7 @@ class BackupService extends ChangeNotifier {
 
   /// Validates encrypted backup JSON envelope shape (not cryptographic integrity).
   bool _validateEncryptedBackupEnvelope(Map<String, dynamic> encryptedBackup) {
-    try {
-      if (!encryptedBackup.containsKey('encrypted') ||
-          !encryptedBackup.containsKey('version') ||
-          !encryptedBackup.containsKey('backup_id') ||
-          !encryptedBackup.containsKey('data') ||
-          !encryptedBackup.containsKey('iv') ||
-          !encryptedBackup.containsKey('tag')) {
-        if (kDebugMode) {
-          print('❌ Missing required backup envelope fields');
-        }
-        return false;
-      }
-
-      if (encryptedBackup['encrypted'] != true) {
-        if (kDebugMode) {
-          print('❌ Backup is not marked as encrypted');
-        }
-        return false;
-      }
-
-      final version = encryptedBackup['version'] as String?;
-      if (version == null || version.isEmpty) {
-        if (kDebugMode) {
-          print('❌ Invalid backup version in envelope');
-        }
-        return false;
-      }
-
-      if (kDebugMode) {
-        print('✅ Backup envelope validated (version: $version)');
-      }
-
-      return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error validating backup envelope: $e');
-      }
-      return false;
-    }
+    return DriveBackupDiscovery.validateBackupEnvelope(encryptedBackup);
   }
 
   Future<BackupAccountIdentitySnapshot> _cloudIdentitySnapshot() async {
