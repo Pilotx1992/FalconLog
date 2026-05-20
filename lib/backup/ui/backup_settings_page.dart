@@ -483,27 +483,13 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   color: _BackupColors.cloudGradientEnd),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Google Drive',
-                      style: TextStyle(
-                        color: sectionTitleColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Keeps your latest successful cloud backup. Older cloud copies are removed when a new backup finishes.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.35,
-                        color: sectionTitleColor.withValues(alpha: 0.62),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Google Drive',
+                  style: TextStyle(
+                    color: sectionTitleColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -600,27 +586,13 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   color: _BackupColors.warning),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Local Device',
-                      style: TextStyle(
-                        color: sectionTitleColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Device-only copies for quick backup and restore on this phone.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.35,
-                        color: sectionTitleColor.withValues(alpha: 0.62),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Local Device',
+                  style: TextStyle(
+                    color: sectionTitleColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
