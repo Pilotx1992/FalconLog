@@ -5,6 +5,9 @@ import 'package:google_sign_in/google_sign_in.dart' as g;
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/auth_error_mapper.dart';
+import '../auth/auth_exception.dart';
+
 enum AuthMethod {
   email,
   google,
@@ -41,7 +44,7 @@ class EnhancedAuthService {
 
       return credential;
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -61,7 +64,7 @@ class EnhancedAuthService {
 
       return credential;
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -102,7 +105,7 @@ class EnhancedAuthService {
       debugPrint('Google sign-in successful for: ${googleUser.email}');
       return userCredential;
     } on FirebaseAuthException catch (e) {
-      throw Exception(_handleFirebaseAuthError(e));
+      throw AuthException(mapFirebaseAuthException(e), code: e.code);
     } on PlatformException catch (e) {
       debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}');
       switch (e.code) {
@@ -252,16 +255,14 @@ class EnhancedAuthService {
     return prefs.getBool('biometric_enabled') ?? false;
   }
 
-  // Save credentials for biometric login (Note: In production, use proper encryption)
+  // Legacy login biometric: update stored creds only when user opted in.
   Future<void> _saveBiometricCredentials(String email, String password) async {
-    final prefs = await SharedPreferences.getInstance();
-    final biometricEnabled = await isBiometricEnabled();
-
-    if (biometricEnabled || await isBiometricAvailable()) {
-      // In production, encrypt these values properly
-      await prefs.setString('biometric_email', email);
-      await prefs.setString('biometric_password', password);
+    if (!await isBiometricEnabled()) {
+      return;
     }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('biometric_email', email);
+    await prefs.setString('biometric_password', password);
   }
 
   // Sign out
@@ -306,7 +307,7 @@ class EnhancedAuthService {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -322,7 +323,7 @@ class EnhancedAuthService {
         await user.delete();
       }
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -339,35 +340,5 @@ class EnhancedAuthService {
     }
 
     return AuthMethod.email;
-  }
-
-  // Handle Firebase Auth errors
-  String _handleFirebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No user found with this email address. Please check your email or sign up for a new account.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again or reset your password.';
-      case 'invalid-credential':
-        return 'Invalid email or password. Please check your credentials and try again.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email address. Please sign in instead.';
-      case 'weak-password':
-        return 'The password provided is too weak. Please use at least 6 characters.';
-      case 'invalid-email':
-        return 'The email address is not valid. Please enter a valid email address.';
-      case 'user-disabled':
-        return 'This user account has been disabled. Please contact support.';
-      case 'too-many-requests':
-        return 'Too many failed attempts. Please wait a few minutes before trying again.';
-      case 'operation-not-allowed':
-        return 'This operation is not allowed. Please contact support.';
-      case 'network-request-failed':
-        return 'Network error. Please check your internet connection and try again.';
-      case 'auth/invalid-credential':
-        return 'Authentication failed. Please check your email and password.';
-      default:
-        return 'Authentication failed: ${e.message ?? e.code}';
-    }
   }
 }

@@ -1,4 +1,6 @@
-﻿import '../services/navigation_service.dart';
+import '../auth/auth_error_mapper.dart';
+import '../services/navigation_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum NotificationType {
   success,
@@ -33,34 +35,14 @@ class NotificationService {
     showSuccess('$action successful!');
   }
 
-  // Show authentication error
+  // Show authentication error ([error] is a Firebase code or user message).
   static void showAuthError(String action, String error) {
-    String message = 'Failed to $action: ';
-
-    // Handle common Firebase Auth errors
-    if (error.contains('user-not-found')) {
-      message += 'Account not found.';
-    } else if (error.contains('wrong-password')) {
-      message += 'Wrong password.';
-    } else if (error.contains('email-already-in-use')) {
-      message += 'Email already exists.';
-    } else if (error.contains('weak-password')) {
-      message += 'Password too weak.';
-    } else if (error.contains('invalid-email')) {
-      message += 'Invalid email.';
-    } else if (error.contains('user-disabled')) {
-      message += 'Account disabled.';
-    } else if (error.contains('too-many-requests')) {
-      message += 'Too many attempts. Try later.';
-    } else if (error.contains('network-request-failed')) {
-      message += 'Network error.';
-    } else if (error.contains('requires-recent-login')) {
-      message += 'Sign in again.';
-    } else {
-      message += error;
-    }
-
-    showError(message);
+    final mapped = mapFirebaseAuthException(
+      FirebaseAuthException(code: error, message: null),
+    );
+    final detail =
+        mapped == 'Authentication failed. Please try again.' ? error : mapped;
+    showError('Failed to $action: $detail');
   }
 
   // Show validation error
@@ -172,4 +154,3 @@ class NotificationService {
     }
   }
 }
-

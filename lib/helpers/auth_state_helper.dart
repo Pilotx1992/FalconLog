@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../providers/auth_provider.dart';
+
 class AuthStateHelper {
   // Get current user
   static User? get currentUser => FirebaseAuth.instance.currentUser;
@@ -86,8 +88,8 @@ class AuthStateHelper {
     await user.updatePassword(newPassword);
   }
 
-  // Sign out user
+  // Sign out user (Firebase + Google session)
   static Future<void> signOut() async {
-    await FirebaseAuth.instance.signOut();
+    await AuthService().signOut();
   }
 }

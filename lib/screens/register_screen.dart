@@ -1,6 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../auth/auth_error_mapper.dart';
+import '../auth/auth_validators.dart';
 import '../providers/auth_provider.dart';
+import '../services/navigation_service.dart';
+import '../utils/app_snack_bar.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -17,6 +23,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || Firebase.apps.isEmpty) return;
+      if (FirebaseAuth.instance.currentUser != null) {
+        NavigationService.goToDashboard();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -28,28 +46,38 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isSubmitting = true);
     ref.read(authLoadingProvider.notifier).state = true;
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.registerWithEmailAndPassword(
+      final result = await authService.registerWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         displayName: _nameController.text.trim(),
       );
+
+      if (!mounted) return;
+      if (result?.user != null) {
+        // Firebase signs the user in after createUserWithEmailAndPassword.
+        await NavigationService.goToDashboard();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(authErrorMessage(e)),
             backgroundColor: Colors.red,
+            duration: AppSnackBar.error,
           ),
         );
       }
     } finally {
       if (mounted) {
+        setState(() => _isSubmitting = false);
         ref.read(authLoadingProvider.notifier).state = false;
       }
     }
@@ -57,7 +85,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(authLoadingProvider);
+    final isLoading = ref.watch(authLoadingProvider) || _isSubmitting;
 
     return Scaffold(
       body: Container(
@@ -149,15 +177,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your full name';
-                              }
-                              if (value.length < 2) {
-                                return 'Name must be at least 2 characters';
-                              }
-                              return null;
-                            },
+                            validator: validateDisplayName,
                           ),
                           const SizedBox(height: 16),
 
@@ -172,15 +192,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
+                            validator: validateEmail,
                           ),
                           const SizedBox(height: 16),
 
@@ -207,15 +219,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              return null;
-                            },
+                            validator: validateRegisterPassword,
                           ),
                           const SizedBox(height: 16),
 
@@ -243,15 +247,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
+                            validator: (value) => validateConfirmPassword(
+                              value,
+                              _passwordController.text,
+                            ),
                           ),
                           const SizedBox(height: 24),
 

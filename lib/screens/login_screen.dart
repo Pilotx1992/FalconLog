@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../auth/auth_error_mapper.dart';
+import '../auth/auth_validators.dart';
 import '../theme/app_colors.dart';
-// Use enhanced auth + biometric providers
 import '../services/enhanced_auth_service.dart';
 import '../services/navigation_service.dart';
+import '../utils/app_snack_bar.dart';
 import '../providers/enhanced_biometric_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -38,6 +43,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             CurvedAnimation(
                 parent: _animationController, curve: Curves.easeOutCubic));
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || Firebase.apps.isEmpty) return;
+      if (FirebaseAuth.instance.currentUser != null) {
+        unawaited(NavigationService.goToDashboard());
+      }
+    });
   }
 
   @override
@@ -220,17 +232,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       controller: _emailController,
                                       keyboardType: TextInputType.emailAddress,
                                       icon: Icons.alternate_email_rounded,
-                                      validator: (v) {
-                                        if (v == null || v.trim().isEmpty) {
-                                          return 'Email required';
-                                        }
-                                        final r = RegExp(
-                                            r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}');
-                                        if (!r.hasMatch(v.trim())) {
-                                          return 'Invalid email';
-                                        }
-                                        return null;
-                                      },
+                                      validator: validateEmail,
                                     ),
                                     SizedBox(height: isSmallHeight ? 16 : 22),
                                     _PasswordField(
@@ -238,15 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       obscure: _obscurePassword,
                                       onToggle: () => setState(() =>
                                           _obscurePassword = !_obscurePassword),
-                                      validator: (v) {
-                                        if (v == null || v.isEmpty) {
-                                          return 'Password required';
-                                        }
-                                        if (v.length < 6) {
-                                          return 'Min 6 characters';
-                                        }
-                                        return null;
-                                      },
+                                      validator: validateLoginPassword,
                                     ),
                                     SizedBox(height: isSmallHeight ? 22 : 30),
                                     _PrimaryButton(
@@ -321,11 +315,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final authService = ref.read(enhancedAuthServiceProvider);
@@ -334,34 +327,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         password: _passwordController.text,
       );
 
-      if (mounted) {
-        _maybeEnableBiometric(authService);
-        // Navigate to main app
-        await NavigationService.goToDashboard();
-      }
+      if (!mounted) return;
+      await _maybeEnableBiometric(authService);
+      if (!mounted) return;
+      await NavigationService.goToDashboard();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        _showSnack(authErrorMessage(e), Colors.red);
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(enhancedAuthServiceProvider);
@@ -372,7 +354,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       }
     } catch (e) {
       if (mounted) {
-        _showSnack('Google sign in failed: ${e.toString()}', Colors.redAccent);
+        _showSnack(authErrorMessage(e), Colors.redAccent);
       }
     } finally {
       if (mounted) {
@@ -382,6 +364,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleBiometricSignIn() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(enhancedAuthServiceProvider);
@@ -424,6 +407,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         content: Text(msg),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        duration: AppSnackBar.info,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
