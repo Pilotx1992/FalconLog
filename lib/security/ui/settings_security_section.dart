@@ -19,7 +19,7 @@ class SettingsSecuritySection extends ConsumerWidget {
   final Widget Function({
     required IconData icon,
     required String title,
-    required String subtitle,
+    String? subtitle,
     VoidCallback? onTap,
     Widget? trailing,
     bool bareTrailing,
@@ -42,7 +42,6 @@ class SettingsSecuritySection extends ConsumerWidget {
         buildTile(
           icon: Icons.pin_outlined,
           title: 'PIN Lock',
-          subtitle: pinEnabled ? 'Enabled' : 'Set a 4-digit PIN',
           onTap: () {},
           bareTrailing: true,
           trailing: Switch.adaptive(
@@ -53,12 +52,7 @@ class SettingsSecuritySection extends ConsumerWidget {
         buildDivider(),
         buildTile(
           icon: Icons.fingerprint,
-          title: 'Biometric App Unlock',
-          subtitle: pinEnabled
-              ? (biometricAvailable
-                  ? 'Unlock the app with fingerprint or face after PIN lock'
-                  : 'Set up fingerprint or face in phone Settings')
-              : 'Enable PIN Lock first to use biometric app unlock.',
+          title: 'Biometric',
           onTap: () {},
           bareTrailing: true,
           trailing: Switch.adaptive(
@@ -73,7 +67,6 @@ class SettingsSecuritySection extends ConsumerWidget {
           buildTile(
             icon: Icons.edit_outlined,
             title: 'Change PIN',
-            subtitle: 'Update your PIN',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PinChangeScreen()),
@@ -84,19 +77,11 @@ class SettingsSecuritySection extends ConsumerWidget {
           buildTile(
             icon: Icons.timer_outlined,
             title: 'Auto-Lock',
-            subtitle: _autoLockLabel(service.settings.autoLockTimeoutSeconds),
             onTap: () => _showAutoLockPicker(context, ref, service),
           ),
         ],
       ],
     );
-  }
-
-  String _autoLockLabel(int seconds) {
-    for (final preset in SecurityConstants.autoLockPresets) {
-      if (preset.seconds == seconds) return preset.label;
-    }
-    return '$seconds seconds';
   }
 
   Future<void> _onBiometricToggle(
