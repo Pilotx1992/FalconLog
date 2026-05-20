@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -20,7 +21,9 @@ import '../models/backup_status.dart';
 import '../models/restore_mode.dart';
 import '../models/restore_result.dart';
 export '../models/restore_mode.dart';
+import '../utils/backup_account_identity_guard.dart';
 import '../utils/backup_constants.dart';
+import '../utils/backup_filename.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
 import '../utils/pre_restore_snapshot_service.dart';
@@ -77,8 +80,6 @@ class BackupService extends ChangeNotifier {
   bool get isBackupOperationActive => _backupOperationActive;
   bool get isRestoreMutating => _restoreMutating;
   bool get canCancelRestore => _isRestoreInProgress && !_restoreMutating;
-
-  static const String _backupPrefix = 'falconlog_backup_';
 
   /// Initialize the backup service for the currently selected provider.
   Future<bool> initialize({bool interactive = true}) async {
@@ -284,6 +285,19 @@ class BackupService extends ChangeNotifier {
         return false;
       }
 
+      final identityCheck = BackupAccountIdentityGuard.checkCloudBackup(
+        await _cloudIdentitySnapshot(),
+      );
+      if (!identityCheck.allowed) {
+        _updateProgress(
+          0,
+          BackupStatus.failed,
+          identityCheck.message ??
+              BackupAccountIdentityGuard.accountMismatchMessage,
+        );
+        return false;
+      }
+
       final payload = await _prepareEncryptedBackup(
         interactive: interactive,
         useDeviceKey: false,
@@ -295,8 +309,7 @@ class BackupService extends ChangeNotifier {
       _checkBackupCancelled();
       _updateProgress(
           70, BackupStatus.uploading, 'Uploading to Google Drive...');
-      final fileName =
-          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      final fileName = BackupFilename.generate();
       uploadedDriveFileId = await _driveService.uploadFile(
         fileName: fileName,
         content: payload.encryptedBytes,
@@ -309,7 +322,12 @@ class BackupService extends ChangeNotifier {
       }
 
       _checkBackupCancelled();
-      await _pruneOldBackups(keep: 5);
+      final uploadedFile = await _driveService.getFileInfo(uploadedDriveFileId);
+      if (uploadedFile == null) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to verify cloud backup');
+        return false;
+      }
 
       _checkBackupCancelled();
       _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
@@ -326,6 +344,12 @@ class BackupService extends ChangeNotifier {
         return false;
       }
       await _recordSuccessfulBackup();
+
+      _checkBackupCancelled();
+      await _pruneOldBackups(
+        keep: BackupFilename.keepLatestSuccessfulCount,
+        retainDriveFileId: uploadedDriveFileId,
+      );
 
       _checkBackupCancelled();
       _updateProgress(
@@ -359,8 +383,7 @@ class BackupService extends ChangeNotifier {
 
       _checkBackupCancelled();
       _updateProgress(70, BackupStatus.uploading, 'Saving backup on device...');
-      final fileName =
-          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      final fileName = BackupFilename.generate();
       writtenLocalPath = await _writeLocalBackupFile(
         fileName: fileName,
         content: payload.encryptedBytes,
@@ -371,7 +394,11 @@ class BackupService extends ChangeNotifier {
       }
 
       _checkBackupCancelled();
-      await _pruneLocalBackups(keep: BackupConstants.defaultKeepCount);
+      if (!await File(writtenLocalPath).exists()) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to verify local backup');
+        return false;
+      }
 
       _checkBackupCancelled();
       _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
@@ -389,6 +416,12 @@ class BackupService extends ChangeNotifier {
         return false;
       }
       await _recordSuccessfulBackup();
+
+      _checkBackupCancelled();
+      await _pruneLocalBackups(
+        keep: BackupFilename.keepLatestSuccessfulCount,
+        retainBackupId: savedMetadataBackupId,
+      );
 
       _checkBackupCancelled();
       _updateProgress(
@@ -486,7 +519,10 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  Future<void> _pruneLocalBackups({int keep = 5}) async {
+  Future<void> _pruneLocalBackups({
+    int keep = BackupFilename.keepLatestSuccessfulCount,
+    String? retainBackupId,
+  }) async {
     try {
       final box = await HiveInitializationService.openBox<BackupMetadata>(
         'backupMetadata',
@@ -496,7 +532,16 @@ class BackupService extends ChangeNotifier {
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      for (final entry in localEntries.skip(keep)) {
+      final retained = <String>{};
+      if (retainBackupId != null && retainBackupId.isNotEmpty) {
+        retained.add(retainBackupId);
+      }
+      for (final entry in localEntries.take(keep)) {
+        retained.add(entry.id);
+      }
+
+      for (final entry in localEntries) {
+        if (retained.contains(entry.id)) continue;
         if (entry.localPath != null) {
           final file = File(entry.localPath!);
           if (await file.exists()) {
@@ -629,6 +674,23 @@ class BackupService extends ChangeNotifier {
       return RestoreResult.failure(
         error:
             'Google Drive authentication is unavailable. Sign in and try again.',
+      );
+    }
+
+    final identityCheck = BackupAccountIdentityGuard.checkCloudRestore(
+      await _cloudIdentitySnapshot(),
+    );
+    if (!identityCheck.allowed) {
+      _updateProgress(
+        0,
+        null,
+        identityCheck.message ??
+            BackupAccountIdentityGuard.accountMismatchMessage,
+        RestoreStatus.failed,
+      );
+      return RestoreResult.failure(
+        error: identityCheck.message ??
+            BackupAccountIdentityGuard.accountMismatchMessage,
       );
     }
 
@@ -889,21 +951,75 @@ class BackupService extends ChangeNotifier {
     );
   }
 
-  /// Keep only last [keep] backups in Drive (by modifiedTime desc)
-  Future<void> _pruneOldBackups({int keep = 5}) async {
+  /// Keep only the newest [keep] Drive backups (by modifiedTime desc).
+  Future<void> _pruneOldBackups({
+    int keep = BackupFilename.keepLatestSuccessfulCount,
+    String? retainDriveFileId,
+  }) async {
     try {
       final files = await _driveService.listFiles(
-          query: "name contains '$_backupPrefix'");
-      if (files.length <= keep) return;
-      for (var i = keep; i < files.length; i++) {
-        final f = files[i];
-        if (f.id != null) {
-          await _driveService.deleteFile(f.id!);
-        }
+        query: BackupFilename.driveDiscoveryQuery,
+      );
+      _sortDriveFilesNewestFirst(files);
+      final idsToDelete = selectDriveFileIdsToPrune(
+        files,
+        keep: keep,
+        alwaysRetainDriveFileId: retainDriveFileId,
+      );
+      for (final id in idsToDelete) {
+        await _driveService.deleteFile(id);
+        await _deleteBackupMetadataByDriveFileId(id);
       }
     } catch (e) {
       if (kDebugMode) {
         print('Retention prune error: $e');
+      }
+    }
+  }
+
+  /// Drive file ids to delete when keeping [keep] newest entries.
+  @visibleForTesting
+  static List<String> selectDriveFileIdsToPrune(
+    List<drive.File> filesNewestFirst, {
+    int keep = BackupFilename.keepLatestSuccessfulCount,
+    String? alwaysRetainDriveFileId,
+  }) {
+    if (filesNewestFirst.isEmpty) return const [];
+
+    final retained = <String>{};
+    if (alwaysRetainDriveFileId != null && alwaysRetainDriveFileId.isNotEmpty) {
+      retained.add(alwaysRetainDriveFileId);
+    }
+    for (final file in filesNewestFirst) {
+      if (retained.length >= keep) break;
+      final id = file.id;
+      if (id == null || id.isEmpty) continue;
+      retained.add(id);
+    }
+
+    final toDelete = <String>[];
+    for (final file in filesNewestFirst) {
+      final id = file.id;
+      if (id == null || id.isEmpty) continue;
+      if (retained.contains(id)) continue;
+      toDelete.add(id);
+    }
+    return toDelete;
+  }
+
+  Future<void> _deleteBackupMetadataByDriveFileId(String driveFileId) async {
+    try {
+      final box = await HiveInitializationService.openBox<BackupMetadata>(
+        'backupMetadata',
+      );
+      for (final entry in box.values.toList()) {
+        if (entry.driveFileId == driveFileId) {
+          await box.delete(entry.id);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Drive metadata prune error: $e');
       }
     }
   }
@@ -954,7 +1070,8 @@ class BackupService extends ChangeNotifier {
       }
 
       final backupFiles = await _driveService.listFiles(
-          query: "name contains '$_backupPrefix'");
+        query: BackupFilename.driveDiscoveryQuery,
+      );
 
       if (backupFiles.isEmpty) {
         return null;
@@ -977,43 +1094,37 @@ class BackupService extends ChangeNotifier {
         }
       }
 
-      backupFile ??= backupFiles.firstWhere(
-        (f) => f.id != null && f.name != null,
-        orElse: () => backupFiles.first,
-      );
-      stored ??= storedByDriveId[backupFile.id!];
-
-      if (stored == null && kDebugMode) {
-        debugPrint(
-          'BACKUP_FIND_EXISTING_USING_DRIVE_FILE_WITHOUT_LOCAL_METADATA '
-          'id=${backupFile.id}',
-        );
+      if (backupFile == null || stored == null) {
+        return null;
       }
 
-      final detailedFileInfo = await _driveService.getFileInfo(backupFile.id!);
+      final resolvedFile = backupFile;
+      final resolvedStored = stored;
+
+      final detailedFileInfo =
+          await _driveService.getFileInfo(resolvedFile.id!);
       final fileSize =
-          int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
+          int.tryParse(detailedFileInfo?.size ?? resolvedFile.size ?? '0') ?? 0;
 
       if (kDebugMode) {
-        print('📊 Backup file size from API: ${backupFile.size}');
+        print('📊 Backup file size from API: ${resolvedFile.size}');
         print('📊 Detailed file size: ${detailedFileInfo?.size}');
         print('📊 Final file size: $fileSize bytes');
       }
 
       return BackupMetadata(
-        id: stored?.id ?? backupFile.id!,
-        fileName: backupFile.name!,
+        id: resolvedStored.id,
+        fileName: resolvedFile.name!,
         location: BackupLocation.cloud,
-        createdAt:
-            stored?.createdAt ?? backupFile.modifiedTime ?? DateTime.now(),
+        createdAt: resolvedStored.createdAt,
         sizeBytes: fileSize,
-        flightLogsCount: stored?.flightLogsCount ?? 0,
-        checksum: stored?.checksum ?? 'unknown',
-        driveFileId: backupFile.id!,
+        flightLogsCount: resolvedStored.flightLogsCount,
+        checksum: resolvedStored.checksum,
+        driveFileId: resolvedFile.id!,
         isEncrypted: true,
         encryptionAlgorithm: 'AES-256-GCM',
-        health: stored?.health ?? BackupHealth.healthy,
-        deviceId: stored?.deviceId ?? 'Unknown Device',
+        health: resolvedStored.health,
+        deviceId: resolvedStored.deviceId,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1031,7 +1142,8 @@ class BackupService extends ChangeNotifier {
       }
 
       final backupFiles = await _driveService.listFiles(
-          query: "name contains '$_backupPrefix'");
+        query: BackupFilename.driveDiscoveryQuery,
+      );
 
       _sortDriveFilesNewestFirst(backupFiles);
       final storedByDriveId = await _loadStoredMetadataByDriveFileId();
@@ -1451,6 +1563,13 @@ class BackupService extends ChangeNotifier {
   Future<void> recordSuccessfulBackupForTesting() => _recordSuccessfulBackup();
 
   @visibleForTesting
+  Future<void> pruneLocalBackupsForTesting({
+    int keep = BackupFilename.keepLatestSuccessfulCount,
+    String? retainBackupId,
+  }) =>
+      _pruneLocalBackups(keep: keep, retainBackupId: retainBackupId);
+
+  @visibleForTesting
   void setCancelRequestedForTesting(bool value) => _cancelRequested = value;
 
   @visibleForTesting
@@ -1582,6 +1701,18 @@ class BackupService extends ChangeNotifier {
       }
       return false;
     }
+  }
+
+  Future<BackupAccountIdentitySnapshot> _cloudIdentitySnapshot() async {
+    final user = FirebaseAuth.instance.currentUser;
+    return BackupAccountIdentitySnapshot(
+      firebaseEmail: user?.email,
+      firebaseProviderIds:
+          user?.providerData.map((info) => info.providerId).toList() ??
+              const [],
+      googleDriveEmail: _driveService.currentUser?.email,
+      keyOwnerEmail: await _keyManager.readStoredKeyOwnerEmail(),
+    );
   }
 }
 

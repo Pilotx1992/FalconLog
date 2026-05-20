@@ -23,13 +23,15 @@ class KeyManagerNew {
 
   static const String _keyFileName = 'falconlog_backup_keys.json';
   static const String _localKeyName = 'falconlog_master_key_v3';
-  static const String _localKeyOwnerEmailKey = 'falconlog_master_key_owner_email';
+  static const String _localKeyOwnerEmailKey =
+      'falconlog_master_key_owner_email';
 
   KeyManagerNew(this._driveService, this._googleSignIn);
 
   /// Get or create persistent master key (WhatsApp-style)
   /// This ensures we always use the same key for a user account
-  Future<Uint8List?> getOrCreatePersistentMasterKey({bool interactive = true}) async {
+  Future<Uint8List?> getOrCreatePersistentMasterKey(
+      {bool interactive = true}) async {
     try {
       if (kDebugMode) {
         print('🔑 Getting or creating persistent master key...');
@@ -52,7 +54,8 @@ class KeyManagerNew {
       }
 
       // Step 2: Try to retrieve existing key from cloud
-      final existingKey = await _retrieveKeyFromCloud(userEmail, googleId, interactive: interactive);
+      final existingKey = await _retrieveKeyFromCloud(userEmail, googleId,
+          interactive: interactive);
       if (existingKey != null) {
         if (kDebugMode) {
           print('✅ Retrieved existing master key from cloud');
@@ -89,7 +92,8 @@ class KeyManagerNew {
         }
 
         if (kDebugMode) {
-          print('📱 Found local key for current account, uploading to cloud...');
+          print(
+              '📱 Found local key for current account, uploading to cloud...');
         }
 
         final uploaded = await _uploadKeyToCloud(
@@ -112,7 +116,8 @@ class KeyManagerNew {
       final newKey = await _generateSecureMasterKey();
 
       // Step 6: Save to both cloud and local storage
-      final uploaded = await _uploadKeyToCloud(userEmail, googleId, newKey, interactive: interactive);
+      final uploaded = await _uploadKeyToCloud(userEmail, googleId, newKey,
+          interactive: interactive);
       if (!uploaded) {
         if (kDebugMode) {
           print('❌ Failed to upload key to cloud');
@@ -127,7 +132,6 @@ class KeyManagerNew {
       }
 
       return newKey;
-
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('💥 Error in getOrCreatePersistentMasterKey: $e');
@@ -138,7 +142,8 @@ class KeyManagerNew {
   }
 
   /// Ensure we have a valid Google account
-  Future<GoogleSignInAccount?> _ensureGoogleAccount({bool interactive = true}) async {
+  Future<GoogleSignInAccount?> _ensureGoogleAccount(
+      {bool interactive = true}) async {
     try {
       // Try current user first
       var account = _googleSignIn.currentUser;
@@ -169,14 +174,16 @@ class KeyManagerNew {
   }
 
   /// Retrieve master key from cloud storage
-  Future<Uint8List?> _retrieveKeyFromCloud(String userEmail, String googleId, {bool interactive = true}) async {
+  Future<Uint8List?> _retrieveKeyFromCloud(String userEmail, String googleId,
+      {bool interactive = true}) async {
     try {
       if (kDebugMode) {
         print('☁️ Retrieving key from cloud for: $userEmail');
       }
 
       // Search for key file
-      final files = await _driveService.listFiles(query: "name contains '$_keyFileName'");
+      final files =
+          await _driveService.listFiles(query: "name contains '$_keyFileName'");
       final keyFile = files.where((f) => f.name == _keyFileName).firstOrNull;
 
       if (keyFile == null || keyFile.id == null || keyFile.id!.isEmpty) {
@@ -219,7 +226,6 @@ class KeyManagerNew {
       }
 
       return keyFileData.getMasterKey();
-
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error retrieving key from cloud: $e');
@@ -229,7 +235,9 @@ class KeyManagerNew {
   }
 
   /// Upload master key to cloud storage
-  Future<bool> _uploadKeyToCloud(String userEmail, String googleId, Uint8List masterKey, {bool interactive = true}) async {
+  Future<bool> _uploadKeyToCloud(
+      String userEmail, String googleId, Uint8List masterKey,
+      {bool interactive = true}) async {
     try {
       if (kDebugMode) {
         print('☁️ Uploading key to cloud for: $userEmail');
@@ -276,7 +284,6 @@ class KeyManagerNew {
         }
         return false;
       }
-
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error uploading key to cloud: $e');
@@ -345,6 +352,9 @@ class KeyManagerNew {
       return null;
     }
   }
+
+  /// Stored Google account email for the cloud backup encryption key, if any.
+  Future<String?> readStoredKeyOwnerEmail() => _readLocalKeyOwnerEmail();
 
   /// Get key from local secure storage
   Future<Uint8List?> _getLocalKey() async {
