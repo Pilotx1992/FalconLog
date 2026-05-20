@@ -35,6 +35,21 @@ void main() {
       );
     });
 
+    test('account-exists-with-different-credential', () {
+      expect(
+        mapFirebaseAuthException(
+            _e('account-exists-with-different-credential')),
+        'This email is already registered with another sign-in method.',
+      );
+    });
+
+    test('provider-already-linked', () {
+      expect(
+        mapFirebaseAuthException(_e('provider-already-linked')),
+        'This sign-in method is already linked to another account.',
+      );
+    });
+
     test('weak-password', () {
       expect(
         mapFirebaseAuthException(_e('weak-password')),

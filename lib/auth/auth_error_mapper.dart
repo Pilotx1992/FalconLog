@@ -13,6 +13,11 @@ String mapFirebaseAuthException(FirebaseAuthException e) {
       return 'Invalid email or password.';
     case 'email-already-in-use':
       return 'An account already exists with this email.';
+    case 'account-exists-with-different-credential':
+      return 'This email is already registered with another sign-in method.';
+    case 'provider-already-linked':
+    case 'credential-already-in-use':
+      return 'This sign-in method is already linked to another account.';
     case 'weak-password':
       return 'Password is too weak. Use at least 6 characters.';
     case 'network-request-failed':

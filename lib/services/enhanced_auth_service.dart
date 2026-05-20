@@ -105,6 +105,13 @@ class EnhancedAuthService {
       debugPrint('Google sign-in successful for: ${googleUser.email}');
       return userCredential;
     } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        throw const AuthException(
+          'This email is already registered with email and password. '
+          'Sign in with your email and password instead.',
+          code: 'account-exists-with-different-credential',
+        );
+      }
       throw AuthException(mapFirebaseAuthException(e), code: e.code);
     } on PlatformException catch (e) {
       debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}');
