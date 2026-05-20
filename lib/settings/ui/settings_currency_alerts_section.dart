@@ -47,7 +47,7 @@ class SettingsCurrencyAlertsSection extends ConsumerWidget {
           buildTile(
             icon: Icons.wb_sunny_rounded,
             title: 'Day currency alert',
-            subtitle: '${settings.dayAlertDays}Day',
+            subtitle: '${settings.dayAlertDays} Day',
             onTap: () => _showEditDialog(
               context,
               ref,
@@ -59,7 +59,7 @@ class SettingsCurrencyAlertsSection extends ConsumerWidget {
           buildTile(
             icon: Icons.nights_stay_rounded,
             title: 'Night currency alert',
-            subtitle: '${settings.nightAlertDays}Night',
+            subtitle: '${settings.nightAlertDays} Night',
             onTap: () => _showEditDialog(
               context,
               ref,
