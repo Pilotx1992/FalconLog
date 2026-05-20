@@ -20,10 +20,12 @@ void main() {
   group('validateLoginPassword', () {
     test('rejects empty', () {
       expect(validateLoginPassword(''), isNotNull);
+      expect(validateLoginPassword(null), isNotNull);
     });
 
-    test('accepts any non-empty password', () {
+    test('accepts non-empty password including spaces', () {
       expect(validateLoginPassword('x'), isNull);
+      expect(validateLoginPassword('  my pass  '), isNull);
     });
   });
 
@@ -32,8 +34,27 @@ void main() {
       expect(validateRegisterPassword('12345'), isNotNull);
     });
 
+    test('rejects whitespace-only password', () {
+      expect(validateRegisterPassword('      '), isNotNull);
+    });
+
     test('accepts 6+ characters', () {
       expect(validateRegisterPassword('123456'), isNull);
+    });
+  });
+
+  group('validateDisplayName', () {
+    test('rejects control characters', () {
+      expect(validateDisplayName('Jo\x00hn'), isNotNull);
+      expect(validateDisplayName('Test\nName'), isNotNull);
+    });
+
+    test('accepts trimmed name with at least 2 characters', () {
+      expect(validateDisplayName('  Jo  '), isNull);
+    });
+
+    test('rejects name over max length', () {
+      expect(validateDisplayName('a' * 101), isNotNull);
     });
   });
 

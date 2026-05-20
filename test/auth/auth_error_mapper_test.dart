@@ -79,18 +79,58 @@ void main() {
   });
 
   group('authErrorMessage', () {
-    test('AuthException returns message only', () {
+    test('AuthException returns safe message', () {
       expect(
         authErrorMessage(const AuthException('Invalid email or password.')),
         'Invalid email or password.',
       );
     });
 
-    test('FirebaseAuthException is mapped', () {
+    test('Firebase wrong-password maps to generic login message', () {
+      expect(
+        authErrorMessage(_e('wrong-password')),
+        'Invalid email or password.',
+      );
+    });
+
+    test('Firebase user-not-found maps to generic login message', () {
+      expect(
+        authErrorMessage(_e('user-not-found')),
+        'Invalid email or password.',
+      );
+    });
+
+    test('Firebase invalid-credential maps to generic login message', () {
+      expect(
+        authErrorMessage(_e('invalid-credential')),
+        'Invalid email or password.',
+      );
+    });
+
+    test('unknown Firebase code maps to auth fallback', () {
+      expect(
+        authErrorMessage(_e('internal-error')),
+        'Authentication failed. Please try again.',
+      );
+    });
+
+    test('Firebase network error is mapped', () {
       expect(
         authErrorMessage(_e('network-request-failed')),
         'No internet connection. Please try again.',
       );
+    });
+
+    test('generic Exception does not leak raw message', () {
+      expect(
+        authErrorMessage(Exception('Internal socket timeout at 127.0.0.1')),
+        kAuthGenericErrorMessage,
+      );
+    });
+
+    test('unknown Object returns generic message', () {
+      expect(authErrorMessage('unexpected failure'), kAuthGenericErrorMessage);
+      expect(authErrorMessage(42), kAuthGenericErrorMessage);
     });
   });
 }

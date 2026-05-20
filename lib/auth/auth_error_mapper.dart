@@ -32,6 +32,9 @@ AuthException toAuthException(FirebaseAuthException e) {
   return AuthException(mapFirebaseAuthException(e), code: e.code);
 }
 
+const String kAuthGenericErrorMessage =
+    'Something went wrong. Please try again.';
+
 /// Normalizes any thrown value to a user-safe message (no stack traces).
 String authErrorMessage(Object error) {
   if (error is AuthException) {
@@ -40,12 +43,5 @@ String authErrorMessage(Object error) {
   if (error is FirebaseAuthException) {
     return mapFirebaseAuthException(error);
   }
-  if (error is Exception) {
-    final text = error.toString();
-    if (text.startsWith('Exception: ')) {
-      return text.substring('Exception: '.length);
-    }
-    return text;
-  }
-  return 'Something went wrong. Please try again.';
+  return kAuthGenericErrorMessage;
 }

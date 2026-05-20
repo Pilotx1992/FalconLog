@@ -1,4 +1,7 @@
 final RegExp _emailPattern = RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$');
+final RegExp _controlCharacters = RegExp(r'[\x00-\x1F\x7F]');
+
+const int _maxDisplayNameLength = 100;
 
 String? validateEmail(String? value) {
   if (value == null || value.trim().isEmpty) {
@@ -18,9 +21,12 @@ String? validateLoginPassword(String? value) {
   return null;
 }
 
-/// Register: Firebase minimum length.
+/// Register: Firebase minimum length; no whitespace-only passwords.
 String? validateRegisterPassword(String? value) {
   if (value == null || value.isEmpty) {
+    return 'Please enter a password.';
+  }
+  if (value.trim().isEmpty) {
     return 'Please enter a password.';
   }
   if (value.length < 6) {
@@ -40,11 +46,21 @@ String? validateConfirmPassword(String? value, String password) {
 }
 
 String? validateDisplayName(String? value) {
-  if (value == null || value.trim().isEmpty) {
+  if (value == null) {
     return 'Please enter your full name.';
   }
-  if (value.trim().length < 2) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return 'Please enter your full name.';
+  }
+  if (trimmed.length < 2) {
     return 'Name must be at least 2 characters.';
+  }
+  if (trimmed.length > _maxDisplayNameLength) {
+    return 'Name must be at most $_maxDisplayNameLength characters.';
+  }
+  if (_controlCharacters.hasMatch(trimmed)) {
+    return 'Please enter a valid name.';
   }
   return null;
 }
