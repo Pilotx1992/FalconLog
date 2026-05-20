@@ -325,7 +325,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       required IconData icon,
       required String title,
       required Widget trailing,
-      String? subtitle,
       bool topDivider = false,
       bool enabled = true,
       VoidCallback? onTap,
@@ -339,9 +338,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       final iconColor = enabled
           ? sectionTitleColor.withValues(alpha: 0.8)
           : sectionTitleColor.withValues(alpha: 0.32);
-      final subtitleColor = enabled
-          ? sectionTitleColor.withValues(alpha: 0.62)
-          : sectionTitleColor.withValues(alpha: 0.34);
 
       return Column(
         children: [
@@ -359,25 +355,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   children: [
                     Icon(icon, color: iconColor),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title, style: titleStyle),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              subtitle,
-                              style: TextStyle(
-                                color: subtitleColor,
-                                fontSize: 12.5,
-                                height: 1.25,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                    Expanded(child: Text(title, style: titleStyle)),
                     trailing,
                   ],
                 ),
@@ -412,25 +390,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            autoBackupEnabled
-                ? 'On · ${toBeginningOfSentenceCase(_backupFrequency)}'
-                : 'Off · manual backup only',
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.3,
-              color: sectionTitleColor.withValues(alpha: 0.62),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           row(
             icon: Icons.autorenew_rounded,
             title: 'Enable',
-            subtitle: autoBackupEnabled
-                ? 'Runs in the background on the schedule you choose.'
-                : 'Turn on to schedule automatic backups.',
             trailing: Switch.adaptive(
               value: autoBackupEnabled,
               onChanged: operationRunning
@@ -448,7 +411,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       row(
                         icon: Icons.calendar_today_outlined,
                         title: 'Backup Frequency',
-                        subtitle: 'How often automatic backups run.',
                         topDivider: true,
                         enabled: !operationRunning,
                         onTap: operationRunning ? null : _showFrequencySheet,
@@ -475,9 +437,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       row(
                         icon: Icons.wifi_rounded,
                         title: 'Network',
-                        subtitle: _wifiOnly
-                            ? 'Back up only on Wi-Fi.'
-                            : 'Back up on Wi-Fi or mobile data.',
                         topDivider: true,
                         enabled: !operationRunning,
                         trailing: Switch.adaptive(
@@ -490,41 +449,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       ),
                     ],
                   )
-                : Padding(
-                    key: const ValueKey('auto_off'),
-                    padding: const EdgeInsets.only(top: 10, bottom: 4),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: sectionTitleColor.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: sectionTitleColor.withValues(alpha: 0.1)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 18,
-                            color: sectionTitleColor.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Frequency and network options appear after Auto Backup is enabled.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.4,
-                                color:
-                                    sectionTitleColor.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                : const SizedBox.shrink(key: ValueKey('auto_off')),
           ),
         ],
       ),

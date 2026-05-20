@@ -223,7 +223,12 @@ abstract final class BackupUiTheme {
     required String message,
     required Color tone,
     String? title,
+    Color? titleColor,
+    Color? messageColor,
   }) {
+    final resolvedTitleColor = titleColor ?? textPrimary;
+    final resolvedMessageColor = messageColor ?? textPrimary;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -244,8 +249,8 @@ abstract final class BackupUiTheme {
                 if (title != null) ...[
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: textPrimary,
+                    style: TextStyle(
+                      color: resolvedTitleColor,
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -254,8 +259,8 @@ abstract final class BackupUiTheme {
                 ],
                 Text(
                   message,
-                  style: const TextStyle(
-                    color: textPrimary,
+                  style: TextStyle(
+                    color: resolvedMessageColor,
                     fontSize: 13,
                     height: 1.4,
                     fontWeight: FontWeight.w500,

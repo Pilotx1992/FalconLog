@@ -278,8 +278,8 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
         isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0);
     final progressTrackColor =
         isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0);
-    final titleColor = isDark ? Colors.white : BackupUiTheme.textPrimary;
-    final mutedColor = isDark ? Colors.white70 : BackupUiTheme.textMuted;
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final mutedColor = isDark ? Colors.white70 : Colors.black54;
 
     final height = MediaQuery.sizeOf(context).height;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -306,203 +306,211 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
               maxHeight: height * 0.85,
               minHeight: 360,
             ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: sheetBg,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
-                border: Border.all(color: strokeBorderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: BackupUiTheme.accent.withValues(alpha: 0.12),
-                    blurRadius: 32,
-                    offset: const Offset(0, -8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 12),
-                  // Sheet handle
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: handleColor,
-                      borderRadius: BorderRadius.circular(2),
+            child: Material(
+              color: sheetBg,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(28)),
+                  border: Border.all(color: strokeBorderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: BackupUiTheme.accent.withValues(alpha: 0.12),
+                      blurRadius: 32,
+                      offset: const Offset(0, -8),
                     ),
-                  ),
-                  // Header row
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
-                    child: Row(
-                      children: [
-                        BackupUiTheme.iconBadge(
-                          _isRestore
-                              ? Icons.restore_rounded
-                              : Icons.backup_rounded,
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            _sheetTitle,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: titleColor,
-                            ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    // Sheet handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: handleColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // Header row
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
+                      child: Row(
+                        children: [
+                          BackupUiTheme.iconBadge(
+                            _isRestore
+                                ? Icons.restore_rounded
+                                : Icons.backup_rounded,
                           ),
-                        ),
-                        if (!_isRestore &&
-                            _isOperationInProgress &&
-                            !_isTerminal &&
-                            _currentProgress.percentage < 100)
-                          TextButton(
-                            onPressed: _cancelOperation,
+                          const SizedBox(width: 14),
+                          Expanded(
                             child: Text(
-                              'Cancel',
+                              _sheetTitle,
                               style: TextStyle(
-                                color: BackupUiTheme.danger,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
+                                color: titleColor,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Scrollable body
-                  Flexible(
-                    child: SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularPercentIndicator(
-                            radius: 80,
-                            lineWidth: 10,
-                            percent: _progressPercent,
-                            center: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _currentProgress.statusEmoji,
-                                  style: const TextStyle(fontSize: 32),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '$_safePercentage%',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: titleColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            progressColor: _getProgressColor(),
-                            backgroundColor: progressTrackColor,
-                            circularStrokeCap: CircularStrokeCap.round,
-                            animation: true,
-                            animationDuration: 300,
-                            animateFromLastPercent: true,
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            _currentProgress.statusText,
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: titleColor,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _currentProgress.currentAction,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: mutedColor,
-                              height: 1.35,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (_isRestore &&
+                          if (!_isRestore &&
                               _isOperationInProgress &&
-                              !_isTerminal) ...[
-                            const SizedBox(height: 20),
-                            BackupUiTheme.infoBanner(
-                              icon: Icons.lock_clock_rounded,
-                              tone: BackupUiTheme.accent,
-                              message:
-                                  'Please keep the app open. Restore is protected by a safety snapshot and rollback journal.',
+                              !_isTerminal &&
+                              _currentProgress.percentage < 100)
+                            TextButton(
+                              onPressed: _cancelOperation,
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  color: BackupUiTheme.danger,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ],
-                          if (_currentProgress.errorMessage != null) ...[
-                            const SizedBox(height: 20),
-                            BackupUiTheme.infoBanner(
-                              icon: Icons.error_outline_rounded,
-                              message: _currentProgress.errorMessage!,
-                              tone: BackupUiTheme.danger,
-                            ),
-                          ],
                         ],
                       ),
                     ),
-                  ),
-                  // Done / Close button
-                  if (_isTerminal)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: _currentProgress.isCompleted
-                                ? LinearGradient(
-                                    colors: [
-                                      BackupUiTheme.success,
-                                      BackupUiTheme.success
-                                          .withValues(alpha: 0.75),
-                                    ],
-                                  )
-                                : null,
-                            color: _currentProgress.isCompleted
-                                ? null
-                                : const Color(0xFF64748B),
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(28),
+                    const SizedBox(height: 16),
+                    // Scrollable body
+                    Flexible(
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularPercentIndicator(
+                              radius: 80,
+                              lineWidth: 10,
+                              percent: _progressPercent,
+                              center: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _currentProgress.statusEmoji,
+                                    style: const TextStyle(fontSize: 32),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$_safePercentage%',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: titleColor,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              progressColor: _getProgressColor(),
+                              backgroundColor: progressTrackColor,
+                              circularStrokeCap: CircularStrokeCap.round,
+                              animation: true,
+                              animationDuration: 300,
+                              animateFromLastPercent: true,
                             ),
-                            child: Text(
-                              _currentProgress.isCompleted ? 'Done' : 'Close',
-                              style: const TextStyle(
-                                fontSize: 16,
+                            const SizedBox(height: 24),
+                            Text(
+                              _currentProgress.statusText,
+                              style: TextStyle(
+                                fontSize: 17,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: titleColor,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _currentProgress.currentAction,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: mutedColor,
+                                height: 1.35,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (_isRestore &&
+                                _isOperationInProgress &&
+                                !_isTerminal) ...[
+                              const SizedBox(height: 20),
+                              BackupUiTheme.infoBanner(
+                                icon: Icons.lock_clock_rounded,
+                                tone: BackupUiTheme.accent,
+                                message:
+                                    'Please keep the app open. Restore is protected by a safety snapshot and rollback journal.',
+                                messageColor: titleColor,
+                              ),
+                            ],
+                            if (_currentProgress.errorMessage != null) ...[
+                              const SizedBox(height: 20),
+                              BackupUiTheme.infoBanner(
+                                icon: Icons.error_outline_rounded,
+                                message: _currentProgress.errorMessage!,
+                                tone: BackupUiTheme.danger,
+                                messageColor: titleColor,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Done / Close button
+                    if (_isTerminal)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: _currentProgress.isCompleted
+                                  ? LinearGradient(
+                                      colors: [
+                                        BackupUiTheme.success,
+                                        BackupUiTheme.success
+                                            .withValues(alpha: 0.75),
+                                      ],
+                                    )
+                                  : null,
+                              color: _currentProgress.isCompleted
+                                  ? null
+                                  : const Color(0xFF64748B),
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (Navigator.of(context).canPop()) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                              ),
+                              child: Text(
+                                _currentProgress.isCompleted ? 'Done' : 'Close',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

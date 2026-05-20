@@ -505,6 +505,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         subtitle: subtitle,
                         onTap: onTap ?? () {},
                         trailing: trailing,
+                        bareTrailing: bareTrailing,
                       ),
                       buildDivider: _buildDivider,
                     ),
@@ -691,6 +692,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String subtitle,
     required VoidCallback onTap,
     Widget? trailing,
+    bool bareTrailing = false,
   }) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.985, end: 1),
@@ -767,28 +769,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.4), width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                if (bareTrailing)
+                  trailing ?? const SizedBox()
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.4), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: trailing ??
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.grey[700],
+                          size: 22,
+                        ),
                   ),
-                  padding: const EdgeInsets.all(6),
-                  child: trailing ??
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.grey[700],
-                        size: 22,
-                      ),
-                ),
               ],
             ),
           ),
