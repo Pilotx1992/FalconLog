@@ -38,6 +38,8 @@ enum PilotRole {
   pic,
   @HiveField(3)
   cpgGunner,
+  @HiveField(4)
+  wzo,
 }
 
 @HiveType(typeId: 2)

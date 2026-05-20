@@ -33,6 +33,47 @@ class BackupFilename {
     return fileName.startsWith(newPrefix) || fileName.startsWith(legacyPrefix);
   }
 
+  /// Parses backup timestamp from [fileName], or null if unknown.
+  static DateTime? parseTimestampFromFileName(String fileName) {
+    if (!isRecognizedBackupFileName(fileName)) {
+      return null;
+    }
+
+    final withoutExt =
+        fileName.substring(0, fileName.length - extension.length);
+
+    if (withoutExt.startsWith(newPrefix)) {
+      final stamp = withoutExt.substring(newPrefix.length);
+      final parts = stamp.split('_');
+      if (parts.length != 2) return null;
+      final ymd = parts[0];
+      final hms = parts[1];
+      if (ymd.length != 8 || hms.length != 6) return null;
+      try {
+        return DateTime(
+          int.parse(ymd.substring(0, 4)),
+          int.parse(ymd.substring(4, 6)),
+          int.parse(ymd.substring(6, 8)),
+          int.parse(hms.substring(0, 2)),
+          int.parse(hms.substring(2, 4)),
+          int.parse(hms.substring(4, 6)),
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (withoutExt.startsWith(legacyPrefix)) {
+      final epochSeconds = int.tryParse(
+        withoutExt.substring(legacyPrefix.length),
+      );
+      if (epochSeconds == null) return null;
+      return DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
+    }
+
+    return null;
+  }
+
   /// Filenames use only letters, digits, underscore, dash, and dot.
   static bool hasOnlySafeCharacters(String fileName) {
     return RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(fileName);

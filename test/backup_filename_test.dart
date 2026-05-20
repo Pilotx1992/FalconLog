@@ -52,6 +52,20 @@ void main() {
       expect(BackupFilename.isRecognizedBackupFileName(name), isTrue);
     });
 
+    test('parseTimestampFromFileName reads FLBKUP timestamp', () {
+      const name = 'FLBKUP_20260520_231455.crypt14';
+      final parsed = BackupFilename.parseTimestampFromFileName(name);
+
+      expect(parsed, DateTime(2026, 5, 20, 23, 14, 55));
+    });
+
+    test('parseTimestampFromFileName reads legacy epoch timestamp', () {
+      const name = 'falconlog_backup_1727654400.crypt14';
+      final parsed = BackupFilename.parseTimestampFromFileName(name);
+
+      expect(parsed, DateTime.fromMillisecondsSinceEpoch(1727654400000));
+    });
+
     test('drive discovery query includes legacy and new prefixes', () {
       expect(
         BackupFilename.driveDiscoveryQuery,

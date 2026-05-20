@@ -50,6 +50,8 @@ final securityPinEnabledProvider = Provider<bool>((ref) {
 /// Device has enrolled biometrics and PIN is on (for Settings toggle).
 final biometricAvailableForAppLockProvider = FutureProvider<bool>((ref) async {
   ref.watch(securityInitProvider);
+  // Re-run when PIN / biometric settings change (not only on first load).
+  ref.watch(securitySettingsProvider);
   final service = ref.watch(securityServiceProvider);
   return service.isBiometricAvailableForAppLock();
 });

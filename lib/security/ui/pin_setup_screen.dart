@@ -21,6 +21,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   String _pin = '';
   String _firstPin = '';
   String? _error;
+  int _errorPulse = 0;
   bool _busy = false;
 
   Future<void> _finish(String confirmed) async {
@@ -30,6 +31,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _pin = '';
         _step = _PinSetupStep.enter;
         _firstPin = '';
+        _errorPulse++;
       });
       return;
     }
@@ -46,6 +48,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _pin = '';
         _firstPin = '';
         _step = _PinSetupStep.enter;
+        _errorPulse++;
       });
       return;
     }
@@ -70,6 +73,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         setState(() {
           _error = validation.errorMessage;
           _pin = '';
+          _errorPulse++;
         });
         return;
       }
@@ -91,40 +95,28 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final title = _step == _PinSetupStep.enter
-        ? 'Create a 4-digit PIN'
-        : 'Confirm your PIN';
+    final isConfirm = _step == _PinSetupStep.confirm;
+    final title =
+        isConfirm ? 'Confirm your PIN' : 'Create a 4-digit PIN';
+    final subtitle = isConfirm
+        ? 'Enter the same PIN again'
+        : 'Avoid simple sequences like 1234';
 
     return Scaffold(
       appBar: AppBar(title: const Text('PIN Lock')),
-      backgroundColor: scheme.surface,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(_error!, style: TextStyle(color: scheme.error)),
-              ],
-              const SizedBox(height: 24),
-              PinDotsIndicator(
-                length: SecurityConstants.pinLength,
-                filled: _pin.length,
-              ),
-              const Spacer(),
-              if (_busy)
-                const CircularProgressIndicator()
-              else
-                PinPadWidget(
-                  onDigit: _onDigit,
-                  onBackspace: _onBackspace,
-                ),
-              const SizedBox(height: 24),
-            ],
-          ),
+        child: PinEntryLayout(
+          title: title,
+          subtitle: subtitle,
+          statusMessage: _error,
+          statusIsError: _error != null,
+          pinLength: SecurityConstants.pinLength,
+          filled: _pin.length,
+          errorPulse: _errorPulse,
+          busy: _busy,
+          onDigit: _onDigit,
+          onBackspace: _onBackspace,
         ),
       ),
     );

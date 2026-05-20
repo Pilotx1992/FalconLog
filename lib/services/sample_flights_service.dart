@@ -145,6 +145,7 @@ class SampleFlightsService {
           sicTime = flightTime * 0.5;
           break;
         case PilotRole.cpgGunner:
+        case PilotRole.wzo:
           sicTime = flightTime;
           break;
       }

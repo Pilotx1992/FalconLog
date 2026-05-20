@@ -203,6 +203,8 @@ class PilotRoleAdapter extends TypeAdapter<PilotRole> {
         return PilotRole.pic;
       case 3:
         return PilotRole.cpgGunner;
+      case 4:
+        return PilotRole.wzo;
       default:
         return PilotRole.ip;
     }
@@ -222,6 +224,9 @@ class PilotRoleAdapter extends TypeAdapter<PilotRole> {
         break;
       case PilotRole.cpgGunner:
         writer.writeByte(3);
+        break;
+      case PilotRole.wzo:
+        writer.writeByte(4);
         break;
     }
   }

@@ -22,6 +22,7 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
   String _currentPin = '';
   String _newPin = '';
   String? _error;
+  int _errorPulse = 0;
   bool _busy = false;
 
   Future<void> _submitChange(String confirmed) async {
@@ -29,6 +30,7 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
       setState(() {
         _error = 'PINs do not match';
         _resetToNew();
+        _errorPulse++;
       });
       return;
     }
@@ -46,6 +48,7 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
       setState(() {
         _error = result.errorMessage;
         _resetToCurrent();
+        _errorPulse++;
       });
       return;
     }
@@ -77,6 +80,7 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
       setState(() {
         _error = 'Current PIN is incorrect';
         _pin = '';
+        _errorPulse++;
       });
       return;
     }
@@ -108,6 +112,7 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
           setState(() {
             _error = validation.errorMessage;
             _pin = '';
+            _errorPulse++;
           });
           return;
         }
@@ -137,39 +142,34 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
     }
   }
 
+  String? get _subtitle {
+    switch (_step) {
+      case _ChangeStep.current:
+        return null;
+      case _ChangeStep.newPin:
+        return 'Choose a PIN that is not easy to guess';
+      case _ChangeStep.confirm:
+        return 'Re-enter your new PIN';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Change PIN')),
-      backgroundColor: scheme.surface,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Text(_title, style: Theme.of(context).textTheme.titleMedium),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(_error!, style: TextStyle(color: scheme.error)),
-              ],
-              const SizedBox(height: 24),
-              PinDotsIndicator(
-                length: SecurityConstants.pinLength,
-                filled: _pin.length,
-              ),
-              const Spacer(),
-              if (_busy)
-                const CircularProgressIndicator()
-              else
-                PinPadWidget(
-                  onDigit: _onDigit,
-                  onBackspace: _onBackspace,
-                ),
-              const SizedBox(height: 24),
-            ],
-          ),
+        child: PinEntryLayout(
+          title: _title,
+          subtitle: _subtitle,
+          statusMessage: _error,
+          statusIsError: _error != null,
+          pinLength: SecurityConstants.pinLength,
+          filled: _pin.length,
+          errorPulse: _errorPulse,
+          busy: _busy,
+          onDigit: _onDigit,
+          onBackspace: _onBackspace,
         ),
       ),
     );

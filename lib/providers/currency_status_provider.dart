@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/flight_log.dart';
+import '../settings/currency_alert_settings_provider.dart';
 import 'flight_logs_provider.dart';
 
 class CurrencyStatus {
@@ -14,111 +17,116 @@ class CurrencyStatus {
   });
 }
 
+/// Pure currency due calculation from logs and manual alert intervals.
+CurrencyStatus computeCurrencyStatus({
+  required List<FlightLog> logs,
+  required int dayAlertDays,
+  required int nightAlertDays,
+  required DateTime now,
+}) {
+  if (logs.isEmpty) {
+    return CurrencyStatus(
+      dayDue: false,
+      nightDue: false,
+      dayMessage: 'No day flights recorded.',
+      nightMessage: 'No night flights recorded.',
+    );
+  }
+
+  DateTime? lastDayFlightDate;
+  DateTime? lastNightFlightDate;
+
+  for (final log in logs) {
+    if (log.isDayFlight) {
+      if (lastDayFlightDate == null || log.date.isAfter(lastDayFlightDate)) {
+        lastDayFlightDate = log.date;
+      }
+    } else {
+      if (lastNightFlightDate == null || log.date.isAfter(lastNightFlightDate)) {
+        lastNightFlightDate = log.date;
+      }
+    }
+  }
+
+  final dayDue = lastDayFlightDate == null ||
+      now.difference(lastDayFlightDate).inDays >= dayAlertDays;
+  final nightDue = lastNightFlightDate == null ||
+      now.difference(lastNightFlightDate).inDays >= nightAlertDays;
+
+  String dayMessage;
+  if (lastDayFlightDate != null) {
+    final daysSince = now.difference(lastDayFlightDate).inDays;
+    if (dayDue) {
+      dayMessage =
+          'Last day flight: $daysSince days ago (alert every $dayAlertDays days)';
+    } else {
+      final expiry = lastDayFlightDate.add(Duration(days: dayAlertDays));
+      final remaining = expiry.difference(now).inDays;
+      dayMessage =
+          'Day currency valid: $remaining days remaining (alert every $dayAlertDays days)';
+    }
+  } else {
+    dayMessage = 'No day flights recorded.';
+  }
+
+  String nightMessage;
+  if (lastNightFlightDate != null) {
+    final daysSince = now.difference(lastNightFlightDate).inDays;
+    if (nightDue) {
+      nightMessage =
+          'Last night flight: $daysSince days ago (alert every $nightAlertDays days)';
+    } else {
+      final expiry = lastNightFlightDate.add(Duration(days: nightAlertDays));
+      final remaining = expiry.difference(now).inDays;
+      nightMessage =
+          'Night currency valid: $remaining days remaining (alert every $nightAlertDays days)';
+    }
+  } else {
+    nightMessage = 'No night flights recorded.';
+  }
+
+  return CurrencyStatus(
+    dayDue: dayDue,
+    nightDue: nightDue,
+    dayMessage: dayMessage,
+    nightMessage: nightMessage,
+  );
+}
+
 final currencyStatusProvider = Provider<CurrencyStatus>((ref) {
   final logsAsync = ref.watch(flightLogsProvider);
+  final settingsAsync = ref.watch(currencyAlertSettingsProvider);
+
+  if (settingsAsync.isLoading) {
+    return CurrencyStatus(
+      dayDue: false,
+      nightDue: false,
+      dayMessage: 'Loading currency status...',
+      nightMessage: 'Loading currency status...',
+    );
+  }
+
+  if (settingsAsync.hasError) {
+    return CurrencyStatus(
+      dayDue: false,
+      nightDue: false,
+      dayMessage: 'Error loading currency status.',
+      nightMessage: 'Error loading currency status.',
+    );
+  }
+
+  final settings = settingsAsync.value!;
+  final dayInterval = settings.dayAlertDays;
+  final nightInterval = settings.nightAlertDays;
+  final now = DateTime.now();
 
   return logsAsync.when(
-    data: (logs) {
-      // Early return for empty logs
-      if (logs.isEmpty) {
-        return CurrencyStatus(
-          dayDue: false,
-          nightDue: false,
-          dayMessage: 'No day flights recorded.',
-          nightMessage: 'No night flights recorded.',
-        );
-      }
-
-      final now = DateTime.now();
-
-      // Calculate total flight hours in single pass for better performance
-      double totalHours = 0.0;
-      double nightHours = 0.0;
-      DateTime? lastDayFlightDate;
-      DateTime? lastNightFlightDate;
-
-      for (final log in logs) {
-        final duration = log.durationHours + log.durationMinutes / 60.0;
-        totalHours += duration;
-
-        if (log.isDayFlight) {
-          if (lastDayFlightDate == null || log.date.isAfter(lastDayFlightDate)) {
-            lastDayFlightDate = log.date;
-          }
-        } else {
-          nightHours += duration;
-          if (lastNightFlightDate == null || log.date.isAfter(lastNightFlightDate)) {
-            lastNightFlightDate = log.date;
-          }
-        }
-      }
-
-      // Determine currency intervals based on pilot experience
-      int dayCurrencyInterval;
-      int nightCurrencyInterval;
-
-      if (totalHours >= 0 && totalHours <= 599) {
-        // 0-599 hours
-        dayCurrencyInterval = 15;
-        nightCurrencyInterval = 10;
-      } else if (totalHours >= 600 && totalHours <= 799 && nightHours >= 125) {
-        // 600-799 hours with minimum 125 night hours
-        dayCurrencyInterval = 21;
-        nightCurrencyInterval = 15;
-      } else if (totalHours >= 800 && nightHours >= 200) {
-        // 800+ hours with minimum 200 night hours
-        dayCurrencyInterval = 30;
-        nightCurrencyInterval = 21;
-      } else {
-        // Default to most restrictive if requirements not met
-        dayCurrencyInterval = 15;
-        nightCurrencyInterval = 10;
-      }
-
-      bool dayDue = lastDayFlightDate == null ||
-          now.difference(lastDayFlightDate).inDays >= dayCurrencyInterval;
-      bool nightDue = lastNightFlightDate == null ||
-          now.difference(lastNightFlightDate).inDays >= nightCurrencyInterval;
-
-      // Calculate expiry dates
-      String dayMessage = '';
-      String nightMessage = '';
-
-      if (lastDayFlightDate != null) {
-        final daysSinceLastFlight = now.difference(lastDayFlightDate).inDays;
-        if (dayDue) {
-          dayMessage = 'Last day flight: $daysSinceLastFlight days ago';
-        } else {
-          final dayExpiryDate =
-              lastDayFlightDate.add(Duration(days: dayCurrencyInterval));
-          final daysRemaining = dayExpiryDate.difference(now).inDays;
-          dayMessage = 'Day currency valid ($daysRemaining days remaining)';
-        }
-      } else {
-        dayMessage = 'No day flights recorded.';
-      }
-
-      if (lastNightFlightDate != null) {
-        final daysSinceLastFlight = now.difference(lastNightFlightDate).inDays;
-        if (nightDue) {
-          nightMessage = 'Last night flight: $daysSinceLastFlight days ago';
-        } else {
-          final nightExpiryDate =
-              lastNightFlightDate.add(Duration(days: nightCurrencyInterval));
-          final daysRemaining = nightExpiryDate.difference(now).inDays;
-          nightMessage = 'Night currency valid ($daysRemaining days remaining)';
-        }
-      } else {
-        nightMessage = 'No night flights recorded.';
-      }
-
-      return CurrencyStatus(
-        dayDue: dayDue,
-        nightDue: nightDue,
-        dayMessage: dayMessage,
-        nightMessage: nightMessage,
-      );
-    },
+    data: (logs) => computeCurrencyStatus(
+      logs: logs,
+      dayAlertDays: dayInterval,
+      nightAlertDays: nightInterval,
+      now: now,
+    ),
     loading: () => CurrencyStatus(
       dayDue: false,
       nightDue: false,

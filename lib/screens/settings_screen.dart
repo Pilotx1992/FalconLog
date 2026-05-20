@@ -6,6 +6,7 @@ import '../services/navigation_service.dart';
 import '../helpers/auth_state_helper.dart';
 import '../providers/biometric_provider.dart';
 import '../security/ui/settings_security_section.dart';
+import '../settings/ui/settings_currency_alerts_section.dart';
 import '../providers/language_provider.dart';
 import '../localization/app_localizations.dart';
 import 'change_password_screen.dart';
@@ -469,6 +470,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           },
                         );
                       },
+                    ),
+                  ]),
+
+                  const SizedBox(height: 24),
+
+                  _buildSectionTitle('Currency Alerts'),
+                  const SizedBox(height: 16),
+                  _buildSettingsCard([
+                    SettingsCurrencyAlertsSection(
+                      buildTile: ({
+                        required icon,
+                        required title,
+                        String? subtitle,
+                        onTap,
+                        trailing,
+                        bareTrailing = false,
+                      }) =>
+                          _buildSettingsTile(
+                        icon: icon,
+                        title: title,
+                        subtitle: subtitle,
+                        onTap: onTap ?? () {},
+                        trailing: trailing,
+                        bareTrailing: bareTrailing,
+                      ),
+                      buildDivider: _buildDivider,
                     ),
                   ]),
 

@@ -28,6 +28,7 @@ import '../utils/drive_backup_discovery.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
 import '../utils/backup_safety_export_helper.dart';
+import '../utils/backup_safety_import_helper.dart';
 import '../utils/pre_restore_snapshot_service.dart';
 import '../utils/merge_restore_transaction.dart';
 import '../utils/replace_restore_transaction.dart';
@@ -646,6 +647,134 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  /// Restore from a user-picked safety copy (`.crypt14` outside app storage).
+  ///
+  /// Tries the device key first, then the Google account key used for cloud backups.
+  Future<RestoreResult> startRestoreFromSafetyCopy({
+    required BackupSafetyImportCandidate candidate,
+    RestoreMode mode = RestoreMode.merge,
+    bool interactive = true,
+  }) async {
+    if (_isRestoreInProgress) {
+      return RestoreResult.failure(error: 'Restore already in progress');
+    }
+
+    if (_isBackupInProgress) {
+      return RestoreResult.failure(
+        error: 'Backup operation in progress. Please wait.',
+      );
+    }
+
+    _isRestoreInProgress = true;
+    _restoreMutating = false;
+    _cancelRequested = false;
+
+    try {
+      final validation = BackupSafetyImportHelper.validate(
+        fileName: candidate.fileName,
+        encryptedBytes: candidate.encryptedBytes,
+      );
+      if (!validation.isSuccess || validation.candidate == null) {
+        return RestoreResult.failure(
+          error: validation.errorMessage ?? 'Invalid safety backup file.',
+        );
+      }
+
+      final bytes = validation.candidate!.encryptedBytes;
+      final fileName = validation.candidate!.fileName;
+      final backupDate =
+          BackupFilename.parseTimestampFromFileName(fileName) ?? DateTime.now();
+      final backupTargetId = 'safety-import:$fileName';
+
+      _checkRestoreCancelled();
+      _updateProgress(
+        40,
+        null,
+        'Decrypting safety copy...',
+        RestoreStatus.decrypting,
+      );
+
+      var databaseBytes = await _tryDecryptSafetyCopyBytes(
+        encryptedFileBytes: bytes,
+        useDeviceKey: true,
+        interactive: false,
+      );
+
+      if (databaseBytes == null) {
+        databaseBytes = await _tryDecryptSafetyCopyBytes(
+          encryptedFileBytes: bytes,
+          useDeviceKey: false,
+          interactive: interactive,
+        );
+      }
+
+      if (databaseBytes == null) {
+        _updateProgress(0, null, 'Decrypt failed', RestoreStatus.failed);
+        return RestoreResult.failure(
+          error:
+              'Failed to decrypt backup. Use the same device or Google account that created it.',
+        );
+      }
+
+      final payloadError =
+          BackupPayloadCodec.validatePayloadBytes(databaseBytes);
+      if (payloadError != null) {
+        _updateProgress(
+          0,
+          null,
+          'Invalid backup payload',
+          RestoreStatus.failed,
+        );
+        return RestoreResult.failure(error: payloadError);
+      }
+
+      _checkRestoreCancelled();
+      _updateProgress(
+        85,
+        null,
+        'Restoring your data... Do not close the app.',
+        RestoreStatus.applying,
+      );
+      _restoreMutating = true;
+      final restoreResult = await _restoreDatabase(
+        databaseBytes,
+        mode: mode,
+        backupTargetId: backupTargetId,
+      );
+
+      if (!restoreResult.success) {
+        _updateProgress(0, null, 'Failed to restore data', RestoreStatus.failed);
+        return restoreResult;
+      }
+
+      _updateProgress(100, null, 'Restore completed!', RestoreStatus.completed);
+
+      return RestoreResult.success(
+        flightLogsRestored: restoreResult.flightLogsRestored,
+        backupDate: backupDate,
+        sourceDevice: 'Safety copy (file)',
+      );
+    } on RestoreCancelledException {
+      _updateProgress(
+        _currentProgress.percentage,
+        null,
+        'Restore cancelled',
+        RestoreStatus.cancelled,
+      );
+      return RestoreResult.failure(error: 'Restore cancelled');
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Safety copy restore failed: $e');
+      }
+      _updateProgress(0, null, 'Restore failed', RestoreStatus.failed);
+      return RestoreResult.failure(error: 'Restore failed: ${e.toString()}');
+    } finally {
+      _isRestoreInProgress = false;
+      _restoreMutating = false;
+      _cancelRequested = false;
+    }
+  }
+
   /// Latest backup for [provider] or the active provider as a [BackupInfo].
   Future<BackupInfo?> resolveDefaultRestoreTarget({
     BackupProvider? provider,
@@ -946,6 +1075,40 @@ class BackupService extends ChangeNotifier {
       return null;
     }
     return null;
+  }
+
+  /// Decrypts a safety copy with one key strategy; returns null when the key does not match.
+  Future<Uint8List?> _tryDecryptSafetyCopyBytes({
+    required Uint8List encryptedFileBytes,
+    required bool useDeviceKey,
+    required bool interactive,
+  }) async {
+    Map<String, dynamic> encryptedBackup;
+    try {
+      encryptedBackup =
+          json.decode(utf8.decode(encryptedFileBytes)) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+
+    if (!_validateEncryptedBackupEnvelope(encryptedBackup)) {
+      return null;
+    }
+
+    final masterKey = useDeviceKey
+        ? await _keyManager.getOrCreateDeviceMasterKey()
+        : await _keyManager.getOrCreatePersistentMasterKey(
+            interactive: interactive,
+          );
+
+    if (masterKey == null) {
+      return null;
+    }
+
+    return _encryptionService.decryptDatabase(
+      encryptedBackup: encryptedBackup,
+      masterKey: masterKey,
+    );
   }
 
   /// Validates encrypted payload, decrypts, then applies — never clears data before validation.

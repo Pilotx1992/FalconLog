@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../settings/currency_alert_settings.dart';
 import 'backup_provider_preferences.dart' show backupSelectedProviderKey;
 
 /// Non-secret app preferences included in full-app backups.
@@ -20,6 +21,9 @@ class AppSettingsBackup {
     backupSelectedProviderKey,
     'prefer_google_signin',
     'falconlog_max_backups',
+    CurrencyAlertSettings.prefKeyDayAlertDays,
+    CurrencyAlertSettings.prefKeyNightAlertDays,
+    CurrencyAlertSettings.prefKeySetupCompleted,
   ];
 
   static Future<Map<String, dynamic>> exportFromPrefs(

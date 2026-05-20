@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme/app_colors.dart';
 import '../providers/security_providers.dart';
 import '../security_constants.dart';
 import 'pin_pad_widget.dart';
@@ -20,6 +21,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
 
   String _pin = '';
   String? _error;
+  int _errorPulse = 0;
   Timer? _lockoutTimer;
   bool _biometricAutoPromptAttempted = false;
 
@@ -80,13 +82,13 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
       }
 
       if (!service.isPinEnabled) {
-        // Repaired while verifying — parent wrapper will show app content.
         return;
       }
 
       setState(() {
         _pin = '';
         _error = 'Incorrect PIN';
+        _errorPulse++;
       });
     } catch (e, st) {
       debugPrint('[UnlockScreen] verifyPin failed: $e\n$st');
@@ -94,6 +96,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
       setState(() {
         _pin = '';
         _error = 'Unable to verify PIN. Try again or disable PIN in Settings.';
+        _errorPulse++;
       });
     }
   }
@@ -134,15 +137,25 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
     return '$m:$s';
   }
 
-  Widget _buildLogo(Color primary) {
-    return Image.asset(
-      _logoAsset,
-      width: 72,
-      height: 72,
-      errorBuilder: (_, __, ___) => Icon(
-        Icons.lock_outline,
-        size: 48,
-        color: primary,
+  Widget _buildLogo(ColorScheme scheme) {
+    return Container(
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: scheme.primaryContainer.withValues(alpha: 0.35),
+      ),
+      child: Center(
+        child: Image.asset(
+          _logoAsset,
+          width: 52,
+          height: 52,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.lock_outline_rounded,
+            size: 40,
+            color: AppColors.brandPrimary,
+          ),
+        ),
       ),
     );
   }
@@ -156,62 +169,60 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
     if (!service.isPinEnabled) {
       return const SizedBox.shrink();
     }
+
     final scheme = Theme.of(context).colorScheme;
     final inLockout = service.isInLockout;
     final remaining = service.lockoutRemaining;
     final biometricAsync = ref.watch(canUseAppLockBiometricProvider);
     final showBiometric = !inLockout && (biometricAsync.valueOrNull ?? false);
 
+    String? statusMessage;
+    var statusIsError = false;
+    String? subtitle;
+
+    if (inLockout && remaining != null) {
+      statusMessage = 'Try again in ${_formatDuration(remaining)}';
+      statusIsError = true;
+      subtitle = 'Too many attempts';
+    } else if (_error != null) {
+      statusMessage = _error;
+      statusIsError = true;
+    } else {
+      subtitle = 'Enter your 4-digit PIN';
+    }
+
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: scheme.surface,
+        backgroundColor: const Color(0xFFF8FAFC),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const Spacer(),
-                _buildLogo(scheme.primary),
-                const SizedBox(height: 16),
-                Text(
-                  'Unlock FalconLog',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                if (inLockout && remaining != null)
-                  Text(
-                    'Try again in ${_formatDuration(remaining)}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.error,
-                        ),
-                  )
-                else if (_error != null)
-                  Text(
-                    _error!,
-                    style: TextStyle(color: scheme.error),
-                  ),
-                const SizedBox(height: 24),
-                PinDotsIndicator(
-                  length: SecurityConstants.pinLength,
-                  filled: inLockout ? 0 : _pin.length,
-                ),
-                const Spacer(),
-                PinPadWidget(
-                  enabled: !inLockout,
-                  onDigit: _onDigit,
-                  onBackspace: _onBackspace,
-                ),
-                const SizedBox(height: 16),
-                if (showBiometric)
-                  TextButton.icon(
+          child: PinEntryLayout(
+            header: _buildLogo(scheme),
+            title: 'Unlock FalconLog',
+            subtitle: subtitle,
+            statusMessage: statusMessage,
+            statusIsError: statusIsError,
+            pinLength: SecurityConstants.pinLength,
+            filled: inLockout ? 0 : _pin.length,
+            errorPulse: _errorPulse,
+            dotsDimmed: inLockout,
+            padEnabled: !inLockout,
+            onDigit: _onDigit,
+            onBackspace: _onBackspace,
+            footer: showBiometric
+                ? TextButton.icon(
                     onPressed: _tryBiometric,
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text('Use fingerprint or face unlock'),
-                  ),
-                const SizedBox(height: 8),
-              ],
-            ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.brandPrimary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                    icon: const Icon(Icons.fingerprint_rounded, size: 22),
+                    label: const Text('Use biometrics'),
+                  )
+                : null,
           ),
         ),
       ),

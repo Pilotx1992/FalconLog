@@ -544,7 +544,9 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
       case PilotRole.pic:
         return 'PIC';
       case PilotRole.cpgGunner:
-        return 'CPG GUNNER';
+        return 'CPG';
+      case PilotRole.wzo:
+        return 'WZO';
     }
   }
 

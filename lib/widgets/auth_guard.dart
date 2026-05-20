@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/login_screen.dart';
 import '../security/ui/security_wrapper.dart';
+import '../settings/ui/currency_alert_setup_gate.dart';
 
 class AuthGuard extends StatelessWidget {
   final Widget child;
@@ -50,7 +51,9 @@ class AuthGuard extends StatelessWidget {
         }
 
         // If auth is not required or user is logged in
-        return SecurityWrapper(child: child);
+        return SecurityWrapper(
+          child: CurrencyAlertSetupGate(child: child),
+        );
       },
     );
   }

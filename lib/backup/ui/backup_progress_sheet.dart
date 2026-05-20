@@ -5,6 +5,7 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../models/backup_provider_enum.dart' show BackupInfo, BackupProvider;
 import '../models/backup_status.dart';
 import '../services/backup_service.dart';
+import '../utils/backup_safety_import_helper.dart';
 import 'backup_ui_theme.dart';
 
 class BackupProgressSheet extends StatefulWidget {
@@ -13,6 +14,7 @@ class BackupProgressSheet extends StatefulWidget {
   final bool isRestore;
   final RestoreMode? restoreMode;
   final BackupInfo? restoreTarget;
+  final BackupSafetyImportCandidate? safetyImportCandidate;
   final VoidCallback? onRestoreComplete;
   final VoidCallback? onBackupComplete;
 
@@ -23,6 +25,7 @@ class BackupProgressSheet extends StatefulWidget {
     this.isRestore = false,
     this.restoreMode,
     this.restoreTarget,
+    this.safetyImportCandidate,
     this.onRestoreComplete,
     this.onBackupComplete,
   });
@@ -209,8 +212,9 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
   Future<void> _startRestore() async {
     if (!mounted) return;
 
+    final safetyCandidate = widget.safetyImportCandidate;
     final target = widget.restoreTarget;
-    if (target == null) {
+    if (safetyCandidate == null && target == null) {
       await _finishOperation(
         success: false,
         errorMessage:
@@ -222,10 +226,15 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     setState(() => _isOperationInProgress = true);
 
     try {
-      final result = await _backupService.startRestore(
-        mode: widget.restoreMode ?? RestoreMode.merge,
-        target: target,
-      );
+      final result = safetyCandidate != null
+          ? await _backupService.startRestoreFromSafetyCopy(
+              candidate: safetyCandidate,
+              mode: widget.restoreMode ?? RestoreMode.merge,
+            )
+          : await _backupService.startRestore(
+              mode: widget.restoreMode ?? RestoreMode.merge,
+              target: target!,
+            );
 
       if (!mounted) return;
 
@@ -436,18 +445,6 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (_isRestore &&
-                                _isOperationInProgress &&
-                                !_isTerminal) ...[
-                              const SizedBox(height: 20),
-                              BackupUiTheme.infoBanner(
-                                icon: Icons.lock_clock_rounded,
-                                tone: BackupUiTheme.accent,
-                                message:
-                                    'Please keep the app open. Restore is protected by a safety snapshot and rollback journal.',
-                                messageColor: titleColor,
-                              ),
-                            ],
                             if (_currentProgress.errorMessage != null) ...[
                               const SizedBox(height: 20),
                               BackupUiTheme.infoBanner(

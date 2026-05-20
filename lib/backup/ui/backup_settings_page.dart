@@ -8,8 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
 import '../utils/backup_constants.dart';
+import '../utils/backup_filename.dart';
 import '../utils/backup_scheduler.dart';
 import '../utils/backup_safety_export_helper.dart';
+import '../utils/backup_safety_import_helper.dart';
 import 'backup_progress_sheet.dart';
 import '../../providers/backup_service_provider.dart';
 import '../../providers/aircraft_types_provider.dart';
@@ -166,7 +168,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                             _buildLocalBackupActions(surfaceCard,
                                 sectionTitleColor, operationRunning),
                             const SizedBox(height: 20),
-                            _buildSafetyExportSection(surfaceCard,
+                            _buildSafetyCopySection(surfaceCard,
                                 sectionTitleColor, operationRunning),
                             const SizedBox(height: 32),
                             Center(
@@ -647,7 +649,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
-  Widget _buildSafetyExportSection(
+  Widget _buildSafetyCopySection(
       Color surfaceCard, Color sectionTitleColor, bool operationRunning) {
     final cs = Theme.of(context).colorScheme;
     final canOperate = !operationRunning;
@@ -699,6 +701,26 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 side: BorderSide(color: cs.primary, width: 1.3),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Opacity(
+            opacity: canOperate ? 1 : 0.55,
+            child: OutlinedButton.icon(
+              onPressed: canOperate ? _importSafetyCopy : null,
+              icon: const Icon(Icons.file_download_outlined,
+                  color: _BackupColors.success),
+              label: Text('Import backup from folder',
+                  style: TextStyle(
+                      color: _BackupColors.success,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+                side: const BorderSide(color: _BackupColors.success, width: 1.3),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28)),
               ),
@@ -878,6 +900,180 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         onBackupComplete: () {
           ref.read(backupHistoryProvider.notifier).refresh();
           _initializeAndLoadSettings();
+        },
+      ),
+    );
+  }
+
+  Future<void> _importSafetyCopy() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Choose safety backup copy',
+        type: FileType.custom,
+        allowedExtensions: const ['crypt14'],
+        withData: true,
+      );
+
+      if (!mounted) return;
+
+      final loadOutcome =
+          await BackupSafetyImportHelper.loadFromPickerResult(result);
+      if (!loadOutcome.isSuccess || loadOutcome.candidate == null) {
+        if (loadOutcome.isFailure) {
+          _showErrorSnackBar(
+            loadOutcome.errorMessage ?? 'Import failed. Please try again.',
+          );
+        }
+        return;
+      }
+
+      final candidate = loadOutcome.candidate!;
+      final mode = await _confirmAndRestoreSafetyCopy(candidate);
+      if (mode != null && mounted) {
+        _startSafetyCopyRestore(candidate: candidate, mode: mode);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Import failed: $e');
+      }
+    }
+  }
+
+  Future<RestoreMode?> _confirmAndRestoreSafetyCopy(
+    BackupSafetyImportCandidate candidate,
+  ) async {
+    RestoreMode selectedMode = RestoreMode.replace;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
+    final dialogBg =
+        isDark ? _BackupColors.cardSurfaceDark : theme.colorScheme.surface;
+    final backupDate =
+        DateFormat('dd MMM yyyy, HH:mm').format(
+      BackupFilename.parseTimestampFromFileName(candidate.fileName) ??
+          DateTime.now(),
+    );
+
+    return showDialog<RestoreMode>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final accent = theme.colorScheme.primary;
+
+          return AlertDialog(
+            backgroundColor: dialogBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            title: Text(
+              'Import safety copy',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.folder_open_rounded,
+                          size: 22, color: _BackupColors.success),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              candidate.fileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'External file · $backupDate',
+                              style: TextStyle(fontSize: 12.5, color: muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _restoreModeOption(
+                  mode: RestoreMode.replace,
+                  selected: selectedMode,
+                  title: 'Replace',
+                  description: 'Make this device match the backup.',
+                  accent: accent,
+                  muted: muted,
+                  onTap: () =>
+                      setDialogState(() => selectedMode = RestoreMode.replace),
+                ),
+                const SizedBox(height: 10),
+                _restoreModeOption(
+                  mode: RestoreMode.merge,
+                  selected: selectedMode,
+                  title: 'Merge',
+                  description: 'Add and update records; keep other local data.',
+                  accent: accent,
+                  muted: muted,
+                  onTap: () =>
+                      setDialogState(() => selectedMode = RestoreMode.merge),
+                ),
+                if (selectedMode == RestoreMode.replace) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'A safety copy is saved first. You cannot undo from the app.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _BackupColors.warning.withValues(alpha: 0.95),
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, selectedMode),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(96, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Restore'),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -1258,6 +1454,27 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _startSafetyCopyRestore({
+    required BackupSafetyImportCandidate candidate,
+    RestoreMode mode = RestoreMode.replace,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (context) => BackupProgressSheet(
+        backupService: _backupService,
+        isRestore: true,
+        restoreMode: mode,
+        safetyImportCandidate: candidate,
+        onRestoreComplete: _refreshAfterRestore,
       ),
     );
   }
