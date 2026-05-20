@@ -582,7 +582,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.sd_storage_rounded,
+              const Icon(Icons.folder,
                   color: _BackupColors.warning),
               const SizedBox(width: 8),
               Expanded(
@@ -904,7 +904,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   return ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    leading: const Icon(Icons.sd_storage_rounded,
+                    leading: const Icon(Icons.folder,
                         color: _BackupColors.warning),
                     title: Text(entry.fileName,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -929,183 +929,228 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   Future<void> _confirmAndRestore(BackupInfo target) async {
     RestoreMode selectedMode = RestoreMode.replace;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
+    final dialogBg = isDark
+        ? _BackupColors.cardSurfaceDark
+        : theme.colorScheme.surface;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: isDark
-              ? _BackupColors.cardSurfaceDark
-              : Theme.of(context).colorScheme.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.restore_rounded),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text('Restore backup'),
+        builder: (context, setDialogState) {
+          final accent = theme.colorScheme.primary;
+
+          return AlertDialog(
+            backgroundColor: dialogBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+            contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            title: Text(
+              'Restore backup',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
               ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
+            ),
+            content: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Restore "${target.fileName}" from ${target.provider.displayName}. Choose how backup data is applied to this device.',
-                  style: const TextStyle(height: 1.4),
+                _restoreDialogBackupSummary(
+                  target: target,
+                  muted: muted,
+                  isDark: isDark,
                 ),
-                if (target.provider == BackupProvider.local) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _BackupColors.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: _BackupColors.warning.withValues(alpha: 0.3)),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline,
-                            color: _BackupColors.warning, size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'This is a device-bound local backup. It will not restore on another phone.',
-                            style: TextStyle(
-                                color: _BackupColors.warning,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (target.provider == BackupProvider.googleDrive) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.cloud_done, color: Colors.blue, size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'After reinstall, sign in with the same Google account, then restore from Google Drive here.',
-                            style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 20),
-                Text(
-                  'Restore mode',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
+                _restoreModeOption(
+                  mode: RestoreMode.replace,
+                  selected: selectedMode,
+                  title: 'Replace',
+                  description: 'Make this device match the backup.',
+                  accent: accent,
+                  muted: muted,
+                  onTap: () =>
+                      setDialogState(() => selectedMode = RestoreMode.replace),
                 ),
                 const SizedBox(height: 10),
-                SegmentedButton<RestoreMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: RestoreMode.replace,
-                      label: Text('Replace'),
-                      icon: Icon(Icons.swap_horiz_rounded, size: 18),
-                    ),
-                    ButtonSegment(
-                      value: RestoreMode.merge,
-                      label: Text('Merge'),
-                      icon: Icon(Icons.merge_rounded, size: 18),
-                    ),
-                  ],
-                  selected: {selectedMode},
-                  onSelectionChanged: (selection) {
-                    setDialogState(() => selectedMode = selection.first);
-                  },
+                _restoreModeOption(
+                  mode: RestoreMode.merge,
+                  selected: selectedMode,
+                  title: 'Merge',
+                  description: 'Add and update records; keep other local data.',
+                  accent: accent,
+                  muted: muted,
+                  onTap: () =>
+                      setDialogState(() => selectedMode = RestoreMode.merge),
                 ),
-                const SizedBox(height: 14),
                 if (selectedMode == RestoreMode.replace) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.28),
-                      ),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.warning_amber_rounded,
-                            color: Colors.red, size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Replace overwrites backed-up app data on this device after a safety snapshot is saved. This cannot be undone from the app.',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.4,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 14),
+                  Text(
+                    'A safety copy is saved first. You cannot undo from the app.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _BackupColors.warning.withValues(alpha: 0.95),
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 10),
                 ],
-                Text(
-                  selectedMode == RestoreMode.replace
-                      ? 'Use when this device should match the backup. FalconLog validates the file, saves a local safety snapshot, then applies the backup.'
-                      : 'Use to add missing records from the backup. Matching IDs are updated; other existing records stay on this device.',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.45,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                  ),
-                ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(ctx, true),
-              icon: const Icon(Icons.restore_rounded, size: 18),
-              label: const Text('Restore'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(96, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Restore'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
     if (confirmed != true || !mounted) return;
     _startRestore(target: target, mode: selectedMode);
+  }
+
+  Widget _restoreDialogBackupSummary({
+    required BackupInfo target,
+    required Color muted,
+    required bool isDark,
+  }) {
+    final providerIcon = target.provider == BackupProvider.googleDrive
+        ? Icons.cloud_done_rounded
+        : Icons.sd_storage_rounded;
+    final providerColor = target.provider == BackupProvider.googleDrive
+        ? _BackupColors.cloudGradientEnd
+        : _BackupColors.warning;
+    final panelFill = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: panelFill,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(providerIcon, size: 22, color: providerColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  target.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${target.provider.displayName} · ${target.formattedDate}',
+                  style: TextStyle(fontSize: 12.5, color: muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _restoreModeOption({
+    required RestoreMode mode,
+    required RestoreMode selected,
+    required String title,
+    required String description,
+    required Color accent,
+    required Color muted,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = selected == mode;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? accent.withValues(alpha: 0.55)
+                  : muted.withValues(alpha: 0.22),
+              width: isSelected ? 1.5 : 1,
+            ),
+            color: isSelected ? accent.withValues(alpha: 0.08) : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 22,
+                color: isSelected ? accent : muted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? accent : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        color: muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _startRestore({
