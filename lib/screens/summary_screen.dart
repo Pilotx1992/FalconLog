@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_logs_provider.dart';
 import '../models/flight_log.dart';
+import '../utils/user_safe_message.dart';
 
 class SummaryScreen extends ConsumerWidget {
   const SummaryScreen({super.key});
@@ -95,11 +96,28 @@ class SummaryScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  error.toString(),
+                  userSafeErrorMessage(error),
                   style: const TextStyle(
                     color: Color(0xFF64748B),
                   ),
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => ref.invalidate(flightLogsProvider),
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  label: const Text('Try Again'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3949ab),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -19,6 +19,7 @@ import 'debug/auth_debug_screen.dart';
 import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
 import 'security/security_lifecycle_handler.dart';
+import 'utils/app_snack_bar.dart';
 
 class FalconLogApp extends ConsumerWidget {
   const FalconLogApp({super.key});
@@ -78,6 +79,7 @@ class FalconLogApp extends ConsumerWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+          snackBarTheme: AppSnackBar.themeData(),
         ),
         // --- انتهى التعديل ---
         builder: (context, child) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/flight_log.dart';
 import '../providers/flight_logs_provider.dart';
+import '../utils/user_safe_message.dart';
 
 class EditFlightScreen extends ConsumerStatefulWidget {
   final String flightId;
@@ -592,7 +593,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                     Navigator.of(dialogContext).pop();
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    _buildSnackBar('Error deleting flight: ${e.toString()}',
+                    _buildSnackBar(
+                        'Could not delete flight. ${userSafeErrorMessage(e)}',
                         isError: true),
                   );
                 }

@@ -27,6 +27,7 @@ import '../utils/backup_filename.dart';
 import '../utils/drive_backup_discovery.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
+import '../utils/backup_safety_export_helper.dart';
 import '../utils/pre_restore_snapshot_service.dart';
 import '../utils/merge_restore_transaction.dart';
 import '../utils/replace_restore_transaction.dart';
@@ -107,8 +108,7 @@ class BackupService extends ChangeNotifier {
   static Future<bool> Function({
     bool interactive,
     BackupProvider? providerOverride,
-  })?
-      startBackupForTesting;
+  })? startBackupForTesting;
 
   /// Start backup using [providerOverride] or the persisted provider selection.
   Future<bool> startBackup({
@@ -652,6 +652,98 @@ class BackupService extends ChangeNotifier {
   }) async {
     final metadata = await findExistingBackup(provider: provider);
     return metadata == null ? null : BackupInfo.fromMetadata(metadata);
+  }
+
+  /// Read-only: newest local or cloud-restorable backup suitable for safety export.
+  ///
+  /// Does not write metadata, change preferences, or download cloud backups to
+  /// app storage — cloud bytes are returned in-memory only when needed.
+  Future<BackupSafetyExportCandidate?>
+      resolveLatestExportableBackupForSafetyCopy({
+    bool interactive = false,
+  }) async {
+    final local = await _findLatestLocalBackupMetadata();
+    final cloud = await _findLatestGoogleDriveBackupMetadata(
+      interactive: interactive,
+    );
+
+    final BackupMetadata? metadata;
+    if (local != null && cloud != null) {
+      metadata = local.createdAt.isAfter(cloud.createdAt) ? local : cloud;
+    } else {
+      metadata = local ?? cloud;
+    }
+
+    if (metadata == null) {
+      return null;
+    }
+
+    return _resolveSafetyExportCandidate(
+      metadata,
+      interactive: interactive,
+    );
+  }
+
+  Future<BackupSafetyExportCandidate?> _resolveSafetyExportCandidate(
+    BackupMetadata metadata, {
+    required bool interactive,
+  }) async {
+    if (!BackupFilename.isRecognizedBackupFileName(metadata.fileName)) {
+      return null;
+    }
+
+    final localPath = await _resolveExistingLocalBackupPath(metadata);
+    if (localPath != null) {
+      return BackupSafetyExportCandidate(
+        fileName: metadata.fileName,
+        localSourcePath: localPath,
+      );
+    }
+
+    final driveFileId = metadata.driveFileId;
+    if (driveFileId == null || driveFileId.isEmpty) {
+      return null;
+    }
+
+    if (!await _driveService.initialize(interactive: interactive)) {
+      return null;
+    }
+
+    final encryptedBytes = await _driveService.downloadFile(driveFileId);
+    if (encryptedBytes == null ||
+        !DriveBackupDiscovery.validateBackupFileBytes(encryptedBytes)) {
+      return null;
+    }
+
+    return BackupSafetyExportCandidate(
+      fileName: metadata.fileName,
+      encryptedBytes: Uint8List.fromList(encryptedBytes),
+    );
+  }
+
+  Future<String?> _resolveExistingLocalBackupPath(
+    BackupMetadata metadata,
+  ) async {
+    final directPath = metadata.localPath;
+    if (directPath != null &&
+        directPath.isNotEmpty &&
+        await File(directPath).exists()) {
+      return directPath;
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final candidate = File(
+      p.join(
+        appDir.path,
+        BackupConstants.localBackupsFolder,
+        metadata.fileName,
+      ),
+    );
+    if (await candidate.exists()) {
+      return candidate.path;
+    }
+
+    return null;
   }
 
   Future<RestoreResult> _restoreFromGoogleDrive(

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -8,6 +9,7 @@ import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
 import '../utils/backup_constants.dart';
 import '../utils/backup_scheduler.dart';
+import '../utils/backup_safety_export_helper.dart';
 import 'backup_progress_sheet.dart';
 import '../../providers/backup_service_provider.dart';
 import '../../providers/aircraft_types_provider.dart';
@@ -162,6 +164,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                                 sectionTitleColor, operationRunning),
                             const SizedBox(height: 20),
                             _buildLocalBackupActions(surfaceCard,
+                                sectionTitleColor, operationRunning),
+                            const SizedBox(height: 20),
+                            _buildSafetyExportSection(surfaceCard,
                                 sectionTitleColor, operationRunning),
                             const SizedBox(height: 32),
                             Center(
@@ -582,8 +587,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.folder,
-                  color: _BackupColors.warning),
+              const Icon(Icons.folder, color: _BackupColors.warning),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -633,6 +637,68 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                 minimumSize: const Size.fromHeight(50),
                 side:
                     const BorderSide(color: _BackupColors.success, width: 1.3),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSafetyExportSection(
+      Color surfaceCard, Color sectionTitleColor, bool operationRunning) {
+    final cs = Theme.of(context).colorScheme;
+    final canOperate = !operationRunning;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined,
+                  color: cs.primary.withValues(alpha: 0.9)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Safety Copy (Testing)',
+                  style: TextStyle(
+                    color: sectionTitleColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Opacity(
+            opacity: canOperate ? 1 : 0.55,
+            child: OutlinedButton.icon(
+              onPressed: canOperate ? _exportSafetyCopy : null,
+              icon: Icon(Icons.drive_folder_upload_outlined, color: cs.primary),
+              label: Text('Export backup to folder',
+                  style: TextStyle(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+                side: BorderSide(color: cs.primary, width: 1.3),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28)),
               ),
@@ -817,6 +883,50 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
+  Future<void> _exportSafetyCopy() async {
+    try {
+      final candidate =
+          await _backupService.resolveLatestExportableBackupForSafetyCopy(
+        interactive: true,
+      );
+      if (!mounted) return;
+
+      if (candidate == null) {
+        _showErrorSnackBar(
+          'Create a backup first, then export a safety copy.',
+        );
+        return;
+      }
+
+      final outcome = await BackupSafetyExportHelper.export(
+        candidate: candidate,
+        saveFile: ({required fileName, required bytes}) {
+          return FilePicker.platform.saveFile(
+            dialogTitle: 'Save safety backup copy',
+            fileName: fileName,
+            bytes: bytes,
+            type: FileType.custom,
+            allowedExtensions: const ['crypt14'],
+          );
+        },
+      );
+
+      if (!mounted) return;
+
+      if (outcome.isSuccess) {
+        _showSuccessSnackBar('Backup copy saved successfully.');
+      } else if (outcome.isFailure) {
+        _showErrorSnackBar(
+          outcome.errorMessage ?? 'Export failed. Please try again.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Export failed: $e');
+      }
+    }
+  }
+
   Future<void> _confirmAndRestoreLatestGoogleDrive() async {
     final latest = await _backupService.resolveDefaultRestoreTarget(
       provider: BackupProvider.googleDrive,
@@ -904,8 +1014,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   return ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    leading: const Icon(Icons.folder,
-                        color: _BackupColors.warning),
+                    leading:
+                        const Icon(Icons.folder, color: _BackupColors.warning),
                     title: Text(entry.fileName,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
@@ -932,9 +1042,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
-    final dialogBg = isDark
-        ? _BackupColors.cardSurfaceDark
-        : theme.colorScheme.surface;
+    final dialogBg =
+        isDark ? _BackupColors.cardSurfaceDark : theme.colorScheme.surface;
 
     final confirmed = await showDialog<bool>(
       context: context,

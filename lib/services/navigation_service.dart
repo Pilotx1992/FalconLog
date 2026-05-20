@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../utils/app_snack_bar.dart';
 import '../helpers/auth_state_helper.dart';
 
 class NavigationService {
@@ -81,7 +83,7 @@ class NavigationService {
           borderRadius: BorderRadius.circular(12),
         ),
         margin: const EdgeInsets.all(16),
-        duration: Duration(seconds: isError ? 4 : 3),
+        duration: AppSnackBar.forOutcome(isError: isError),
         action: SnackBarAction(
           label: 'Dismiss',
           textColor: Colors.white,
@@ -238,7 +240,10 @@ class NavigationService {
         showSnackBar('Signed out successfully');
       } catch (e) {
         hideLoadingDialog();
-        showSnackBar('Error signing out: ${e.toString()}', isError: true);
+        showSnackBar(
+          'Could not sign out. Please try again.',
+          isError: true,
+        );
       }
     }
   }

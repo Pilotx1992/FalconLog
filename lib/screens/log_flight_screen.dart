@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../models/flight_log.dart';
 import '../providers/flight_logs_provider.dart';
 import '../providers/aircraft_types_provider.dart';
+import '../utils/app_snack_bar.dart';
+import '../utils/user_safe_message.dart';
 
 class LogFlightScreen extends ConsumerStatefulWidget {
   const LogFlightScreen({super.key});
@@ -25,6 +27,12 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
   bool _isDay = true;
   bool _isSim = false;
   String _newAircraft = '';
+  bool _isDeletingAircraft = false;
+
+  String? _resolvedAircraftDropdownValue(List<String> aircraftTypes) {
+    if (_aircraftType == null) return null;
+    return aircraftTypes.contains(_aircraftType) ? _aircraftType : null;
+  }
 
   // Dialog helpers
   void _showAddAircraftDialog() {
@@ -67,30 +75,79 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
   }
 
   void _showDeleteConfirmationDialog(String type) {
-    showDialog(
+    if (_isDeletingAircraft) return;
+
+    final logs = ref.read(flightLogsProvider).valueOrNull ?? [];
+    final flightsUsingType = logs
+        .where((log) => log.aircraftType.toLowerCase() == type.toLowerCase())
+        .length;
+
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Aircraft Type'),
-          content: Text('Are you sure you want to delete "$type"?'),
+          content: Text(
+            flightsUsingType > 0
+                ? 'Are you sure you want to delete "$type"?\n\n'
+                    '$flightsUsingType existing flight(s) will keep this aircraft '
+                    'name in their records.'
+                : 'Are you sure you want to delete "$type"?',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: _isDeletingAircraft
+                  ? null
+                  : () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                await ref
-                    .read(aircraftTypesProvider.notifier)
-                    .removeAircraftType(type);
-                if (!mounted) return;
-                if (_aircraftType == type) {
-                  setState(() => _aircraftType = null);
-                }
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-              },
+              onPressed: _isDeletingAircraft
+                  ? null
+                  : () async {
+                      setState(() => _isDeletingAircraft = true);
+
+                      try {
+                        await ref
+                            .read(aircraftTypesProvider.notifier)
+                            .removeAircraftType(type);
+
+                        if (!mounted) return;
+
+                        final wasRemoved = !ref
+                            .read(aircraftTypesProvider)
+                            .any((t) =>
+                                t.toLowerCase() == type.toLowerCase());
+
+                        setState(() {
+                          if (_aircraftType == type) {
+                            _aircraftType = null;
+                          }
+                        });
+
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+
+                        if (!mounted || !wasRemoved) return;
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          _buildSnackBar('Aircraft type deleted'),
+                        );
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          _buildSnackBar(
+                            'Failed to delete aircraft type',
+                            isError: true,
+                          ),
+                        );
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isDeletingAircraft = false);
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFDC2626)),
               child: const Text('Delete'),
@@ -503,6 +560,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                         children: [
                           Expanded(
                             child: Container(
+                              clipBehavior: Clip.antiAlias,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
@@ -526,32 +584,54 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                       ),
                                     )
                                   : DropdownButtonFormField<String>(
-                                      decoration: const InputDecoration(
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.symmetric(
+                                      key: ValueKey(
+                                        'aircraft-dropdown-${aircraftTypes.join('|')}',
+                                      ),
+                                      isExpanded: true,
+                                      borderRadius: BorderRadius.circular(12),
+                                      elevation: 8,
+                                      decoration: InputDecoration(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
                                           horizontal: 16,
                                           vertical: 16,
                                         ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF7C3AED),
+                                            width: 1.5,
+                                          ),
+                                        ),
                                         hintText: 'Select Aircraft',
-                                        hintStyle: TextStyle(
+                                        hintStyle: const TextStyle(
                                           color: Colors.grey,
                                           fontWeight: FontWeight.w400,
                                         ),
                                       ),
                                       dropdownColor: Colors.white,
-                                      initialValue: aircraftTypes.isNotEmpty &&
-                                              aircraftTypes
-                                                  .contains(_aircraftType)
-                                          ? _aircraftType
-                                          : null,
+                                      initialValue:
+                                          _resolvedAircraftDropdownValue(
+                                        aircraftTypes,
+                                      ),
                                       items: aircraftTypes
                                           .map(
                                             (type) => DropdownMenuItem(
                                               value: type,
                                               child: Row(
-                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Flexible(
+                                                  Expanded(
                                                     child: Text(
                                                       type,
                                                       style: const TextStyle(
@@ -565,20 +645,13 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   GestureDetector(
-                                                    onTap: () {
-                                                      // Prevent dropdown from closing immediately
-                                                      Future.delayed(
-                                                          const Duration(
-                                                              milliseconds:
-                                                                  100), () {
-                                                        if (context.mounted) {
-                                                          Navigator.of(context).pop();
-                                                        }
-                                                        if (mounted) {
-                                                          _showDeleteConfirmationDialog(type);
-                                                        }
-                                                      });
-                                                    },
+                                                    onTap: _isDeletingAircraft
+                                                        ? null
+                                                        : () {
+                                                            _showDeleteConfirmationDialog(
+                                                              type,
+                                                            );
+                                                          },
                                                     child: Container(
                                                       padding:
                                                           const EdgeInsets.all(
@@ -672,6 +745,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                       ),
                       const SizedBox(height: 16),
                       Container(
+                        clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
@@ -681,14 +755,31 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           ),
                         ),
                         child: DropdownButtonFormField<PilotRole>(
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                          isExpanded: true,
+                          borderRadius: BorderRadius.circular(12),
+                          elevation: 8,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 16,
                             ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFEA580C),
+                                width: 1.5,
+                              ),
+                            ),
                             hintText: 'Select Role',
-                            hintStyle: TextStyle(
+                            hintStyle: const TextStyle(
                               color: Colors.grey,
                               fontWeight: FontWeight.w400,
                             ),
@@ -1046,7 +1137,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             _buildSnackBar(
-                                'Error saving flight: ${e.toString()}',
+                                'Could not save flight. ${userSafeErrorMessage(e)}',
                                 isError: true),
                           );
                         }
@@ -1194,6 +1285,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
       backgroundColor:
           isError ? const Color(0xFFDC2626) : const Color(0xFF059669),
       behavior: SnackBarBehavior.floating,
+      duration: AppSnackBar.forOutcome(isError: isError),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
