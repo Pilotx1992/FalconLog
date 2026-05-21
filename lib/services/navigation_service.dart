@@ -7,6 +7,9 @@ class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
+  static final RouteObserver<ModalRoute<void>> routeObserver =
+      RouteObserver<ModalRoute<void>>();
+
   static BuildContext? get context => navigatorKey.currentContext;
 
   // Navigate to route with auth protection

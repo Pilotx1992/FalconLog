@@ -376,6 +376,9 @@ class KeyManagerNew {
     }
   }
 
+  /// Returns the cached device master key without creating a new one.
+  Future<Uint8List?> getLocalMasterKeyIfPresent() => _getLocalKey();
+
   /// Device-local master key for local-only backups (no Google account required).
   Future<Uint8List?> getOrCreateDeviceMasterKey() async {
     try {

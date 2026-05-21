@@ -907,11 +907,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   Future<void> _importSafetyCopy() async {
     try {
+      // crypt14 is not in file_picker's platform extension whitelist; validate after pick.
       final result = await FilePicker.platform.pickFiles(
         dialogTitle: 'Choose safety backup copy',
-        type: FileType.custom,
-        allowedExtensions: const ['crypt14'],
-        withData: true,
+        type: FileType.any,
       );
 
       if (!mounted) return;
@@ -1101,8 +1100,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             dialogTitle: 'Save safety backup copy',
             fileName: fileName,
             bytes: bytes,
-            type: FileType.custom,
-            allowedExtensions: const ['crypt14'],
+            type: FileType.any,
           );
         },
       );

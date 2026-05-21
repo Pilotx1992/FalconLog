@@ -67,6 +67,7 @@ class LanguageNotifier extends StateNotifier<AppLanguage> {
         orElse: () => availableLanguages.first,
       );
 
+      if (language.code == state.code) return;
       state = language;
     } catch (e) {
       state = availableLanguages.first;

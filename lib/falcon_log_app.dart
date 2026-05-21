@@ -33,6 +33,7 @@ class FalconLogApp extends ConsumerWidget {
       child: MaterialApp(
         title: 'FalconLog',
         navigatorKey: NavigationService.navigatorKey,
+        navigatorObservers: [NavigationService.routeObserver],
         locale: locale,
         supportedLocales:
             availableLanguages.map((lang) => lang.locale).toList(),

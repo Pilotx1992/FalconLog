@@ -155,8 +155,19 @@ class _PinChangeScreenState extends ConsumerState<PinChangeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const appBarForeground = Color(0xFF1E293B);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Change PIN')),
+      appBar: AppBar(
+        title: const Text('Change PIN'),
+        foregroundColor: appBarForeground,
+        iconTheme: const IconThemeData(color: appBarForeground),
+        titleTextStyle: const TextStyle(
+          color: appBarForeground,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: PinEntryLayout(

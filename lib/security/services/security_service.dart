@@ -276,6 +276,8 @@ class SecurityService {
     await _repository.saveSettings(_settings);
     _lastInteractionMemory = now;
     _lastInteractionPersisted = now;
+    // Biometric sheet triggers inactive/paused; do not re-lock on the matching resume.
+    _pausedAt = null;
     unlock();
     _emitSettings();
   }
@@ -416,6 +418,13 @@ class SecurityService {
 
     if (checkSessionExpired()) {
       lock();
+      _pausedAt = null;
+      return;
+    }
+
+    // "Immediately" (0s) locks in [onAppPaused] only. Re-locking here would fire
+    // right after the system biometric dialog closes and undo a fresh unlock.
+    if (autoLockTimeout == Duration.zero) {
       _pausedAt = null;
       return;
     }

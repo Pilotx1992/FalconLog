@@ -102,8 +102,19 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ? 'Enter the same PIN again'
         : 'Avoid simple sequences like 1234';
 
+    const appBarForeground = Color(0xFF1E293B);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('PIN Lock')),
+      appBar: AppBar(
+        title: const Text('PIN Lock'),
+        foregroundColor: appBarForeground,
+        iconTheme: const IconThemeData(color: appBarForeground),
+        titleTextStyle: const TextStyle(
+          color: appBarForeground,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: PinEntryLayout(

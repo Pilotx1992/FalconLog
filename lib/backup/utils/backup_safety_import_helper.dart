@@ -77,16 +77,29 @@ class BackupSafetyImportHelper {
   }
 
   static String? _resolveFileName(PlatformFile file) {
-    final name = file.name;
-    if (name.isNotEmpty) {
-      return name;
+    final candidates = <String>[
+      if (file.name.isNotEmpty) file.name,
+      if (file.path != null && file.path!.isNotEmpty)
+        file.path!.split(RegExp(r'[/\\]')).last,
+    ];
+
+    for (final name in candidates) {
+      if (BackupFilename.isRecognizedBackupFileName(_normalizeFileName(name))) {
+        return _normalizeFileName(name);
+      }
     }
-    final path = file.path;
-    if (path == null || path.isEmpty) {
-      return null;
+
+    return candidates.isEmpty ? null : _normalizeFileName(candidates.first);
+  }
+
+  static String _normalizeFileName(String fileName) {
+    final trimmed = fileName.trim();
+    if (!trimmed.toLowerCase().endsWith(BackupFilename.extension)) {
+      return trimmed;
     }
-    final segments = path.split(RegExp(r'[/\\]'));
-    return segments.isEmpty ? null : segments.last;
+    final base =
+        trimmed.substring(0, trimmed.length - BackupFilename.extension.length);
+    return '$base${BackupFilename.extension}';
   }
 
   static Future<Uint8List?> _readPickedBytes(PlatformFile file) async {
@@ -99,31 +112,30 @@ class BackupSafetyImportHelper {
       return null;
     }
 
-    final ioFile = File(path);
-    if (!await ioFile.exists()) {
+    try {
+      final ioFile = File(path);
+      if (!await ioFile.exists()) {
+        return null;
+      }
+      return ioFile.readAsBytes();
+    } catch (_) {
       return null;
     }
-
-    return ioFile.readAsBytes();
   }
 
   static BackupSafetyImportOutcome validate({
     required String fileName,
     required Uint8List? encryptedBytes,
   }) {
-    if (!BackupFilename.isRecognizedBackupFileName(fileName)) {
+    final normalizedName = _normalizeFileName(fileName);
+
+    if (!BackupFilename.isRecognizedBackupFileName(normalizedName)) {
       return const BackupSafetyImportOutcome.failure(
-        'Backup file name is not recognized.',
+        'Backup file name is not recognized. Choose a FLBKUP_*.crypt14 file.',
       );
     }
 
-    if (!fileName.endsWith(BackupFilename.extension)) {
-      return const BackupSafetyImportOutcome.failure(
-        'Backup file must use the .crypt14 extension.',
-      );
-    }
-
-    if (!BackupFilename.hasOnlySafeCharacters(fileName)) {
+    if (!BackupFilename.hasOnlySafeCharacters(normalizedName)) {
       return const BackupSafetyImportOutcome.failure(
         'Backup file name contains invalid characters.',
       );
@@ -131,7 +143,7 @@ class BackupSafetyImportHelper {
 
     if (encryptedBytes == null || encryptedBytes.isEmpty) {
       return const BackupSafetyImportOutcome.failure(
-        'Backup file could not be read.',
+        'Backup file could not be read. Try moving it to Downloads and pick it again.',
       );
     }
 
@@ -143,7 +155,7 @@ class BackupSafetyImportHelper {
 
     return BackupSafetyImportOutcome.success(
       BackupSafetyImportCandidate(
-        fileName: fileName,
+        fileName: normalizedName,
         encryptedBytes: encryptedBytes,
       ),
     );

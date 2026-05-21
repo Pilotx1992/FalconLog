@@ -687,34 +687,20 @@ class BackupService extends ChangeNotifier {
       final backupTargetId = 'safety-import:$fileName';
 
       _checkRestoreCancelled();
-      _updateProgress(
-        40,
-        null,
-        'Decrypting safety copy...',
-        RestoreStatus.decrypting,
-      );
-
-      var databaseBytes = await _tryDecryptSafetyCopyBytes(
+      final decryptResult = await _decryptSafetyCopyPayload(
         encryptedFileBytes: bytes,
-        useDeviceKey: true,
-        interactive: false,
+        interactive: interactive,
       );
 
-      if (databaseBytes == null) {
-        databaseBytes = await _tryDecryptSafetyCopyBytes(
-          encryptedFileBytes: bytes,
-          useDeviceKey: false,
-          interactive: interactive,
-        );
-      }
-
-      if (databaseBytes == null) {
+      if (!decryptResult.success || decryptResult.databaseBytes == null) {
         _updateProgress(0, null, 'Decrypt failed', RestoreStatus.failed);
         return RestoreResult.failure(
-          error:
+          error: decryptResult.error ??
               'Failed to decrypt backup. Use the same device or Google account that created it.',
         );
       }
+
+      final databaseBytes = decryptResult.databaseBytes!;
 
       final payloadError =
           BackupPayloadCodec.validatePayloadBytes(databaseBytes);
@@ -1077,6 +1063,65 @@ class BackupService extends ChangeNotifier {
     return null;
   }
 
+  /// Tries device-local key first, then Google account key (cloud backups).
+  Future<({bool success, Uint8List? databaseBytes, String? error})>
+      _decryptSafetyCopyPayload({
+    required Uint8List encryptedFileBytes,
+    required bool interactive,
+  }) async {
+    _checkRestoreCancelled();
+    _updateProgress(
+      40,
+      null,
+      'Decrypting safety copy...',
+      RestoreStatus.decrypting,
+    );
+
+    final deviceBytes = await _tryDecryptSafetyCopyBytes(
+      encryptedFileBytes: encryptedFileBytes,
+      useDeviceKey: true,
+      interactive: false,
+    );
+    if (deviceBytes != null) {
+      return (success: true, databaseBytes: deviceBytes, error: null);
+    }
+
+    _checkRestoreCancelled();
+    _updateProgress(
+      55,
+      null,
+      'Getting encryption key...',
+      RestoreStatus.retrievingKey,
+    );
+
+    if (!await _driveService.initialize(interactive: interactive)) {
+      return (
+        success: false,
+        databaseBytes: null,
+        error:
+            'Google Drive sign-in is required to decrypt this backup. Sign in with the same Google account used for backup.',
+      );
+    }
+
+    final cloudBytes = await _tryDecryptSafetyCopyBytes(
+      encryptedFileBytes: encryptedFileBytes,
+      useDeviceKey: false,
+      interactive: interactive,
+    );
+    if (cloudBytes != null) {
+      return (success: true, databaseBytes: cloudBytes, error: null);
+    }
+
+    final hasLocalKey = await _keyManager.getLocalMasterKeyIfPresent() != null;
+    return (
+      success: false,
+      databaseBytes: null,
+      error: hasLocalKey
+          ? 'Failed to decrypt backup. This file may be from another device or Google account.'
+          : 'Failed to decrypt backup. Sign in with the Google account used for backup, or use the same device that created a local backup.',
+    );
+  }
+
   /// Decrypts a safety copy with one key strategy; returns null when the key does not match.
   Future<Uint8List?> _tryDecryptSafetyCopyBytes({
     required Uint8List encryptedFileBytes,
@@ -1095,11 +1140,14 @@ class BackupService extends ChangeNotifier {
       return null;
     }
 
-    final masterKey = useDeviceKey
-        ? await _keyManager.getOrCreateDeviceMasterKey()
-        : await _keyManager.getOrCreatePersistentMasterKey(
-            interactive: interactive,
-          );
+    final Uint8List? masterKey;
+    if (useDeviceKey) {
+      masterKey = await _keyManager.getLocalMasterKeyIfPresent();
+    } else {
+      masterKey = await _keyManager.getOrCreatePersistentMasterKey(
+        interactive: interactive,
+      );
+    }
 
     if (masterKey == null) {
       return null;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_logs_provider.dart';
 import '../providers/summary_provider.dart';
@@ -37,7 +38,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final logsAsyncValue = ref.watch(flightLogsProvider);
     final currency = ref.watch(currencyStatusProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) SystemNavigator.pop();
+      },
+      child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text(
@@ -602,6 +608,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         onPressed: () => Navigator.of(context).pushNamed('/logFlight'),
         backgroundColor: const Color(0xFF1565C0),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+      ),
       ),
     );
   }

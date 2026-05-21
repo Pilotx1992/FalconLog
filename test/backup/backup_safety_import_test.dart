@@ -57,6 +57,37 @@ void main() {
       expect(outcome.errorMessage, contains('not recognized'));
     });
 
+    test('validate normalizes uppercase crypt14 extension', () {
+      final fileName = BackupFilename.generate(
+        at: DateTime(2026, 5, 20, 14, 30, 0),
+      ).replaceAll('.crypt14', '.CRYPT14');
+
+      final outcome = BackupSafetyImportHelper.validate(
+        fileName: fileName,
+        encryptedBytes: validEncryptedBackupBytes(),
+      );
+
+      expect(outcome.isSuccess, isTrue);
+      expect(outcome.candidate?.fileName, endsWith('.crypt14'));
+    });
+
+    test('loadFromPickerResult uses path when display name lacks extension',
+        () async {
+      final fileName = BackupFilename.generate();
+      final path = '${tempDir.path}/$fileName';
+      final bytes = validEncryptedBackupBytes();
+      await File(path).writeAsBytes(bytes);
+
+      final outcome = await BackupSafetyImportHelper.loadFromPickerResult(
+        FilePickerResult([
+          PlatformFile(path: path, name: 'backup_copy', size: bytes.length),
+        ]),
+      );
+
+      expect(outcome.isSuccess, isTrue);
+      expect(outcome.candidate?.fileName, fileName);
+    });
+
     test('validate rejects empty bytes', () {
       final outcome = BackupSafetyImportHelper.validate(
         fileName: BackupFilename.generate(),
