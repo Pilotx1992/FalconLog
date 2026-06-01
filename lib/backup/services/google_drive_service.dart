@@ -359,14 +359,11 @@ class AuthenticatedClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    final authHeader =
+    request.headers['Authorization'] =
         '${_credentials.accessToken.type} ${_credentials.accessToken.data}';
-    request.headers['Authorization'] = authHeader;
 
     if (kDebugMode) {
       print('🌐 Making request to: ${request.url}');
-      print(
-          '🔑 Auth header: ${authHeader.substring(0, authHeader.length > 30 ? 30 : authHeader.length)}...');
     }
 
     return _inner.send(request);

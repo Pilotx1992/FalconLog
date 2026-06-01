@@ -101,7 +101,7 @@ class PerformanceOptimizer {
       padding: padding,
       physics: optimizedScrollPhysics,
       itemCount: itemCount,
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
       addRepaintBoundaries: addRepaintBoundaries,
       addAutomaticKeepAlives: addAutomaticKeepAlives,
       itemBuilder: (context, index) {
@@ -126,7 +126,7 @@ class PerformanceOptimizer {
       physics: optimizedScrollPhysics,
       gridDelegate: gridDelegate,
       itemCount: itemCount,
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
       addRepaintBoundaries: true,
       addAutomaticKeepAlives: false,
       itemBuilder: (context, index) {
