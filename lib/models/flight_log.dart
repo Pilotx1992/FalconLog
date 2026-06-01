@@ -152,22 +152,134 @@ class FlightLog extends HiveObject {
 
   static FlightLog fromJson(Map<String, dynamic> json) {
     return FlightLog(
-      id: json['id'],
-      date: DateTime.parse(json['date']),
-      flightTypes: (json['flightTypes'] as List<dynamic>)
-          .map((e) => _safeParseFlightType(e))
-          .where((type) => type != null)
-          .cast<FlightType>()
-          .toList(),
-      durationHours: json['durationHours'],
-      durationMinutes: json['durationMinutes'],
-      aircraftType: json['aircraftType'],
+      id: json['id']?.toString(),
+      date: _parseRequiredDateTime(json['date'], 'date'),
+      flightTypes: _parseFlightTypes(json['flightTypes']),
+      durationHours: _parseRequiredInt(json['durationHours'], 'durationHours'),
+      durationMinutes:
+          _parseRequiredInt(json['durationMinutes'], 'durationMinutes'),
+      aircraftType: _parseRequiredString(json['aircraftType'], 'aircraftType'),
       pilotRole: _safeParsePilotRole(json['pilotRole']),
-      isDayFlight: json['isDayFlight'] ?? true,
-      isSimulated: json['isSimulated'] ?? false,
-      createdAt:
-          json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      isDayFlight: _parseBool(json['isDayFlight'], defaultValue: true),
+      isSimulated: _parseBool(json['isSimulated'], defaultValue: false),
+      createdAt: _parseOptionalDateTime(json['createdAt']),
+      dateUpdated: _parseOptionalDateTime(json['dateUpdated']),
+      registration: _parseOptionalString(
+        _firstPresent(json, const ['registration', 'aircraftRegistration']),
+      ),
+      departure: _parseOptionalString(
+        _firstPresent(json, const ['departure', 'from']),
+      ),
+      arrival: _parseOptionalString(
+        _firstPresent(json, const ['arrival', 'to']),
+      ),
+      flightTime: _parseOptionalDouble(json['flightTime']),
+      picTime: _parseOptionalDouble(json['picTime']),
+      sicTime: _parseOptionalDouble(json['sicTime']),
+      nightTime: _parseOptionalDouble(json['nightTime']),
+      ifrTime: _parseOptionalDouble(json['ifrTime']),
+      crossCountry: _parseOptionalDouble(json['crossCountry']),
+      dayLandings: _parseOptionalInt(json['dayLandings']),
+      nightLandings: _parseOptionalInt(json['nightLandings']),
+      remarks: _parseOptionalString(
+        _firstPresent(json, const ['remarks', 'notes']),
+      ),
+      updatedAt: _parseOptionalDateTime(json['updatedAt']),
     );
+  }
+
+  static List<FlightType> _parseFlightTypes(dynamic value) {
+    if (value is! List) {
+      throw const FormatException('flightTypes must be a list');
+    }
+    return value
+        .map((e) => _safeParseFlightType(e))
+        .where((type) => type != null)
+        .cast<FlightType>()
+        .toList();
+  }
+
+  static dynamic _firstPresent(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      if (json.containsKey(key)) {
+        return json[key];
+      }
+    }
+    return null;
+  }
+
+  static String _parseRequiredString(dynamic value, String fieldName) {
+    if (value == null) {
+      throw FormatException('$fieldName is required');
+    }
+    return value.toString();
+  }
+
+  static String? _parseOptionalString(dynamic value) {
+    return value?.toString();
+  }
+
+  static int _parseRequiredInt(dynamic value, String fieldName) {
+    final parsed = _parseOptionalInt(value);
+    if (parsed == null) {
+      throw FormatException('$fieldName is required');
+    }
+    return parsed;
+  }
+
+  static int? _parseOptionalInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num && value.isFinite && value % 1 == 0) {
+      return value.toInt();
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      return int.parse(trimmed);
+    }
+    throw FormatException('Expected integer value, got ${value.runtimeType}');
+  }
+
+  static double? _parseOptionalDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      return double.parse(trimmed);
+    }
+    throw FormatException('Expected decimal value, got ${value.runtimeType}');
+  }
+
+  static bool _parseBool(dynamic value, {required bool defaultValue}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    throw FormatException('Expected boolean value, got ${value.runtimeType}');
+  }
+
+  static DateTime _parseRequiredDateTime(dynamic value, String fieldName) {
+    final parsed = _parseOptionalDateTime(value);
+    if (parsed == null) {
+      throw FormatException('$fieldName is required');
+    }
+    return parsed;
+  }
+
+  static DateTime? _parseOptionalDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      return DateTime.parse(trimmed);
+    }
+    throw FormatException('Expected DateTime value, got ${value.runtimeType}');
   }
 
   static FlightType? _safeParseFlightType(dynamic value) {
@@ -175,11 +287,18 @@ class FlightLog extends HiveObject {
       if (value is String) {
         // Manual name lookup for older Dart versions
         for (final enumValue in FlightType.values) {
-          if (enumValue.toString().split('.').last == value) {
+          final enumName = enumValue.toString();
+          if (enumName == value || enumName.split('.').last == value) {
             return enumValue;
           }
         }
-      } else if (value is int && value >= 0 && value < FlightType.values.length) {
+        final index = int.tryParse(value);
+        if (index != null && index >= 0 && index < FlightType.values.length) {
+          return FlightType.values[index];
+        }
+      } else if (value is int &&
+          value >= 0 &&
+          value < FlightType.values.length) {
         return FlightType.values[value];
       }
     } catch (e) {
@@ -193,11 +312,18 @@ class FlightLog extends HiveObject {
       if (value is String) {
         // Manual name lookup for older Dart versions
         for (final enumValue in PilotRole.values) {
-          if (enumValue.toString().split('.').last == value) {
+          final enumName = enumValue.toString();
+          if (enumName == value || enumName.split('.').last == value) {
             return enumValue;
           }
         }
-      } else if (value is int && value >= 0 && value < PilotRole.values.length) {
+        final index = int.tryParse(value);
+        if (index != null && index >= 0 && index < PilotRole.values.length) {
+          return PilotRole.values[index];
+        }
+      } else if (value is int &&
+          value >= 0 &&
+          value < PilotRole.values.length) {
         return PilotRole.values[value];
       }
     } catch (e) {
@@ -244,9 +370,10 @@ extension FlightLogJson on FlightLog {
   Map<String, dynamic> toJson() {
     try {
       if (kDebugMode) {
-        print('🐛 DEBUG: Converting FlightLog to JSON - ID: $id, flightTypes: ${flightTypes.length}');
+        print(
+            '🐛 DEBUG: Converting FlightLog to JSON - ID: $id, flightTypes: ${flightTypes.length}');
       }
-      
+
       final result = {
         'id': id,
         'date': date.toIso8601String(),
@@ -273,23 +400,26 @@ extension FlightLogJson on FlightLog {
         'remarks': remarks,
         'updatedAt': updatedAt?.toIso8601String(),
       };
-      
+
       if (kDebugMode) {
         print('🐛 DEBUG: FlightLog JSON conversion successful');
       }
-      
+
       return result;
     } catch (e) {
       if (kDebugMode) {
         print('💥 DEBUG: Error in FlightLog.toJson(): $e');
-        print('💥 DEBUG: FlightLog ID: $id, flightTypes: $flightTypes, pilotRole: $pilotRole');
+        print(
+            '💥 DEBUG: FlightLog ID: $id, flightTypes: $flightTypes, pilotRole: $pilotRole');
       }
-      
+
       // Fallback to basic data if conversion fails
       return {
         'id': id,
         'date': date.toIso8601String(),
-        'flightTypes': flightTypes.map((e) => e.index).toList(), // Use index instead of name
+        'flightTypes': flightTypes
+            .map((e) => e.index)
+            .toList(), // Use index instead of name
         'durationHours': durationHours,
         'durationMinutes': durationMinutes,
         'aircraftType': aircraftType,
