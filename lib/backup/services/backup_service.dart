@@ -77,6 +77,14 @@ class BackupService extends ChangeNotifier {
   bool _cancelRequested = false;
   bool _restoreMutating = false;
 
+  @visibleForTesting
+  Future<void> Function(File tempFile, Uint8List content)?
+      localBackupTempWriterForTesting;
+
+  @visibleForTesting
+  Future<void> Function(File tempFile, File finalFile)?
+      beforeLocalBackupRenameForTesting;
+
   OperationProgress get currentProgress => _currentProgress;
   bool get isBackupInProgress => _isBackupInProgress;
   bool get isRestoreInProgress => _isRestoreInProgress;
@@ -260,6 +268,58 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  Future<void> _deleteLocalBackupFileAfterFailedBackup(String localPath) async {
+    try {
+      final file = File(localPath);
+      if (await file.exists()) {
+        await file.delete();
+        if (kDebugMode) {
+          debugPrint(
+            'BACKUP_LOCAL_FILE_DELETED_AFTER_FAILED_BACKUP path=$localPath',
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_LOCAL_FILE_DELETE_FAILED_AFTER_BACKUP_FAILURE: $e');
+      }
+    }
+  }
+
+  Future<bool> _deleteBackupMetadataAfterFailedBackup(String backupId) async {
+    try {
+      final box = await HiveInitializationService.openBox<BackupMetadata>(
+        'backupMetadata',
+      );
+      if (!box.containsKey(backupId)) {
+        return false;
+      }
+      await box.delete(backupId);
+      if (kDebugMode) {
+        debugPrint('BACKUP_METADATA_DELETED_AFTER_FAILED_BACKUP id=$backupId');
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_METADATA_DELETE_FAILED_AFTER_BACKUP_FAILURE: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Rolls back artifacts from the current backup when a post-publish step fails.
+  Future<void> _rollbackFailedBackupArtifacts({
+    String? metadataBackupId,
+    String? writtenLocalPath,
+  }) async {
+    if (writtenLocalPath != null) {
+      await _deleteLocalBackupFileAfterFailedBackup(writtenLocalPath);
+    }
+    if (metadataBackupId != null) {
+      await _deleteBackupMetadataAfterFailedBackup(metadataBackupId);
+    }
+  }
+
   /// Reverts partial backup artifacts when a cooperative cancel aborts the flow.
   Future<void> _rollbackCancelledBackupArtifacts({
     String? metadataBackupId,
@@ -411,29 +471,31 @@ class BackupService extends ChangeNotifier {
         return false;
       }
 
-      _checkBackupCancelled();
-      if (!await File(writtenLocalPath).exists()) {
-        _updateProgress(
-            0, BackupStatus.failed, 'Failed to verify local backup');
+      late final _BackupPublishResult publishResult;
+      try {
+        publishResult = await _completeLocalBackupAfterWrite(
+          writtenLocalPath: writtenLocalPath,
+          saveMetadata: () => _saveBackupMetadata(
+            backupId: payload.backupId,
+            driveFileId: null,
+            localPath: writtenLocalPath,
+            fileName: fileName,
+            originalSize: payload.originalSize,
+            encryptedSize: payload.encryptedBytes.length,
+            flightLogsCount: payload.flightLogsCount,
+            location: BackupLocation.local,
+          ),
+          recordSuccessfulBackup: _recordSuccessfulBackup,
+        );
+      } on BackupCancelledException {
+        writtenLocalPath = null;
+        savedMetadataBackupId = null;
+        rethrow;
+      }
+      savedMetadataBackupId = publishResult.metadataBackupId;
+      if (!publishResult.success) {
         return false;
       }
-
-      _checkBackupCancelled();
-      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-      savedMetadataBackupId = await _saveBackupMetadata(
-        backupId: payload.backupId,
-        driveFileId: null,
-        localPath: writtenLocalPath,
-        fileName: fileName,
-        originalSize: payload.originalSize,
-        encryptedSize: payload.encryptedBytes.length,
-        flightLogsCount: payload.flightLogsCount,
-        location: BackupLocation.local,
-      );
-      if (savedMetadataBackupId == null) {
-        return false;
-      }
-      await _recordSuccessfulBackup();
 
       _checkBackupCancelled();
       await _pruneLocalBackups(
@@ -517,6 +579,10 @@ class BackupService extends ChangeNotifier {
     required String fileName,
     required Uint8List content,
   }) async {
+    File? tempFile;
+    File? finalFile;
+    var finalFileCreatedByThisOperation = false;
+
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final backupDir = Directory(
@@ -526,14 +592,150 @@ class BackupService extends ChangeNotifier {
         await backupDir.create(recursive: true);
       }
 
-      final file = File(p.join(backupDir.path, fileName));
-      await file.writeAsBytes(content, flush: true);
-      return file.path;
+      finalFile = File(p.join(backupDir.path, fileName));
+      if (await finalFile.exists()) {
+        if (kDebugMode) {
+          debugPrint(
+            'LOCAL_BACKUP_PUBLISH_BLOCKED_TARGET_EXISTS path=${finalFile.path}',
+          );
+        }
+        return null;
+      }
+
+      tempFile = File(
+        p.join(
+          backupDir.path,
+          '.$fileName.${const Uuid().v4()}.tmp',
+        ),
+      );
+
+      final tempWriter = localBackupTempWriterForTesting;
+      if (tempWriter != null) {
+        await tempWriter(tempFile, content);
+      } else {
+        await tempFile.writeAsBytes(content, flush: true);
+      }
+
+      if (!await tempFile.exists()) {
+        throw StateError('Temporary local backup file was not created.');
+      }
+      final tempSize = await tempFile.length();
+      if (tempSize <= 0 || tempSize != content.length) {
+        throw StateError(
+          'Temporary local backup size mismatch: $tempSize != ${content.length}.',
+        );
+      }
+
+      await beforeLocalBackupRenameForTesting?.call(tempFile, finalFile);
+
+      if (await finalFile.exists()) {
+        throw StateError('Final local backup path already exists.');
+      }
+
+      final publishedFile = await tempFile.rename(finalFile.path);
+      finalFileCreatedByThisOperation = true;
+
+      if (!await publishedFile.exists()) {
+        throw StateError('Final local backup file was not created.');
+      }
+      final publishedSize = await publishedFile.length();
+      if (publishedSize != content.length) {
+        throw StateError(
+          'Final local backup size mismatch: $publishedSize != ${content.length}.',
+        );
+      }
+
+      return publishedFile.path;
     } catch (e) {
+      try {
+        if (tempFile != null && await tempFile.exists()) {
+          await tempFile.delete();
+        }
+        if (finalFileCreatedByThisOperation &&
+            finalFile != null &&
+            await finalFile.exists()) {
+          await finalFile.delete();
+        }
+      } catch (cleanupError) {
+        if (kDebugMode) {
+          debugPrint('LOCAL_BACKUP_TEMP_CLEANUP_FAILED: $cleanupError');
+        }
+      }
       if (kDebugMode) {
         print('💥 Error writing local backup: $e');
       }
       return null;
+    }
+  }
+
+  Future<_BackupPublishResult> _completeLocalBackupAfterWrite({
+    required String writtenLocalPath,
+    required Future<String?> Function() saveMetadata,
+    required Future<void> Function() recordSuccessfulBackup,
+  }) async {
+    String? savedMetadataBackupId;
+    try {
+      _checkBackupCancelled();
+      final file = File(writtenLocalPath);
+      if (!await file.exists()) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to verify local backup');
+        await _rollbackFailedBackupArtifacts(
+            writtenLocalPath: writtenLocalPath);
+        return const _BackupPublishResult.failure();
+      }
+
+      _checkBackupCancelled();
+      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
+      savedMetadataBackupId = await saveMetadata();
+      if (savedMetadataBackupId == null) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to save backup metadata');
+        await _rollbackFailedBackupArtifacts(
+            writtenLocalPath: writtenLocalPath);
+        return const _BackupPublishResult.failure();
+      }
+
+      try {
+        await recordSuccessfulBackup();
+      } on BackupCancelledException {
+        rethrow;
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('LOCAL_BACKUP_SUCCESS_RECORD_FAILED: $e');
+        }
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to record backup success');
+        await _rollbackFailedBackupArtifacts(
+          metadataBackupId: savedMetadataBackupId,
+          writtenLocalPath: writtenLocalPath,
+        );
+        return _BackupPublishResult.failure(
+          metadataBackupId: savedMetadataBackupId,
+        );
+      }
+
+      return _BackupPublishResult.success(
+        metadataBackupId: savedMetadataBackupId,
+      );
+    } on BackupCancelledException {
+      await _rollbackCancelledBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        writtenLocalPath: writtenLocalPath,
+      );
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('LOCAL_BACKUP_FINALIZE_FAILED: $e');
+      }
+      _updateProgress(0, BackupStatus.failed, 'Failed to finalize backup');
+      await _rollbackFailedBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        writtenLocalPath: writtenLocalPath,
+      );
+      return _BackupPublishResult.failure(
+        metadataBackupId: savedMetadataBackupId,
+      );
     }
   }
 
@@ -729,7 +931,8 @@ class BackupService extends ChangeNotifier {
       );
 
       if (!restoreResult.success) {
-        _updateProgress(0, null, 'Failed to restore data', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'Failed to restore data', RestoreStatus.failed);
         return restoreResult;
       }
 
@@ -1952,6 +2155,33 @@ class BackupService extends ChangeNotifier {
   Future<void> recordSuccessfulBackupForTesting() => _recordSuccessfulBackup();
 
   @visibleForTesting
+  Future<String?> writeLocalBackupFileForTesting({
+    required String fileName,
+    required Uint8List content,
+  }) =>
+      _writeLocalBackupFile(fileName: fileName, content: content);
+
+  @visibleForTesting
+  Future<bool> completeLocalBackupAfterWriteForTesting({
+    required String writtenLocalPath,
+    required Future<String?> Function() saveMetadata,
+    required Future<void> Function() recordSuccessfulBackup,
+  }) async {
+    final result = await _completeLocalBackupAfterWrite(
+      writtenLocalPath: writtenLocalPath,
+      saveMetadata: saveMetadata,
+      recordSuccessfulBackup: recordSuccessfulBackup,
+    );
+    return result.success;
+  }
+
+  @visibleForTesting
+  void resetPublishTestingHooks() {
+    localBackupTempWriterForTesting = null;
+    beforeLocalBackupRenameForTesting = null;
+  }
+
+  @visibleForTesting
   Future<void> pruneLocalBackupsForTesting({
     int keep = BackupFilename.keepLatestSuccessfulCount,
     String? retainBackupId,
@@ -2079,6 +2309,30 @@ class _EncryptedBackupPayload {
   final Uint8List encryptedBytes;
   final int originalSize;
   final int flightLogsCount;
+}
+
+class _BackupPublishResult {
+  const _BackupPublishResult._({
+    required this.success,
+    this.metadataBackupId,
+  });
+
+  const _BackupPublishResult.success({
+    required String metadataBackupId,
+  }) : this._(
+          success: true,
+          metadataBackupId: metadataBackupId,
+        );
+
+  const _BackupPublishResult.failure({
+    String? metadataBackupId,
+  }) : this._(
+          success: false,
+          metadataBackupId: metadataBackupId,
+        );
+
+  final bool success;
+  final String? metadataBackupId;
 }
 
 /// Progress tracking for backup/restore operations
