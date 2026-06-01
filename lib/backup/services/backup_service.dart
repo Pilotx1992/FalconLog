@@ -214,17 +214,23 @@ class BackupService extends ChangeNotifier {
     }
   }
 
-  Future<void> _deleteUploadedDriveFileAfterCancel(String driveFileId) async {
+  Future<void> _deleteUploadedDriveFileAfterFailedBackup(
+    String driveFileId, {
+    Future<bool> Function(String fileId)? deleteUploadedDriveFile,
+  }) async {
     try {
-      final deleted = await _driveService.deleteFile(driveFileId);
+      final deleteFile = deleteUploadedDriveFile ?? _driveService.deleteFile;
+      final deleted = await deleteFile(driveFileId);
       if (kDebugMode) {
         debugPrint(
-          'BACKUP_UPLOADED_FILE_DELETED_AFTER_CANCEL id=$driveFileId deleted=$deleted',
+          'BACKUP_UPLOADED_FILE_DELETED_AFTER_FAILED_BACKUP id=$driveFileId deleted=$deleted',
         );
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('BACKUP_UPLOADED_FILE_DELETE_FAILED_AFTER_CANCEL: $e');
+        debugPrint(
+          'BACKUP_UPLOADED_FILE_DELETE_FAILED_AFTER_BACKUP_FAILURE: $e',
+        );
       }
     }
   }
@@ -310,8 +316,16 @@ class BackupService extends ChangeNotifier {
   /// Rolls back artifacts from the current backup when a post-publish step fails.
   Future<void> _rollbackFailedBackupArtifacts({
     String? metadataBackupId,
+    String? uploadedDriveFileId,
     String? writtenLocalPath,
+    Future<bool> Function(String fileId)? deleteUploadedDriveFile,
   }) async {
+    if (uploadedDriveFileId != null) {
+      await _deleteUploadedDriveFileAfterFailedBackup(
+        uploadedDriveFileId,
+        deleteUploadedDriveFile: deleteUploadedDriveFile,
+      );
+    }
     if (writtenLocalPath != null) {
       await _deleteLocalBackupFileAfterFailedBackup(writtenLocalPath);
     }
@@ -325,9 +339,13 @@ class BackupService extends ChangeNotifier {
     String? metadataBackupId,
     String? uploadedDriveFileId,
     String? writtenLocalPath,
+    Future<bool> Function(String fileId)? deleteUploadedDriveFile,
   }) async {
     if (uploadedDriveFileId != null) {
-      await _deleteUploadedDriveFileAfterCancel(uploadedDriveFileId);
+      await _deleteUploadedDriveFileAfterFailedBackup(
+        uploadedDriveFileId,
+        deleteUploadedDriveFile: deleteUploadedDriveFile,
+      );
     }
     if (writtenLocalPath != null) {
       await _deleteLocalBackupFileAfterCancel(writtenLocalPath);
@@ -399,29 +417,32 @@ class BackupService extends ChangeNotifier {
         return false;
       }
 
-      _checkBackupCancelled();
-      final uploadedFile = await _driveService.getFileInfo(uploadedDriveFileId);
-      if (uploadedFile == null) {
-        _updateProgress(
-            0, BackupStatus.failed, 'Failed to verify cloud backup');
+      late final _BackupPublishResult publishResult;
+      try {
+        publishResult = await _completeGoogleDriveBackupAfterUpload(
+          uploadedDriveFileId: uploadedDriveFileId,
+          getFileInfo: _driveService.getFileInfo,
+          saveMetadata: () => _saveBackupMetadata(
+            backupId: payload.backupId,
+            driveFileId: uploadedDriveFileId,
+            fileName: fileName,
+            originalSize: payload.originalSize,
+            encryptedSize: payload.encryptedBytes.length,
+            flightLogsCount: payload.flightLogsCount,
+            location: BackupLocation.cloud,
+          ),
+          recordSuccessfulBackup: _recordSuccessfulBackup,
+          deleteUploadedDriveFile: _driveService.deleteFile,
+        );
+      } on BackupCancelledException {
+        uploadedDriveFileId = null;
+        savedMetadataBackupId = null;
+        rethrow;
+      }
+      savedMetadataBackupId = publishResult.metadataBackupId;
+      if (!publishResult.success) {
         return false;
       }
-
-      _checkBackupCancelled();
-      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
-      savedMetadataBackupId = await _saveBackupMetadata(
-        backupId: payload.backupId,
-        driveFileId: uploadedDriveFileId,
-        fileName: fileName,
-        originalSize: payload.originalSize,
-        encryptedSize: payload.encryptedBytes.length,
-        flightLogsCount: payload.flightLogsCount,
-        location: BackupLocation.cloud,
-      );
-      if (savedMetadataBackupId == null) {
-        return false;
-      }
-      await _recordSuccessfulBackup();
 
       _checkBackupCancelled();
       await _pruneOldBackups(
@@ -665,6 +686,85 @@ class BackupService extends ChangeNotifier {
         print('💥 Error writing local backup: $e');
       }
       return null;
+    }
+  }
+
+  Future<_BackupPublishResult> _completeGoogleDriveBackupAfterUpload({
+    required String uploadedDriveFileId,
+    required Future<drive.File?> Function(String fileId) getFileInfo,
+    required Future<String?> Function() saveMetadata,
+    required Future<void> Function() recordSuccessfulBackup,
+    Future<bool> Function(String fileId)? deleteUploadedDriveFile,
+  }) async {
+    String? savedMetadataBackupId;
+    try {
+      _checkBackupCancelled();
+      if (await getFileInfo(uploadedDriveFileId) == null) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to verify cloud backup');
+        await _rollbackFailedBackupArtifacts(
+          uploadedDriveFileId: uploadedDriveFileId,
+          deleteUploadedDriveFile: deleteUploadedDriveFile,
+        );
+        return const _BackupPublishResult.failure();
+      }
+
+      _checkBackupCancelled();
+      _updateProgress(90, BackupStatus.uploading, 'Finalizing backup...');
+      savedMetadataBackupId = await saveMetadata();
+      if (savedMetadataBackupId == null) {
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to save backup metadata');
+        await _rollbackFailedBackupArtifacts(
+          uploadedDriveFileId: uploadedDriveFileId,
+          deleteUploadedDriveFile: deleteUploadedDriveFile,
+        );
+        return const _BackupPublishResult.failure();
+      }
+
+      try {
+        await recordSuccessfulBackup();
+      } on BackupCancelledException {
+        rethrow;
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('BACKUP_SUCCESS_RECORD_FAILED: $e');
+        }
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to record backup success');
+        await _rollbackFailedBackupArtifacts(
+          metadataBackupId: savedMetadataBackupId,
+          uploadedDriveFileId: uploadedDriveFileId,
+          deleteUploadedDriveFile: deleteUploadedDriveFile,
+        );
+        return _BackupPublishResult.failure(
+          metadataBackupId: savedMetadataBackupId,
+        );
+      }
+
+      return _BackupPublishResult.success(
+        metadataBackupId: savedMetadataBackupId,
+      );
+    } on BackupCancelledException {
+      await _rollbackCancelledBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        uploadedDriveFileId: uploadedDriveFileId,
+        deleteUploadedDriveFile: deleteUploadedDriveFile,
+      );
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DRIVE_BACKUP_POST_UPLOAD_FINALIZE_FAILED: $e');
+      }
+      _updateProgress(0, BackupStatus.failed, 'Failed to finalize backup');
+      await _rollbackFailedBackupArtifacts(
+        metadataBackupId: savedMetadataBackupId,
+        uploadedDriveFileId: uploadedDriveFileId,
+        deleteUploadedDriveFile: deleteUploadedDriveFile,
+      );
+      return _BackupPublishResult.failure(
+        metadataBackupId: savedMetadataBackupId,
+      );
     }
   }
 
@@ -2153,6 +2253,24 @@ class BackupService extends ChangeNotifier {
 
   @visibleForTesting
   Future<void> recordSuccessfulBackupForTesting() => _recordSuccessfulBackup();
+
+  @visibleForTesting
+  Future<bool> completeGoogleDriveBackupAfterUploadForTesting({
+    required String uploadedDriveFileId,
+    required Future<drive.File?> Function(String fileId) getFileInfo,
+    required Future<String?> Function() saveMetadata,
+    required Future<void> Function() recordSuccessfulBackup,
+    Future<bool> Function(String fileId)? deleteUploadedDriveFile,
+  }) async {
+    final result = await _completeGoogleDriveBackupAfterUpload(
+      uploadedDriveFileId: uploadedDriveFileId,
+      getFileInfo: getFileInfo,
+      saveMetadata: saveMetadata,
+      recordSuccessfulBackup: recordSuccessfulBackup,
+      deleteUploadedDriveFile: deleteUploadedDriveFile,
+    );
+    return result.success;
+  }
 
   @visibleForTesting
   Future<String?> writeLocalBackupFileForTesting({
