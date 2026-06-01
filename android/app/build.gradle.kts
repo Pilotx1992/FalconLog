@@ -14,6 +14,9 @@ plugins {
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 val hasReleaseKeystore = keystorePropertiesFile.exists()
+val missingReleaseKeystoreMessage = "Release keystore is required for release builds. " +
+    "Create android/key.properties from key.properties.example " +
+    "and keep key.properties / keystore files out of Git."
 if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
@@ -60,23 +63,27 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            if (!hasReleaseKeystore) {
-                throw GradleException(
-                    "Release keystore is required for release builds. " +
-                        "Create android/key.properties from key.properties.example " +
-                        "and keep key.properties / keystore files out of Git."
-                )
-            }
-
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val requestedReleaseBuild = allTasks.any { task ->
+        task.project == project && task.name.contains("Release", ignoreCase = true)
+    }
+
+    if (requestedReleaseBuild && !hasReleaseKeystore) {
+        throw GradleException(missingReleaseKeystoreMessage)
     }
 }
 
