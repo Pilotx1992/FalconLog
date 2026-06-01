@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../auth/legacy_auth_credential_cleanup.dart';
 import '../../settings/currency_alert_settings.dart';
 import 'backup_provider_preferences.dart' show backupSelectedProviderKey;
 
@@ -8,6 +9,12 @@ class AppSettingsBackup {
   AppSettingsBackup._();
 
   static const String bundleId = 'falconlog-app-settings-v1';
+
+  /// Keys never included in backups (credentials / secrets).
+  static const Set<String> excludedFromBackupKeys = {
+    ...LegacyAuthCredentialKeys.unsafePlaintextCredentialKeys,
+    'remember_me',
+  };
 
   /// Keys safe to restore on a new device (no credentials).
   static const List<String> backupableKeys = [
@@ -31,6 +38,7 @@ class AppSettingsBackup {
   ) async {
     final values = <String, dynamic>{};
     for (final key in backupableKeys) {
+      if (excludedFromBackupKeys.contains(key)) continue;
       final value = _readValue(prefs, key);
       if (value != null) {
         values[key] = value;
@@ -65,7 +73,10 @@ class AppSettingsBackup {
     var applied = 0;
     for (final entry in values.entries) {
       final key = entry.key.toString();
-      if (!backupableKeys.contains(key)) continue;
+      if (!backupableKeys.contains(key) ||
+          excludedFromBackupKeys.contains(key)) {
+        continue;
+      }
 
       if (!replace && prefs.containsKey(key)) {
         continue;

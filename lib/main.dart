@@ -12,6 +12,7 @@ import 'core/services/hive_initialization_service.dart';
 import 'core/services/storage_migration_service.dart';
 import 'falcon_log_app.dart';
 import 'firebase_options.dart';
+import 'auth/legacy_auth_credential_cleanup.dart';
 import 'middleware/auth_middleware.dart';
 import 'models/flight_log.dart';
 import 'utils/performance_optimizer.dart';
@@ -24,6 +25,8 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
 
   debugPrint('Using production Firebase Auth configuration');
 

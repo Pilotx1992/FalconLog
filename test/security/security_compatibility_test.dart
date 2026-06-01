@@ -58,7 +58,7 @@ void main() {
       expect(service.isLocked, isFalse);
     });
 
-    test('legacy biometric_email/password keys do not crash initialization',
+    test('legacy biometric_email/password keys do not crash PIN initialization',
         () async {
       SharedPreferences.setMockInitialValues({
         'biometric_email': 'pilot@example.com',
@@ -66,9 +66,7 @@ void main() {
         'biometric_enabled': true,
       });
       await service.initialize();
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('biometric_email'), 'pilot@example.com');
-      expect(prefs.getString('biometric_password'), 'secret');
+      expect(service.isPinEnabled, isFalse);
     });
 
     test('setting PIN creates hash/salt and enables app lock', () async {
