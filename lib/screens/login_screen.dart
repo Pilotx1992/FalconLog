@@ -285,8 +285,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(enhancedAuthServiceProvider);
-      final result = await authService.signInWithBiometric();
-      if (result != null && mounted) {
+      await authService.ensureInitialized();
+      await authService.signInWithBiometric();
+      if (mounted && authService.isSignedIn) {
         await NavigationService.goToDashboard();
       }
     } catch (e) {

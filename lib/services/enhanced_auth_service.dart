@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_error_mapper.dart';
 import '../auth/auth_exception.dart';
 import '../auth/auth_signup_guard.dart';
+import '../auth/legacy_auth_credential_cleanup.dart';
 
 enum AuthMethod {
   email,
@@ -20,6 +21,14 @@ class EnhancedAuthService {
   final g.GoogleSignIn _googleSignIn = g.GoogleSignIn(scopes: const ['email']);
   final LocalAuthentication _localAuth = LocalAuthentication();
 
+  static bool _legacyCleanupDone = false;
+
+  /// Resets one-time legacy cleanup flag (tests only).
+  @visibleForTesting
+  static void resetLegacyCleanupForTesting() {
+    _legacyCleanupDone = false;
+  }
+
   // Current user stream
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
@@ -29,19 +38,26 @@ class EnhancedAuthService {
   // Check if user is signed in
   bool get isSignedIn => currentUser != null;
 
+  /// Purges legacy plaintext credential keys once per process.
+  Future<void> ensureInitialized() async {
+    if (_legacyCleanupDone) {
+      return;
+    }
+    _legacyCleanupDone = true;
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
+  }
+
   // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
+    await ensureInitialized();
     try {
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      // Save credentials for biometric login (encrypted)
-      await _saveBiometricCredentials(email, password);
 
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -54,14 +70,12 @@ class EnhancedAuthService {
     required String email,
     required String password,
   }) async {
+    await ensureInitialized();
     try {
       final credential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      // Save credentials for biometric login
-      await _saveBiometricCredentials(email, password);
 
       return credential;
     } on FirebaseAuthException catch (e) {
@@ -71,6 +85,7 @@ class EnhancedAuthService {
 
   // Sign in with Google (v6 compatible implementation)
   Future<UserCredential?> signInWithGoogle() async {
+    await ensureInitialized();
     try {
       // Trigger the Google Sign-In flow
       final g.GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
@@ -175,20 +190,19 @@ class EnhancedAuthService {
     }
   }
 
-  // Sign in with biometric authentication
+  /// Biometric gate for an existing Firebase session only (no stored password).
+  ///
+  /// Returns a [UserCredential] only when a fresh sign-in occurred (never for
+  /// session-only unlock). When [isSignedIn] is already true after success,
+  /// returns `null` and callers should navigate using [isSignedIn].
   Future<UserCredential?> signInWithBiometric() async {
+    await ensureInitialized();
+
+    if (!await isBiometricEnabled()) {
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
+    }
+
     try {
-      // Check if biometric credentials are saved
-      final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('biometric_email');
-      final savedPassword = prefs.getString('biometric_password');
-
-      if (savedEmail == null || savedPassword == null) {
-        throw Exception(
-            'No biometric credentials saved. Please sign in with email first.');
-      }
-
-      // Authenticate with biometric
       final bool didAuthenticate = await _localAuth.authenticate(
         localizedReason: 'Please authenticate to access FalconLog',
         options: const AuthenticationOptions(
@@ -198,28 +212,31 @@ class EnhancedAuthService {
       );
 
       if (!didAuthenticate) {
-        throw Exception('Biometric authentication failed');
+        throw const AuthException('Biometric authentication was cancelled.');
       }
 
-      // If biometric auth successful, sign in with saved credentials
-      return await signInWithEmailAndPassword(
-        email: savedEmail,
-        password: savedPassword, // In production, this should be encrypted
-      );
+      if (_firebaseAuth.currentUser != null) {
+        return null;
+      }
+
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
+    } on AuthException {
+      rethrow;
     } catch (e) {
-      throw Exception('Biometric sign-in failed: ${e.toString()}');
+      debugPrint('Biometric sign-in error: $e');
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
     }
   }
 
-  // Check if biometric credentials are saved
+  /// Whether biometric login is enabled (does not imply stored credentials).
   Future<bool> hasBiometricCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('biometric_email') &&
-        prefs.containsKey('biometric_password');
+    await ensureInitialized();
+    return isBiometricEnabled();
   }
 
   // Enable biometric authentication for current user
   Future<void> enableBiometricAuth() async {
+    await ensureInitialized();
     if (currentUser == null) {
       throw Exception('No user signed in');
     }
@@ -243,17 +260,17 @@ class EnhancedAuthService {
       throw Exception('Biometric authentication setup failed');
     }
 
-    // Save biometric preference
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_enabled', true);
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
   }
 
   // Disable biometric authentication
   Future<void> disableBiometricAuth() async {
+    await ensureInitialized();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_enabled', false);
-    await prefs.remove('biometric_email');
-    await prefs.remove('biometric_password');
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
   }
 
   // Check if biometric auth is enabled
@@ -262,19 +279,10 @@ class EnhancedAuthService {
     return prefs.getBool('biometric_enabled') ?? false;
   }
 
-  // Legacy login biometric: update stored creds only when user opted in.
-  Future<void> _saveBiometricCredentials(String email, String password) async {
-    if (!await isBiometricEnabled()) {
-      return;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('biometric_email', email);
-    await prefs.setString('biometric_password', password);
-  }
-
   // Sign out
   Future<void> signOut() async {
     try {
+      await ensureInitialized();
       debugPrint('Starting comprehensive sign-out process...');
 
       // Sign out from Google if signed in
@@ -298,6 +306,7 @@ class EnhancedAuthService {
       await prefs.remove('auth_method');
       await prefs.remove('biometric_enabled');
       await prefs.remove('remember_me');
+      await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
       debugPrint('Auth preferences cleared');
 
       // Force Firebase auth state to refresh
@@ -336,11 +345,13 @@ class EnhancedAuthService {
 
   // Get preferred sign-in method
   Future<AuthMethod?> getPreferredSignInMethod() async {
-    final prefs = await SharedPreferences.getInstance();
+    await ensureInitialized();
 
-    if (await isBiometricEnabled() && await hasBiometricCredentials()) {
+    if (await isBiometricEnabled() && isSignedIn) {
       return AuthMethod.biometric;
     }
+
+    final prefs = await SharedPreferences.getInstance();
 
     if (prefs.getBool('prefer_google_signin') ?? false) {
       return AuthMethod.google;
