@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Lifecycle phase for crash-safe restore recovery.
@@ -40,6 +41,11 @@ class RestoreJournalEntry {
         'original_flight_count': originalFlightCount,
         'phase': phase.name,
       };
+
+  String get journalId {
+    final identity = '$snapshotPath|$backupTargetId|$createdAtMs';
+    return sha256.convert(utf8.encode(identity)).toString();
+  }
 
   factory RestoreJournalEntry.fromJson(Map<String, dynamic> json) {
     final phaseRaw = json['phase'] as String?;

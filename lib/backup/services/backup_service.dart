@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -24,6 +25,8 @@ export '../models/restore_mode.dart';
 import '../utils/backup_account_identity_guard.dart';
 import '../utils/backup_constants.dart';
 import '../utils/backup_filename.dart';
+import '../utils/backup_operation_history.dart';
+import '../utils/backup_operation_lock.dart';
 import '../utils/drive_backup_discovery.dart';
 import '../utils/backup_payload_codec.dart';
 import '../utils/backup_provider_preferences.dart';
@@ -76,6 +79,7 @@ class BackupService extends ChangeNotifier {
   bool _backupOperationActive = false;
   bool _cancelRequested = false;
   bool _restoreMutating = false;
+  BackupOperationLockLease? _activeOperationLease;
 
   @visibleForTesting
   Future<void> Function(File tempFile, Uint8List content)?
@@ -146,6 +150,54 @@ class BackupService extends ChangeNotifier {
       return false;
     }
 
+    final operationType = interactive
+        ? BackupOperationType.manualBackup
+        : BackupOperationType.scheduledBackup;
+    final ownerToken = const Uuid().v4();
+    final startedAt = DateTime.now().toUtc();
+    BackupOperationLockAcquisition? lock;
+    BackupOperationLockLease? lease;
+    var historyState = BackupOperationResultState.failed;
+    var historyMessage = 'Backup failed';
+    Object? historyError;
+
+    try {
+      lock = await BackupOperationLock.acquire(
+        operationType: operationType,
+        ownerToken: ownerToken,
+      );
+    } catch (e) {
+      historyError = e;
+      _updateProgress(0, BackupStatus.failed, 'Could not start backup.');
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: 'Could not start backup.',
+        error: historyError,
+      );
+      return false;
+    }
+
+    if (!lock.acquired) {
+      historyMessage = lock.message ?? 'Another backup operation is active.';
+      _updateProgress(0, BackupStatus.failed, historyMessage);
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+      );
+      return false;
+    }
+
+    lease = BackupOperationLockLease(
+      ownerToken: ownerToken,
+      operationType: operationType,
+    );
+    _activeOperationLease = lease;
+    lease.start();
+
     _cancelRequested = false;
     _isBackupInProgress = true;
     _backupOperationActive = true;
@@ -159,18 +211,39 @@ class BackupService extends ChangeNotifier {
 
       switch (provider) {
         case BackupProvider.googleDrive:
-          return await _startGoogleDriveBackup(interactive: interactive);
+          final success =
+              await _startGoogleDriveBackup(interactive: interactive);
+          _checkOperationLease();
+          historyState = success
+              ? BackupOperationResultState.verified
+              : BackupOperationResultState.failed;
+          historyMessage = success
+              ? 'Backup completed successfully.'
+              : _currentProgress.currentAction;
+          return success;
         case BackupProvider.local:
-          return await _startLocalBackup(interactive: interactive);
+          final success = await _startLocalBackup(interactive: interactive);
+          _checkOperationLease();
+          historyState = success
+              ? BackupOperationResultState.verified
+              : BackupOperationResultState.failed;
+          historyMessage = success
+              ? 'Backup completed successfully.'
+              : _currentProgress.currentAction;
+          return success;
         case BackupProvider.firebase:
+          historyMessage =
+              'Cloud (Firebase) backup is not supported. Choose Google Drive or Local.';
           _updateProgress(
             0,
             BackupStatus.failed,
-            'Cloud (Firebase) backup is not supported. Choose Google Drive or Local.',
+            historyMessage,
           );
           return false;
       }
     } on BackupCancelledException {
+      historyState = BackupOperationResultState.cancelled;
+      historyMessage = 'Backup cancelled';
       if (!_currentProgress.isCancelled) {
         _updateProgress(
           _currentProgress.percentage,
@@ -179,17 +252,38 @@ class BackupService extends ChangeNotifier {
         );
       }
       return false;
+    } on BackupOperationLeaseLostException catch (e) {
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Backup lock was lost before completion.';
+      historyError = e;
+      _updateProgress(0, BackupStatus.failed, historyMessage);
+      return false;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Backup failed: $e');
         print('💥 Stack trace: ${StackTrace.current}');
       }
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Backup failed';
+      historyError = e;
       if (!_cancelRequested) {
         _updateProgress(
             0, BackupStatus.failed, 'Backup failed: ${e.toString()}');
       }
       return false;
     } finally {
+      await lease.stop();
+      if (_activeOperationLease == lease) {
+        _activeOperationLease = null;
+      }
+      await BackupOperationLock.release(ownerToken: ownerToken);
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+        error: historyError,
+      );
       _backupOperationActive = false;
       _isBackupInProgress = false;
       _cancelRequested = false;
@@ -197,6 +291,7 @@ class BackupService extends ChangeNotifier {
   }
 
   void _checkBackupCancelled() {
+    _checkOperationLease();
     if (_cancelRequested) {
       if (kDebugMode) {
         debugPrint('BACKUP_CANCEL_CHECK_THROW');
@@ -206,12 +301,17 @@ class BackupService extends ChangeNotifier {
   }
 
   void _checkRestoreCancelled() {
+    _checkOperationLease();
     if (_cancelRequested && !_restoreMutating) {
       if (kDebugMode) {
         debugPrint('RESTORE_CANCEL_CHECK_THROW');
       }
       throw RestoreCancelledException();
     }
+  }
+
+  void _checkOperationLease() {
+    _activeOperationLease?.throwIfLost();
   }
 
   Future<void> _deleteUploadedDriveFileAfterFailedBackup(
@@ -410,6 +510,9 @@ class BackupService extends ChangeNotifier {
         fileName: fileName,
         content: payload.encryptedBytes,
         mimeType: 'application/json',
+        appProperties: DriveBackupDiscovery.pendingBackupAppProperties(
+          backupId: payload.backupId,
+        ),
       );
 
       if (uploadedDriveFileId == null) {
@@ -429,6 +532,7 @@ class BackupService extends ChangeNotifier {
             originalSize: payload.originalSize,
             encryptedSize: payload.encryptedBytes.length,
             flightLogsCount: payload.flightLogsCount,
+            checksum: payload.checksum,
             location: BackupLocation.cloud,
           ),
           recordSuccessfulBackup: _recordSuccessfulBackup,
@@ -443,6 +547,13 @@ class BackupService extends ChangeNotifier {
       if (!publishResult.success) {
         return false;
       }
+
+      _checkBackupCancelled();
+      await _markDriveBackupVerified(
+        driveFileId: uploadedDriveFileId,
+        backupId: payload.backupId,
+        checksum: payload.checksum,
+      );
 
       _checkBackupCancelled();
       await _pruneOldBackups(
@@ -504,6 +615,7 @@ class BackupService extends ChangeNotifier {
             originalSize: payload.originalSize,
             encryptedSize: payload.encryptedBytes.length,
             flightLogsCount: payload.flightLogsCount,
+            checksum: payload.checksum,
             location: BackupLocation.local,
           ),
           recordSuccessfulBackup: _recordSuccessfulBackup,
@@ -587,10 +699,12 @@ class BackupService extends ChangeNotifier {
 
     final encryptedBytes =
         Uint8List.fromList(utf8.encode(json.encode(encryptedBackup)));
+    final checksum = sha256.convert(encryptedBytes).toString();
 
     return _EncryptedBackupPayload(
       backupId: backupId,
       encryptedBytes: encryptedBytes,
+      checksum: checksum,
       originalSize: databaseBytes.length,
       flightLogsCount: await _countFlightLogs(),
     );
@@ -848,7 +962,11 @@ class BackupService extends ChangeNotifier {
         'backupMetadata',
       );
       final localEntries = box.values
-          .where((entry) => entry.location == BackupLocation.local)
+          .where(
+            (entry) =>
+                entry.location == BackupLocation.local &&
+                entry.health == BackupHealth.verified,
+          )
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -893,6 +1011,50 @@ class BackupService extends ChangeNotifier {
       );
     }
 
+    final operationType = BackupOperationType.restore;
+    final ownerToken = const Uuid().v4();
+    final startedAt = DateTime.now().toUtc();
+    BackupOperationLockAcquisition? lock;
+    BackupOperationLockLease? lease;
+    var historyState = BackupOperationResultState.failed;
+    var historyMessage = 'Restore failed';
+    Object? historyError;
+
+    try {
+      lock = await BackupOperationLock.acquire(
+        operationType: operationType,
+        ownerToken: ownerToken,
+      );
+    } catch (e) {
+      historyError = e;
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: 'Could not start restore.',
+        error: historyError,
+      );
+      return RestoreResult.failure(error: 'Could not start restore.');
+    }
+
+    if (!lock.acquired) {
+      historyMessage = lock.message ?? 'Another operation is active.';
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+      );
+      return RestoreResult.failure(error: historyMessage);
+    }
+
+    lease = BackupOperationLockLease(
+      ownerToken: ownerToken,
+      operationType: operationType,
+    );
+    _activeOperationLease = lease;
+    lease.start();
+
     _isRestoreInProgress = true;
     _restoreMutating = false;
     _cancelRequested = false;
@@ -900,35 +1062,57 @@ class BackupService extends ChangeNotifier {
     try {
       final resolved = target ?? await resolveDefaultRestoreTarget();
       if (resolved == null) {
+        historyMessage =
+            'No backup found to restore for the selected location.';
         return RestoreResult.failure(
-          error: 'No backup found to restore for the selected location.',
+          error: historyMessage,
         );
       }
 
       final unsupported = RestoreDispatch.unsupportedMessage(resolved.provider);
       if (unsupported != null) {
+        historyMessage = unsupported;
         _updateProgress(0, null, unsupported, RestoreStatus.failed);
         return RestoreResult.failure(error: unsupported);
       }
 
       switch (RestoreDispatch.routeForProvider(resolved.provider)) {
         case RestoreRoute.googleDrive:
-          return await _restoreFromGoogleDrive(
+          final result = await _restoreFromGoogleDrive(
             resolved,
             mode: mode,
             interactive: interactive,
           );
+          _checkOperationLease();
+          historyState = result.success
+              ? BackupOperationResultState.verified
+              : BackupOperationResultState.failed;
+          historyMessage = result.success
+              ? 'Restore completed successfully.'
+              : result.error ?? _currentProgress.currentAction;
+          return result;
         case RestoreRoute.local:
-          return await _restoreFromLocal(resolved, mode: mode);
+          final result = await _restoreFromLocal(resolved, mode: mode);
+          _checkOperationLease();
+          historyState = result.success
+              ? BackupOperationResultState.verified
+              : BackupOperationResultState.failed;
+          historyMessage = result.success
+              ? 'Restore completed successfully.'
+              : result.error ?? _currentProgress.currentAction;
+          return result;
         case RestoreRoute.unsupported:
+          historyMessage = RestoreDispatch.unsupportedMessage(
+                BackupProvider.firebase,
+              ) ??
+              'Unsupported backup provider.';
           return RestoreResult.failure(
-            error: RestoreDispatch.unsupportedMessage(
-                  BackupProvider.firebase,
-                ) ??
-                'Unsupported backup provider.',
+            error: historyMessage,
           );
       }
     } on RestoreCancelledException {
+      historyState = BackupOperationResultState.cancelled;
+      historyMessage = 'Restore cancelled';
       _updateProgress(
         _currentProgress.percentage,
         null,
@@ -936,13 +1120,34 @@ class BackupService extends ChangeNotifier {
         RestoreStatus.cancelled,
       );
       return RestoreResult.failure(error: 'Restore cancelled');
+    } on BackupOperationLeaseLostException catch (e) {
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Restore lock was lost before completion.';
+      historyError = e;
+      _updateProgress(0, null, historyMessage, RestoreStatus.failed);
+      return RestoreResult.failure(error: historyMessage);
     } catch (e) {
       if (kDebugMode) {
         print('💥 Restore failed: $e');
       }
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Restore failed';
+      historyError = e;
       _updateProgress(0, null, 'Restore failed', RestoreStatus.failed);
       return RestoreResult.failure(error: 'Restore failed: ${e.toString()}');
     } finally {
+      await lease.stop();
+      if (_activeOperationLease == lease) {
+        _activeOperationLease = null;
+      }
+      await BackupOperationLock.release(ownerToken: ownerToken);
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+        error: historyError,
+      );
       _isRestoreInProgress = false;
       _restoreMutating = false;
       _cancelRequested = false;
@@ -967,6 +1172,50 @@ class BackupService extends ChangeNotifier {
       );
     }
 
+    final operationType = BackupOperationType.restore;
+    final ownerToken = const Uuid().v4();
+    final startedAt = DateTime.now().toUtc();
+    BackupOperationLockAcquisition? lock;
+    BackupOperationLockLease? lease;
+    var historyState = BackupOperationResultState.failed;
+    var historyMessage = 'Restore failed';
+    Object? historyError;
+
+    try {
+      lock = await BackupOperationLock.acquire(
+        operationType: operationType,
+        ownerToken: ownerToken,
+      );
+    } catch (e) {
+      historyError = e;
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: 'Could not start restore.',
+        error: historyError,
+      );
+      return RestoreResult.failure(error: 'Could not start restore.');
+    }
+
+    if (!lock.acquired) {
+      historyMessage = lock.message ?? 'Another operation is active.';
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+      );
+      return RestoreResult.failure(error: historyMessage);
+    }
+
+    lease = BackupOperationLockLease(
+      ownerToken: ownerToken,
+      operationType: operationType,
+    );
+    _activeOperationLease = lease;
+    lease.start();
+
     _isRestoreInProgress = true;
     _restoreMutating = false;
     _cancelRequested = false;
@@ -977,8 +1226,10 @@ class BackupService extends ChangeNotifier {
         encryptedBytes: candidate.encryptedBytes,
       );
       if (!validation.isSuccess || validation.candidate == null) {
+        historyMessage =
+            validation.errorMessage ?? 'Invalid safety backup file.';
         return RestoreResult.failure(
-          error: validation.errorMessage ?? 'Invalid safety backup file.',
+          error: historyMessage,
         );
       }
 
@@ -995,10 +1246,11 @@ class BackupService extends ChangeNotifier {
       );
 
       if (!decryptResult.success || decryptResult.databaseBytes == null) {
+        historyMessage = decryptResult.error ??
+            'Failed to decrypt backup. Use the same device or Google account that created it.';
         _updateProgress(0, null, 'Decrypt failed', RestoreStatus.failed);
         return RestoreResult.failure(
-          error: decryptResult.error ??
-              'Failed to decrypt backup. Use the same device or Google account that created it.',
+          error: historyMessage,
         );
       }
 
@@ -1007,6 +1259,7 @@ class BackupService extends ChangeNotifier {
       final payloadError =
           BackupPayloadCodec.validatePayloadBytes(databaseBytes);
       if (payloadError != null) {
+        historyMessage = payloadError;
         _updateProgress(
           0,
           null,
@@ -1031,19 +1284,26 @@ class BackupService extends ChangeNotifier {
       );
 
       if (!restoreResult.success) {
+        historyMessage =
+            restoreResult.error ?? 'Failed to restore data from safety copy.';
         _updateProgress(
             0, null, 'Failed to restore data', RestoreStatus.failed);
         return restoreResult;
       }
 
+      _checkOperationLease();
       _updateProgress(100, null, 'Restore completed!', RestoreStatus.completed);
 
+      historyState = BackupOperationResultState.verified;
+      historyMessage = 'Restore completed successfully.';
       return RestoreResult.success(
         flightLogsRestored: restoreResult.flightLogsRestored,
         backupDate: backupDate,
         sourceDevice: 'Safety copy (file)',
       );
     } on RestoreCancelledException {
+      historyState = BackupOperationResultState.cancelled;
+      historyMessage = 'Restore cancelled';
       _updateProgress(
         _currentProgress.percentage,
         null,
@@ -1051,13 +1311,34 @@ class BackupService extends ChangeNotifier {
         RestoreStatus.cancelled,
       );
       return RestoreResult.failure(error: 'Restore cancelled');
+    } on BackupOperationLeaseLostException catch (e) {
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Restore lock was lost before completion.';
+      historyError = e;
+      _updateProgress(0, null, historyMessage, RestoreStatus.failed);
+      return RestoreResult.failure(error: historyMessage);
     } catch (e) {
+      historyState = BackupOperationResultState.failed;
+      historyMessage = 'Restore failed';
+      historyError = e;
       if (kDebugMode) {
         print('💥 Safety copy restore failed: $e');
       }
       _updateProgress(0, null, 'Restore failed', RestoreStatus.failed);
       return RestoreResult.failure(error: 'Restore failed: ${e.toString()}');
     } finally {
+      await lease.stop();
+      if (_activeOperationLease == lease) {
+        _activeOperationLease = null;
+      }
+      await BackupOperationLock.release(ownerToken: ownerToken);
+      await _recordOperationHistorySafe(
+        operationType: operationType,
+        state: historyState,
+        startedAt: startedAt,
+        message: historyMessage,
+        error: historyError,
+      );
       _isRestoreInProgress = false;
       _restoreMutating = false;
       _cancelRequested = false;
@@ -1584,10 +1865,12 @@ class BackupService extends ChangeNotifier {
         query: BackupFilename.driveDiscoveryQuery,
       );
       _sortDriveFilesNewestFirst(files);
+      final storedByDriveId = await _loadStoredMetadataByDriveFileId();
       final idsToDelete = selectDriveFileIdsToPrune(
         files,
         keep: keep,
         alwaysRetainDriveFileId: retainDriveFileId,
+        storedByDriveId: storedByDriveId,
       );
       for (final id in idsToDelete) {
         await _driveService.deleteFile(id);
@@ -1606,28 +1889,82 @@ class BackupService extends ChangeNotifier {
     List<drive.File> filesNewestFirst, {
     int keep = BackupFilename.keepLatestSuccessfulCount,
     String? alwaysRetainDriveFileId,
+    Map<String, BackupMetadata> storedByDriveId = const {},
   }) {
     if (filesNewestFirst.isEmpty) return const [];
 
-    final retained = <String>{};
+    final protected = <String>{};
+    final retainedVerified = <String>{};
     if (alwaysRetainDriveFileId != null && alwaysRetainDriveFileId.isNotEmpty) {
-      retained.add(alwaysRetainDriveFileId);
+      protected.add(alwaysRetainDriveFileId);
     }
+
     for (final file in filesNewestFirst) {
-      if (retained.length >= keep) break;
       final id = file.id;
       if (id == null || id.isEmpty) continue;
-      retained.add(id);
+      if (!_isVerifiedDriveRetentionCandidate(
+        file,
+        storedByDriveId: storedByDriveId,
+      )) {
+        continue;
+      }
+      if (protected.contains(id)) {
+        retainedVerified.add(id);
+      }
+    }
+
+    for (final file in filesNewestFirst) {
+      if (retainedVerified.length >= keep) break;
+      final id = file.id;
+      if (id == null || id.isEmpty) continue;
+      if (retainedVerified.contains(id)) continue;
+      if (!_isVerifiedDriveRetentionCandidate(
+        file,
+        storedByDriveId: storedByDriveId,
+      )) {
+        continue;
+      }
+      retainedVerified.add(id);
     }
 
     final toDelete = <String>[];
     for (final file in filesNewestFirst) {
       final id = file.id;
       if (id == null || id.isEmpty) continue;
-      if (retained.contains(id)) continue;
+      if (protected.contains(id) || retainedVerified.contains(id)) continue;
+      if (!_isVerifiedDriveRetentionCandidate(
+        file,
+        storedByDriveId: storedByDriveId,
+      )) {
+        continue;
+      }
       toDelete.add(id);
     }
     return toDelete;
+  }
+
+  static bool _isVerifiedDriveRetentionCandidate(
+    drive.File file, {
+    required Map<String, BackupMetadata> storedByDriveId,
+  }) {
+    if (!DriveBackupDiscovery.isRecognizedDriveFile(file)) {
+      return false;
+    }
+
+    final id = file.id;
+    if (id == null || id.isEmpty) {
+      return false;
+    }
+
+    final stored = storedByDriveId[id];
+    if (stored != null &&
+        (stored.location == BackupLocation.cloud ||
+            stored.location == BackupLocation.both) &&
+        stored.health == BackupHealth.verified) {
+      return true;
+    }
+
+    return DriveBackupDiscovery.hasVerifiedBackupAppProperties(file);
   }
 
   Future<void> _deleteBackupMetadataByDriveFileId(String driveFileId) async {
@@ -1644,6 +1981,23 @@ class BackupService extends ChangeNotifier {
       if (kDebugMode) {
         print('Drive metadata prune error: $e');
       }
+    }
+  }
+
+  Future<void> _markDriveBackupVerified({
+    required String driveFileId,
+    required String backupId,
+    required String checksum,
+  }) async {
+    final marked = await _driveService.updateFileAppProperties(
+      fileId: driveFileId,
+      appProperties: DriveBackupDiscovery.verifiedBackupAppProperties(
+        backupId: backupId,
+        checksum: checksum,
+      ),
+    );
+    if (!marked && kDebugMode) {
+      debugPrint('DRIVE_BACKUP_VERIFIED_APP_PROPERTIES_SKIPPED $driveFileId');
     }
   }
 
@@ -1669,6 +2023,10 @@ class BackupService extends ChangeNotifier {
       BackupMetadata? latest;
       for (final entry in box.values) {
         if (entry.location != BackupLocation.local) continue;
+        if (entry.health == BackupHealth.failed ||
+            entry.health == BackupHealth.cancelled) {
+          continue;
+        }
 
         final path = entry.localPath;
         if (path == null || path.isEmpty) continue;
@@ -2085,6 +2443,7 @@ class BackupService extends ChangeNotifier {
     required int originalSize,
     required int encryptedSize,
     required int flightLogsCount,
+    required String checksum,
     required BackupLocation location,
     String? driveFileId,
     String? localPath,
@@ -2105,12 +2464,13 @@ class BackupService extends ChangeNotifier {
         createdAt: DateTime.now(),
         sizeBytes: encryptedSize,
         flightLogsCount: flightLogsCount,
-        checksum: 'unknown',
+        checksum: checksum,
         driveFileId: driveFileId,
         localPath: localPath,
         isEncrypted: true,
         encryptionAlgorithm: 'AES-256-GCM',
-        health: BackupHealth.unverified,
+        health: BackupHealth.verified,
+        lastVerified: DateTime.now(),
         deviceId: currentUser?.email ?? 'This device',
       );
 
@@ -2213,6 +2573,30 @@ class BackupService extends ChangeNotifier {
     );
   }
 
+  Future<void> _recordOperationHistorySafe({
+    required BackupOperationType operationType,
+    required BackupOperationResultState state,
+    required DateTime startedAt,
+    required String message,
+    Object? error,
+    String? backupId,
+  }) async {
+    try {
+      await BackupOperationHistory.record(
+        operationType: operationType,
+        state: state,
+        startedAt: startedAt,
+        message: message,
+        error: error,
+        backupId: backupId,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('BACKUP_OPERATION_HISTORY_WRITE_FAILED: $e');
+      }
+    }
+  }
+
   /// Update progress and notify listeners
   void _updateProgress(
       int percentage, BackupStatus? backupStatus, String action,
@@ -2253,6 +2637,31 @@ class BackupService extends ChangeNotifier {
 
   @visibleForTesting
   Future<void> recordSuccessfulBackupForTesting() => _recordSuccessfulBackup();
+
+  @visibleForTesting
+  Future<String?> saveBackupMetadataForTesting({
+    required String backupId,
+    required String fileName,
+    required int originalSize,
+    required int encryptedSize,
+    required int flightLogsCount,
+    required String checksum,
+    required BackupLocation location,
+    String? driveFileId,
+    String? localPath,
+  }) {
+    return _saveBackupMetadata(
+      backupId: backupId,
+      fileName: fileName,
+      originalSize: originalSize,
+      encryptedSize: encryptedSize,
+      flightLogsCount: flightLogsCount,
+      checksum: checksum,
+      location: location,
+      driveFileId: driveFileId,
+      localPath: localPath,
+    );
+  }
 
   @visibleForTesting
   Future<bool> completeGoogleDriveBackupAfterUploadForTesting({
@@ -2419,12 +2828,14 @@ class _EncryptedBackupPayload {
   const _EncryptedBackupPayload({
     required this.backupId,
     required this.encryptedBytes,
+    required this.checksum,
     required this.originalSize,
     required this.flightLogsCount,
   });
 
   final String backupId;
   final Uint8List encryptedBytes;
+  final String checksum;
   final int originalSize;
   final int flightLogsCount;
 }

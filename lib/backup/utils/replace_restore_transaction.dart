@@ -58,11 +58,13 @@ class PendingRestoreRecoveryResult {
   final bool hadPendingJournal;
   final bool rollbackSucceeded;
   final String? message;
+  final String? journalId;
 
   const PendingRestoreRecoveryResult({
     required this.hadPendingJournal,
     required this.rollbackSucceeded,
     this.message,
+    this.journalId,
   });
 
   static const none = PendingRestoreRecoveryResult(
@@ -248,6 +250,7 @@ class ReplaceRestoreTransaction {
         hadPendingJournal: true,
         rollbackSucceeded: true,
         message: msg,
+        journalId: journal.journalId,
       );
     }
 
@@ -259,6 +262,7 @@ class ReplaceRestoreTransaction {
       hadPendingJournal: true,
       rollbackSucceeded: false,
       message: msg,
+      journalId: journal.journalId,
     );
   }
 }

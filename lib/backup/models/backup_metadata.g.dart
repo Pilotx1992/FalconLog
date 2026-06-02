@@ -74,7 +74,9 @@ class BackupMetadataAdapter extends TypeAdapter<BackupMetadata> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is BackupMetadataAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
+      other is BackupMetadataAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
 }
 
 class BackupLocationAdapter extends TypeAdapter<BackupLocation> {
@@ -121,7 +123,9 @@ class BackupLocationAdapter extends TypeAdapter<BackupLocation> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is BackupLocationAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
+      other is BackupLocationAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
 }
 
 class BackupHealthAdapter extends TypeAdapter<BackupHealth> {
@@ -132,27 +136,37 @@ class BackupHealthAdapter extends TypeAdapter<BackupHealth> {
   BackupHealth read(BinaryReader reader) {
     switch (reader.readByte()) {
       case 0:
-        return BackupHealth.healthy;
+        return BackupHealth.verified;
       case 1:
         return BackupHealth.unverified;
       case 2:
+        return BackupHealth.failed;
+      case 3:
+        return BackupHealth.cancelled;
+      case 4:
         return BackupHealth.corrupted;
       default:
-        return BackupHealth.healthy;
+        return BackupHealth.verified;
     }
   }
 
   @override
   void write(BinaryWriter writer, BackupHealth obj) {
     switch (obj) {
-      case BackupHealth.healthy:
+      case BackupHealth.verified:
         writer.writeByte(0);
         break;
       case BackupHealth.unverified:
         writer.writeByte(1);
         break;
-      case BackupHealth.corrupted:
+      case BackupHealth.failed:
         writer.writeByte(2);
+        break;
+      case BackupHealth.cancelled:
+        writer.writeByte(3);
+        break;
+      case BackupHealth.corrupted:
+        writer.writeByte(4);
         break;
     }
   }
@@ -163,5 +177,7 @@ class BackupHealthAdapter extends TypeAdapter<BackupHealth> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is BackupHealthAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
+      other is BackupHealthAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
 }

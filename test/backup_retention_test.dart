@@ -12,6 +12,7 @@ import 'package:falconlog/backup/models/backup_provider_enum.dart'
 import 'package:falconlog/backup/services/backup_service.dart';
 import 'package:falconlog/backup/utils/backup_filename.dart';
 import 'package:falconlog/backup/utils/backup_provider_preferences.dart';
+import 'package:falconlog/backup/utils/drive_backup_discovery.dart';
 import 'package:falconlog/core/services/hive_initialization_service.dart';
 
 void main() {
@@ -67,6 +68,38 @@ void main() {
         deviceId: 'test',
       );
 
+  drive.File driveBackupFile(
+    String id,
+    DateTime modifiedTime, {
+    Map<String, String>? appProperties,
+  }) =>
+      drive.File(
+        id: id,
+        name: BackupFilename.generate(at: modifiedTime),
+        modifiedTime: modifiedTime,
+        appProperties: appProperties,
+      );
+
+  BackupMetadata cloudMetadata({
+    required String id,
+    required String driveFileId,
+    required DateTime createdAt,
+    BackupHealth health = BackupHealth.verified,
+  }) =>
+      BackupMetadata(
+        id: id,
+        fileName: BackupFilename.generate(at: createdAt),
+        location: BackupLocation.cloud,
+        createdAt: createdAt,
+        sizeBytes: 10,
+        flightLogsCount: 1,
+        checksum: 'sha256-$id',
+        driveFileId: driveFileId,
+        health: health,
+        lastVerified: health == BackupHealth.verified ? createdAt : null,
+        deviceId: 'test',
+      );
+
   group('local retention', () {
     test('after successful backup prune keeps only latest local backup',
         () async {
@@ -97,6 +130,7 @@ void main() {
       );
 
       await service.pruneLocalBackupsForTesting(
+        keep: 1,
         retainBackupId: 'newer-backup',
       );
 
@@ -141,15 +175,24 @@ void main() {
   group('Drive retention selection', () {
     test('keeps only newest Drive backup id', () {
       final files = [
-        drive.File(id: 'newest', modifiedTime: DateTime(2026, 5, 20, 12)),
-        drive.File(id: 'older', modifiedTime: DateTime(2026, 5, 19, 12)),
-        drive.File(id: 'oldest', modifiedTime: DateTime(2026, 5, 18, 12)),
+        driveBackupFile('newest', DateTime(2026, 5, 20, 12)),
+        driveBackupFile('older', DateTime(2026, 5, 19, 12)),
+        driveBackupFile('oldest', DateTime(2026, 5, 18, 12)),
       ];
+      final storedByDriveId = {
+        for (final file in files)
+          file.id!: cloudMetadata(
+            id: 'metadata-${file.id}',
+            driveFileId: file.id!,
+            createdAt: file.modifiedTime!,
+          ),
+      };
 
       final toDelete = BackupService.selectDriveFileIdsToPrune(
         files,
-        keep: BackupFilename.keepLatestSuccessfulCount,
+        keep: 1,
         alwaysRetainDriveFileId: 'newest',
+        storedByDriveId: storedByDriveId,
       );
 
       expect(toDelete, ['older', 'oldest']);
@@ -158,20 +201,129 @@ void main() {
     test('always retains explicit new upload id even if list order differs',
         () {
       final files = [
-        drive.File(
-            id: 'stale-newer-looking', modifiedTime: DateTime(2026, 5, 21)),
-        drive.File(
-            id: 'actual-new-upload', modifiedTime: DateTime(2026, 5, 20)),
+        driveBackupFile('stale-newer-looking', DateTime(2026, 5, 21)),
+        driveBackupFile('actual-new-upload', DateTime(2026, 5, 20)),
       ];
+      final storedByDriveId = {
+        for (final file in files)
+          file.id!: cloudMetadata(
+            id: 'metadata-${file.id}',
+            driveFileId: file.id!,
+            createdAt: file.modifiedTime!,
+          ),
+      };
 
       final toDelete = BackupService.selectDriveFileIdsToPrune(
         files,
-        keep: BackupFilename.keepLatestSuccessfulCount,
+        keep: 1,
         alwaysRetainDriveFileId: 'actual-new-upload',
+        storedByDriveId: storedByDriveId,
       );
 
       expect(toDelete, ['stale-newer-looking']);
       expect(toDelete, isNot(contains('actual-new-upload')));
+    });
+
+    test('unverified newer Drive files do not consume retention slots', () {
+      final files = [
+        driveBackupFile('unknown-newest', DateTime(2026, 5, 22)),
+        driveBackupFile('verified-newer', DateTime(2026, 5, 21)),
+        driveBackupFile('verified-older', DateTime(2026, 5, 20)),
+        driveBackupFile('verified-oldest', DateTime(2026, 5, 19)),
+      ];
+      final storedByDriveId = {
+        'verified-newer': cloudMetadata(
+          id: 'metadata-newer',
+          driveFileId: 'verified-newer',
+          createdAt: DateTime(2026, 5, 21),
+        ),
+        'verified-older': cloudMetadata(
+          id: 'metadata-older',
+          driveFileId: 'verified-older',
+          createdAt: DateTime(2026, 5, 20),
+        ),
+        'verified-oldest': cloudMetadata(
+          id: 'metadata-oldest',
+          driveFileId: 'verified-oldest',
+          createdAt: DateTime(2026, 5, 19),
+        ),
+      };
+
+      final toDelete = BackupService.selectDriveFileIdsToPrune(
+        files,
+        keep: 2,
+        storedByDriveId: storedByDriveId,
+      );
+
+      expect(toDelete, ['verified-oldest']);
+      expect(toDelete, isNot(contains('verified-older')));
+      expect(toDelete, isNot(contains('unknown-newest')));
+    });
+
+    test('failed and cancelled Drive metadata are not retention candidates',
+        () {
+      final files = [
+        driveBackupFile('failed-newer', DateTime(2026, 5, 22)),
+        driveBackupFile('cancelled-newer', DateTime(2026, 5, 21)),
+        driveBackupFile('verified-older', DateTime(2026, 5, 20)),
+      ];
+      final storedByDriveId = {
+        'failed-newer': cloudMetadata(
+          id: 'metadata-failed',
+          driveFileId: 'failed-newer',
+          createdAt: DateTime(2026, 5, 22),
+          health: BackupHealth.failed,
+        ),
+        'cancelled-newer': cloudMetadata(
+          id: 'metadata-cancelled',
+          driveFileId: 'cancelled-newer',
+          createdAt: DateTime(2026, 5, 21),
+          health: BackupHealth.cancelled,
+        ),
+        'verified-older': cloudMetadata(
+          id: 'metadata-verified',
+          driveFileId: 'verified-older',
+          createdAt: DateTime(2026, 5, 20),
+        ),
+      };
+
+      final toDelete = BackupService.selectDriveFileIdsToPrune(
+        files,
+        keep: 1,
+        storedByDriveId: storedByDriveId,
+      );
+
+      expect(toDelete, isEmpty);
+    });
+
+    test(
+        'verified Drive appProperties can prove success without local metadata',
+        () {
+      final files = [
+        driveBackupFile(
+          'verified-by-app-properties',
+          DateTime(2026, 5, 21),
+          appProperties: DriveBackupDiscovery.verifiedBackupAppProperties(
+            backupId: 'backup-app-properties',
+            checksum: 'sha256-app-properties',
+          ),
+        ),
+        driveBackupFile('verified-by-metadata', DateTime(2026, 5, 20)),
+      ];
+
+      final toDelete = BackupService.selectDriveFileIdsToPrune(
+        files,
+        keep: 1,
+        storedByDriveId: {
+          'verified-by-metadata': cloudMetadata(
+            id: 'metadata-verified',
+            driveFileId: 'verified-by-metadata',
+            createdAt: DateTime(2026, 5, 20),
+          ),
+        },
+      );
+
+      expect(toDelete, ['verified-by-metadata']);
     });
   });
 

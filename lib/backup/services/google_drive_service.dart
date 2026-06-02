@@ -120,6 +120,7 @@ class GoogleDriveService {
     required String fileName,
     required Uint8List content,
     String mimeType = 'application/octet-stream',
+    Map<String, String>? appProperties,
   }) async {
     try {
       if (_driveApi == null && !await initialize()) {
@@ -142,7 +143,8 @@ class GoogleDriveService {
       // Create new file in AppDataFolder
       final driveFile = drive.File()
         ..name = fileName
-        ..parents = ['appDataFolder'];
+        ..parents = ['appDataFolder']
+        ..appProperties = appProperties;
 
       final media = drive.Media(
         Stream.fromIterable([content]),
@@ -165,6 +167,30 @@ class GoogleDriveService {
         print('💥 Error uploading file: $e');
       }
       return null;
+    }
+  }
+
+  Future<bool> updateFileAppProperties({
+    required String fileId,
+    required Map<String, String> appProperties,
+  }) async {
+    try {
+      if (_driveApi == null && !await initialize()) {
+        return false;
+      }
+
+      final patch = drive.File()..appProperties = appProperties;
+      await _driveApi!.files.update(
+        patch,
+        fileId,
+        $fields: 'id,appProperties',
+      );
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Error updating Drive file appProperties: $e');
+      }
+      return false;
     }
   }
 
@@ -224,7 +250,7 @@ class GoogleDriveService {
         q: searchQuery,
         spaces: 'appDataFolder',
         orderBy: 'modifiedTime desc',
-        $fields: 'files(id,name,size,modifiedTime,createdTime)',
+        $fields: 'files(id,name,size,modifiedTime,createdTime,appProperties)',
       );
 
       final files = fileList.files ?? [];

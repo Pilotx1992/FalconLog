@@ -10,6 +10,13 @@ class DriveBackupDiscovery {
   DriveBackupDiscovery._();
 
   static const int minimumBackupFileBytes = 64;
+  static const String appPropertyKind = 'falconlog_kind';
+  static const String appPropertyStatus = 'falconlog_status';
+  static const String appPropertyBackupId = 'falconlog_backup_id';
+  static const String appPropertyChecksum = 'falconlog_checksum';
+  static const String appPropertyKindBackup = 'backup';
+  static const String appPropertyStatusPending = 'pending';
+  static const String appPropertyStatusVerified = 'verified';
 
   /// Whether [file] looks like a FalconLog encrypted backup in AppData.
   static bool isRecognizedDriveFile(drive.File file) {
@@ -56,6 +63,45 @@ class DriveBackupDiscovery {
     } catch (_) {
       return false;
     }
+  }
+
+  static Map<String, String> pendingBackupAppProperties({
+    required String backupId,
+  }) {
+    return {
+      appPropertyKind: appPropertyKindBackup,
+      appPropertyStatus: appPropertyStatusPending,
+      appPropertyBackupId: backupId,
+    };
+  }
+
+  static Map<String, String> verifiedBackupAppProperties({
+    required String backupId,
+    required String checksum,
+  }) {
+    return {
+      appPropertyKind: appPropertyKindBackup,
+      appPropertyStatus: appPropertyStatusVerified,
+      appPropertyBackupId: backupId,
+      appPropertyChecksum: checksum,
+    };
+  }
+
+  static bool hasVerifiedBackupAppProperties(drive.File file) {
+    final appProperties = file.appProperties;
+    if (appProperties == null) {
+      return false;
+    }
+
+    final backupId = appProperties[appPropertyBackupId];
+    final checksum = appProperties[appPropertyChecksum];
+    return appProperties[appPropertyKind] == appPropertyKindBackup &&
+        appProperties[appPropertyStatus] == appPropertyStatusVerified &&
+        backupId != null &&
+        backupId.isNotEmpty &&
+        checksum != null &&
+        checksum.isNotEmpty &&
+        checksum != 'unknown';
   }
 
   /// Builds in-memory [BackupMetadata] for restore UI (not persisted).

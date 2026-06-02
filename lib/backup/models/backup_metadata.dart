@@ -39,7 +39,7 @@ class BackupMetadata extends HiveObject {
   final String encryptionAlgorithm; // "AES-256-GCM"
 
   @HiveField(11)
-  final BackupHealth health; // healthy, unverified, corrupted
+  final BackupHealth health; // verified, unverified, failed, or cancelled
 
   @HiveField(12)
   final DateTime? lastVerified; // Last integrity check
@@ -59,7 +59,7 @@ class BackupMetadata extends HiveObject {
     this.localPath,
     this.isEncrypted = true,
     this.encryptionAlgorithm = 'AES-256-GCM',
-    this.health = BackupHealth.healthy,
+    this.health = BackupHealth.verified,
     this.lastVerified,
     required this.deviceId,
   });
@@ -67,7 +67,9 @@ class BackupMetadata extends HiveObject {
   /// Helper method to format file size
   String get formattedSize {
     if (sizeBytes < 1024) return '${sizeBytes}B';
-    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)}KB';
+    if (sizeBytes < 1024 * 1024) {
+      return '${(sizeBytes / 1024).toStringAsFixed(1)}KB';
+    }
     if (sizeBytes < 1024 * 1024 * 1024) {
       return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)}MB';
     }
@@ -110,10 +112,14 @@ class BackupMetadata extends HiveObject {
   /// Get health status display
   String get healthDisplayName {
     switch (health) {
-      case BackupHealth.healthy:
+      case BackupHealth.verified:
         return 'Verified';
       case BackupHealth.unverified:
         return 'Not verified';
+      case BackupHealth.failed:
+        return 'Failed';
+      case BackupHealth.cancelled:
+        return 'Cancelled';
       case BackupHealth.corrupted:
         return 'Corrupted';
     }
@@ -182,11 +188,17 @@ enum BackupLocation {
 @HiveType(typeId: 102)
 enum BackupHealth {
   @HiveField(0)
-  healthy, // Verified OK
+  verified, // Verified OK
 
   @HiveField(1)
   unverified, // Not checked yet
 
   @HiveField(2)
-  corrupted, // Failed verification
+  failed, // Operation failed
+
+  @HiveField(3)
+  cancelled, // Operation cancelled
+
+  @HiveField(4)
+  corrupted, // Legacy failed verification state
 }

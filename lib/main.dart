@@ -1,4 +1,4 @@
-﻿import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,7 @@ import 'backup/models/backup_metadata.dart';
 import 'backup/services/backup_service.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/cleanup_old_workers.dart';
+import 'backup/utils/restore_recovery_notice_store.dart';
 import 'core/services/app_data_migration_service.dart';
 import 'core/services/hive_initialization_service.dart';
 import 'core/services/storage_migration_service.dart';
@@ -75,6 +76,7 @@ Future<void> _initializeCriticalComponents() async {
     final pendingRestore =
         await BackupService.recoverPendingReplaceRestoreIfNeeded();
     if (pendingRestore.hadPendingJournal) {
+      await RestoreRecoveryNoticeStore.save(pendingRestore);
       if (pendingRestore.rollbackSucceeded) {
         debugPrint('✅ ${pendingRestore.message}');
       } else {

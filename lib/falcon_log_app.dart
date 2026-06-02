@@ -20,6 +20,7 @@ import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
 import 'security/security_lifecycle_handler.dart';
 import 'utils/app_snack_bar.dart';
+import 'backup/ui/restore_recovery_notice_host.dart';
 
 class FalconLogApp extends ConsumerWidget {
   const FalconLogApp({super.key});
@@ -84,9 +85,11 @@ class FalconLogApp extends ConsumerWidget {
         ),
         // --- انتهى التعديل ---
         builder: (context, child) {
-          return Directionality(
-            textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-            child: child!,
+          return RestoreRecoveryNoticeHost(
+            child: Directionality(
+              textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
+            ),
           );
         },
         initialRoute: '/splash',

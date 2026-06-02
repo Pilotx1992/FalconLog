@@ -12,7 +12,7 @@ class BackupFilename {
   static const String extension = BackupConstants.backupExtension;
 
   /// Successful backups to retain (cloud and local).
-  static const int keepLatestSuccessfulCount = 1;
+  static const int keepLatestSuccessfulCount = BackupConstants.defaultKeepCount;
 
   /// Google Drive query matching legacy and new encrypted backup files.
   static const String driveDiscoveryQuery =
