@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -12,6 +13,7 @@ import '../utils/backup_filename.dart';
 import '../utils/backup_scheduler.dart';
 import '../utils/backup_safety_export_helper.dart';
 import '../utils/backup_safety_import_helper.dart';
+import 'auto_backup_debug_panel.dart';
 import 'backup_progress_sheet.dart';
 import '../../providers/backup_service_provider.dart';
 import '../../providers/aircraft_types_provider.dart';
@@ -50,6 +52,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   String _backupFrequency = 'off';
   bool _wifiOnly = true;
+  String? _autoBackupStatusLine;
 
   @override
   void initState() {
@@ -65,6 +68,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       );
       final frequency = await _backupScheduler.getBackupFrequency();
       final wifiOnly = await _backupScheduler.isWifiOnly();
+      final scheduleStatus = await _backupScheduler.getBackupStatus();
       await ref.read(backupHistoryProvider.notifier).refresh();
 
       if (mounted) {
@@ -73,6 +77,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           _lastGoogleDriveBackupTime = backupMetadata?.createdAt;
           _backupFrequency = frequency;
           _wifiOnly = wifiOnly;
+          _autoBackupStatusLine = _formatAutoBackupStatus(scheduleStatus);
           _isLoading = false;
         });
       }
@@ -161,6 +166,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                           children: [
                             _buildAutoBackupCard(surfaceCard, sectionTitleColor,
                                 operationRunning),
+                            if (kDebugMode) const AutoBackupDebugPanel(),
                             const SizedBox(height: 20),
                             _buildCloudBackupActions(surfaceCard,
                                 sectionTitleColor, operationRunning),
@@ -323,6 +329,30 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
+  String? _formatAutoBackupStatus(BackupScheduleStatus status) {
+    if (status.frequency == 'off' || !status.isScheduled) return null;
+    if (status.frequency == 'daily') {
+      if (status.pendingDueDay != null) {
+        final reason = status.lastAutoBackupFailureReason;
+        if (reason == 'waiting_for_wifi') {
+          return 'Backup pending — waiting for Wi-Fi.';
+        }
+        if (reason == 'battery_low') {
+          return 'Backup pending — waiting for sufficient battery.';
+        }
+        if (reason == 'drive_auth_not_ready') {
+          return 'Backup pending — sign in to Google Drive.';
+        }
+        return 'Backup pending — waiting for conditions.';
+      }
+      if (status.lastAutoBackupSuccessAt != null) {
+        return 'Last successful backup: ${_formatBackupTime(status.lastAutoBackupSuccessAt!)}';
+      }
+      return 'Backups are due after 11:59 PM when Wi-Fi and battery conditions are met — not at an exact time.';
+    }
+    return null;
+  }
+
   Widget _buildAutoBackupCard(
       Color surfaceCard, Color sectionTitleColor, bool operationRunning) {
     final cs = Theme.of(context).colorScheme;
@@ -398,6 +428,16 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             ),
           ),
           const SizedBox(height: 6),
+          if (_autoBackupStatusLine != null) ...[
+            Text(
+              _autoBackupStatusLine!,
+              style: TextStyle(
+                color: sectionTitleColor.withValues(alpha: 0.72),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           row(
             icon: Icons.autorenew_rounded,
             title: 'Enable',
@@ -821,6 +861,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }
 
     if (!mounted) return;
+    final scheduleStatus = await _backupScheduler.getBackupStatus();
+    setState(() {
+      _autoBackupStatusLine = _formatAutoBackupStatus(scheduleStatus);
+    });
     _showSuccessSnackBar(
       frequency == 'off'
           ? 'Auto backup disabled'

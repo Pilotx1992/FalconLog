@@ -6,7 +6,7 @@ import 'package:workmanager/workmanager.dart';
 /// This should be called once during app initialization to clean up
 /// tasks from the old backup system implementation
 class WorkManagerCleanup {
-  static const String _cleanupDoneKey = 'falconlog_workmanager_cleanup_done_v2';
+  static const String _cleanupDoneKey = 'falconlog_workmanager_cleanup_done_v3';
 
   /// Cancel all old backup-related WorkManager tasks
   static Future<void> cleanupOldTasks() async {
@@ -19,6 +19,8 @@ class WorkManagerCleanup {
       await Workmanager().cancelByUniqueName('falconlog_backup_task');
       await Workmanager().cancelByUniqueName('encrypted_local_backup');
       await Workmanager().cancelByUniqueName('falconlog_backup_task_immediate');
+      await Workmanager().cancelByUniqueName('falconlog_auto_backup_immediate');
+      await Workmanager().cancelByUniqueName('falconlog_auto_backup_periodic');
       await Workmanager().cancelByTag('falconlog_backup');
 
       await prefs.setBool(_cleanupDoneKey, true);

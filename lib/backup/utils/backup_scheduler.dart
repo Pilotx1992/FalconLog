@@ -13,10 +13,14 @@ import '../../firebase_options.dart';
 import '../../models/flight_log.dart';
 import '../models/backup_metadata.dart';
 import '../models/backup_provider_enum.dart';
-import '../services/backup_service.dart';
+import 'auto_backup_due_engine.dart';
+import 'auto_backup_reconciler.dart';
+import 'auto_backup_scheduler.dart';
+import 'auto_backup_state_store.dart';
+import 'auto_backup_work_names.dart';
+import 'auto_backup_worker.dart';
 import 'backup_constants.dart';
 import 'backup_provider_preferences.dart';
-import 'scheduled_backup_logic.dart';
 
 /// Test seam for WorkManager calls (set only in tests).
 @visibleForTesting
@@ -51,6 +55,9 @@ class BackupSchedulerWorkmanager {
   static final List<String> cancelLog = [];
   static final List<String> registerLog = [];
 
+  /// Tracks active unique work names for mutual-exclusion regression tests.
+  static final Set<String> activeUniqueNames = {};
+
   @visibleForTesting
   static void resetTestHooks() {
     registerPeriodicTask = null;
@@ -60,24 +67,23 @@ class BackupSchedulerWorkmanager {
     isScheduledByUniqueName = null;
     cancelLog.clear();
     registerLog.clear();
+    activeUniqueNames.clear();
   }
 }
 
 /// Service for scheduling automatic backups using WorkManager.
 class BackupScheduler {
-  static const String _uniqueName = 'falconlog_auto_backup_periodic';
-  static const String _taskName = 'falconlog_auto_backup';
-  static const String _taskTag = 'falconlog_backup';
-
-  static const String _immediateUniqueName = 'falconlog_auto_backup_immediate';
-
-  // Names from older implementations. They are cancelled when rescheduling.
-  static const String _legacyUniqueName = 'falconlog_backup_task';
-  static const String _legacyBackgroundUniqueName = 'encrypted_local_backup';
-
   static final _logger = Logger('BackupScheduler');
+  static final _wmScheduler = AutoBackupScheduler();
+  static final _reconciler = AutoBackupReconciler();
 
   BackupScheduler();
+
+  static Future<SharedPreferences> sharedPreferences() =>
+      SharedPreferences.getInstance();
+
+  static int? scheduleIntervalSeconds(String frequency) =>
+      BackupConstants.scheduleIntervals[frequency];
 
   /// Initialize the backup scheduler.
   static Future<void> initialize() async {
@@ -92,7 +98,7 @@ class BackupScheduler {
   /// Restore the saved auto-backup schedule after app startup.
   static Future<void> restoreSavedSchedule() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       final enabled =
           prefs.getBool(BackupConstants.settingsKeys['auto_backup_enabled']!) ??
               false;
@@ -102,50 +108,35 @@ class BackupScheduler {
             BackupConstants.settingsKeys['backup_frequency']!,
           ) ??
           defaultFrequency;
+      final wifiOnly =
+          prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ??
+              (BackupConstants.defaultSettings['wifi_only'] as bool);
 
       if (!enabled || frequency == 'off') {
         await BackupScheduler().cancelBackup(updateSettings: false);
         return;
       }
 
-      final wifiOnly =
-          prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ??
-              (BackupConstants.defaultSettings['wifi_only'] as bool);
-
-      final scheduler = BackupScheduler();
-      var scheduled = false;
-      try {
-        scheduled = await _isScheduledByUniqueName(_uniqueName);
-      } catch (_) {
-        // Some platforms do not support schedule inspection.
-      }
-
-      if (!scheduled) {
-        scheduled = await scheduler.scheduleBackup(
-          frequency: frequency,
-          wifiOnly: wifiOnly,
-        );
-      }
-
-      if (scheduled) {
-        await scheduler.scheduleImmediateBackupIfOverdue();
-      }
+      await _reconciler.reconcileOnStartup(
+        enabled: enabled,
+        frequency: frequency,
+        wifiOnly: wifiOnly,
+      );
     } catch (e, stackTrace) {
       _logger.severe('Failed to restore backup schedule', e, stackTrace);
     }
   }
 
-  /// Schedule automatic backup.
+  /// Schedule automatic backup (dual path: daily vs weekly/monthly).
   Future<bool> scheduleBackup({
     required String frequency,
     bool wifiOnly = true,
   }) async {
     try {
-      await _cancelScheduledWork();
-
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
 
       if (frequency == 'off') {
+        await _wmScheduler.cancelAllAutoBackupWork();
         await prefs.setString(
           BackupConstants.settingsKeys['backup_frequency']!,
           frequency,
@@ -162,45 +153,67 @@ class BackupScheduler {
         return true;
       }
 
-      final interval = BackupConstants.scheduleIntervals[frequency];
-      if (interval == null || interval == 0) {
-        _logger.warning('Invalid backup frequency: $frequency');
-        return false;
+      if (frequency == 'daily') {
+        await _wmScheduler.cancelIntervalPath();
+        await _wmScheduler.cancelLegacyWork();
+        await _wmScheduler.registerDailyEvaluator();
+        await prefs.setString(
+          BackupConstants.settingsKeys['backup_frequency']!,
+          frequency,
+        );
+        await prefs.setBool(
+          BackupConstants.settingsKeys['wifi_only']!,
+          wifiOnly,
+        );
+        await prefs.setBool(
+          BackupConstants.settingsKeys['auto_backup_enabled']!,
+          true,
+        );
+        await _reconciler.reconcileOnStartup(
+          enabled: true,
+          frequency: 'daily',
+          wifiOnly: wifiOnly,
+        );
+        _logger.info('Daily auto backup scheduled (23:59 due anchor)');
+        return true;
       }
 
-      final provider = await BackupProviderPreferences.getSelectedProvider();
-      final constraints = constraintsForProvider(
-        provider,
-        wifiOnly: wifiOnly,
-      );
+      if (frequency == 'weekly' || frequency == 'monthly') {
+        final interval = scheduleIntervalSeconds(frequency);
+        if (interval == null || interval == 0) {
+          _logger.warning('Invalid backup frequency: $frequency');
+          return false;
+        }
 
-      await _registerPeriodicTask(
-        uniqueName: _uniqueName,
-        taskName: _taskName,
-        frequency: Duration(seconds: interval),
-        constraints: constraints,
-        initialDelay: const Duration(minutes: 5),
-        backoffPolicy: BackoffPolicy.exponential,
-        backoffPolicyDelay: const Duration(minutes: 15),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
-        tag: _taskTag,
-      );
+        await _wmScheduler.cancelDailyPath();
+        await AutoBackupStateStore().clearDailyAutoBackupState();
+        await _wmScheduler.cancelLegacyWork();
 
-      await prefs.setString(
-        BackupConstants.settingsKeys['backup_frequency']!,
-        frequency,
-      );
-      await prefs.setBool(
-        BackupConstants.settingsKeys['wifi_only']!,
-        wifiOnly,
-      );
-      await prefs.setBool(
-        BackupConstants.settingsKeys['auto_backup_enabled']!,
-        true,
-      );
+        final provider = await BackupProviderPreferences.getSelectedProvider();
+        await _wmScheduler.registerIntervalPeriodic(
+          frequency: frequency,
+          provider: provider,
+          wifiOnly: wifiOnly,
+        );
 
-      _logger.info('Backup scheduled: $frequency (Wi-Fi only: $wifiOnly)');
-      return true;
+        await prefs.setString(
+          BackupConstants.settingsKeys['backup_frequency']!,
+          frequency,
+        );
+        await prefs.setBool(
+          BackupConstants.settingsKeys['wifi_only']!,
+          wifiOnly,
+        );
+        await prefs.setBool(
+          BackupConstants.settingsKeys['auto_backup_enabled']!,
+          true,
+        );
+        _logger.info('Interval auto backup scheduled: $frequency');
+        return true;
+      }
+
+      _logger.warning('Invalid backup frequency: $frequency');
+      return false;
     } catch (e, stackTrace) {
       _logger.severe('Failed to schedule backup', e, stackTrace);
       return false;
@@ -210,10 +223,10 @@ class BackupScheduler {
   /// Cancel automatic backup.
   Future<bool> cancelBackup({bool updateSettings = true}) async {
     try {
-      await _cancelScheduledWork();
+      await _wmScheduler.cancelAllAutoBackupWork();
 
       if (updateSettings) {
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await sharedPreferences();
         await prefs.setBool(
           BackupConstants.settingsKeys['auto_backup_enabled']!,
           false,
@@ -232,19 +245,30 @@ class BackupScheduler {
     }
   }
 
-  /// Check if backup is scheduled.
+  /// Check if backup is scheduled for the current frequency mode.
   Future<bool> isBackupScheduled() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       final enabled =
           prefs.getBool(BackupConstants.settingsKeys['auto_backup_enabled']!) ??
               false;
-      if (!enabled) {
-        return false;
+      if (!enabled) return false;
+
+      final frequency = await getBackupFrequency();
+      if (frequency == 'daily') {
+        try {
+          return await isScheduledByUniqueNameInternal(
+            AutoBackupWorkNames.dailyEvaluatorUnique,
+          );
+        } catch (_) {
+          return enabled;
+        }
       }
 
       try {
-        return await _isScheduledByUniqueName(_uniqueName);
+        return await isScheduledByUniqueNameInternal(
+          AutoBackupWorkNames.intervalPeriodicUnique,
+        );
       } catch (_) {
         return enabled;
       }
@@ -254,10 +278,9 @@ class BackupScheduler {
     }
   }
 
-  /// Get current backup frequency.
   Future<String> getBackupFrequency() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       return prefs
               .getString(BackupConstants.settingsKeys['backup_frequency']!) ??
           'off';
@@ -267,10 +290,9 @@ class BackupScheduler {
     }
   }
 
-  /// Check if Wi-Fi only is enabled.
   Future<bool> isWifiOnly() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       return prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ?? true;
     } catch (e) {
       _logger.warning('Error checking Wi-Fi only setting: $e');
@@ -278,8 +300,19 @@ class BackupScheduler {
     }
   }
 
-  /// Schedule immediate backup (for catch-up/testing).
+  /// Legacy immediate backup — interval path only; daily uses catch-up.
   Future<bool> scheduleImmediateBackup({bool? wifiOnly}) async {
+    final frequency = await getBackupFrequency();
+    if (frequency == 'daily') {
+      final effectiveWifiOnly = wifiOnly ?? await isWifiOnly();
+      final provider = await BackupProviderPreferences.getSelectedProvider();
+      await _wmScheduler.registerCatchup(
+        provider: provider,
+        wifiOnly: effectiveWifiOnly,
+      );
+      return true;
+    }
+
     try {
       final effectiveWifiOnly = wifiOnly ?? await isWifiOnly();
       final provider = await BackupProviderPreferences.getSelectedProvider();
@@ -288,18 +321,16 @@ class BackupScheduler {
         wifiOnly: effectiveWifiOnly,
       );
 
-      await _registerOneOffTask(
-        uniqueName: _immediateUniqueName,
-        taskName: _taskName,
+      await registerOneOffTaskInternal(
+        uniqueName: AutoBackupWorkNames.legacyImmediateUnique,
+        taskName: AutoBackupWorkNames.intervalTask,
         constraints: constraints,
         initialDelay: const Duration(seconds: 10),
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),
         existingWorkPolicy: ExistingWorkPolicy.replace,
-        tag: _taskTag,
+        tag: AutoBackupWorkNames.taskTag,
       );
-
-      _logger.info('Immediate backup scheduled');
       return true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to schedule immediate backup', e, stackTrace);
@@ -307,14 +338,25 @@ class BackupScheduler {
     }
   }
 
-  /// Schedule a catch-up backup if the saved schedule is overdue.
   Future<bool> scheduleImmediateBackupIfOverdue() async {
+    final frequency = await getBackupFrequency();
+    if (frequency == 'daily') {
+      final store = AutoBackupStateStore();
+      final dueMinute = await store.getDueMinuteOfDay();
+      await store.applyDueTick(
+        nowLocal: DateTime.now(),
+        dueMinuteOfDay: dueMinute,
+      );
+      final pending = await store.getPendingDueDay();
+      if (pending == null) return false;
+      return scheduleImmediateBackup(wifiOnly: await isWifiOnly());
+    }
+
     try {
       final status = await getBackupStatus();
       if (!status.isScheduled || !status.isOverdue) {
         return false;
       }
-
       return scheduleImmediateBackup(wifiOnly: status.wifiOnly);
     } catch (e, stackTrace) {
       _logger.severe('Failed to schedule overdue backup', e, stackTrace);
@@ -322,20 +364,24 @@ class BackupScheduler {
     }
   }
 
-  /// Get next backup time estimate.
   Future<DateTime?> getNextBackupTime() async {
     try {
       final frequency = await getBackupFrequency();
-      if (frequency == 'off') {
-        return null;
+      if (frequency == 'off') return null;
+
+      if (frequency == 'daily') {
+        final store = AutoBackupStateStore();
+        final dueMinute = await store.getDueMinuteOfDay();
+        return AutoBackupDueEngine.nextDueDateTime(
+          nowLocal: DateTime.now(),
+          dueMinuteOfDay: dueMinute,
+        );
       }
 
-      final interval = BackupConstants.scheduleIntervals[frequency];
-      if (interval == null || interval == 0) {
-        return null;
-      }
+      final interval = scheduleIntervalSeconds(frequency);
+      if (interval == null || interval == 0) return null;
 
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       final lastBackupTime =
           prefs.getInt(BackupConstants.settingsKeys['last_backup_time']!);
 
@@ -351,10 +397,10 @@ class BackupScheduler {
     }
   }
 
-  /// Update last backup time.
+  @Deprecated('Use BackupService verified success path only')
   Future<void> updateLastBackupTime() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await sharedPreferences();
       await prefs.setInt(
         BackupConstants.settingsKeys['last_backup_time']!,
         DateTime.now().millisecondsSinceEpoch,
@@ -364,14 +410,17 @@ class BackupScheduler {
     }
   }
 
-  /// Check if backup is overdue.
   Future<bool> isBackupOverdue() async {
     try {
-      final nextBackupTime = await getNextBackupTime();
-      if (nextBackupTime == null) {
-        return false;
+      final frequency = await getBackupFrequency();
+      if (frequency == 'daily') {
+        final store = AutoBackupStateStore();
+        final pending = await store.getPendingDueDay();
+        return pending != null;
       }
 
+      final nextBackupTime = await getNextBackupTime();
+      if (nextBackupTime == null) return false;
       return DateTime.now().isAfter(nextBackupTime);
     } catch (e) {
       _logger.warning('Error checking if backup is overdue: $e');
@@ -379,7 +428,6 @@ class BackupScheduler {
     }
   }
 
-  /// Get backup status information.
   Future<BackupScheduleStatus> getBackupStatus() async {
     try {
       final isScheduled = await isBackupScheduled();
@@ -387,6 +435,16 @@ class BackupScheduler {
       final wifiOnly = await isWifiOnly();
       final nextBackupTime = await getNextBackupTime();
       final isOverdue = await isBackupOverdue();
+      final store = AutoBackupStateStore();
+      final pendingDueDay = frequency == 'daily'
+          ? await store.getPendingDueDay()
+          : null;
+      final lastSuccessAt = frequency == 'daily'
+          ? await store.getLastSuccessAt()
+          : null;
+      final lastFailureReason = frequency == 'daily'
+          ? await store.getLastFailureReason()
+          : null;
 
       return BackupScheduleStatus(
         isScheduled: isScheduled,
@@ -394,6 +452,9 @@ class BackupScheduler {
         wifiOnly: wifiOnly,
         nextBackupTime: nextBackupTime,
         isOverdue: isOverdue,
+        pendingDueDay: pendingDueDay,
+        lastAutoBackupSuccessAt: lastSuccessAt,
+        lastAutoBackupFailureReason: lastFailureReason,
       );
     } catch (e, stackTrace) {
       _logger.severe('Error getting backup status', e, stackTrace);
@@ -407,8 +468,6 @@ class BackupScheduler {
     }
   }
 
-  /// Network/battery constraints for auto backup based on destination provider.
-  @visibleForTesting
   static Constraints constraintsForProvider(
     BackupProvider provider, {
     required bool wifiOnly,
@@ -429,15 +488,7 @@ class BackupScheduler {
     );
   }
 
-  Future<void> _cancelScheduledWork() async {
-    await _cancelByUniqueName(_uniqueName);
-    await _cancelByUniqueName(_immediateUniqueName);
-    await _cancelByUniqueName(_legacyUniqueName);
-    await _cancelByUniqueName(_legacyBackgroundUniqueName);
-    await _cancelByTag(_taskTag);
-  }
-
-  static Future<void> _registerPeriodicTask({
+  static Future<void> registerPeriodicTaskInternal({
     required String uniqueName,
     required String taskName,
     required Duration frequency,
@@ -451,6 +502,7 @@ class BackupScheduler {
     final override = BackupSchedulerWorkmanager.registerPeriodicTask;
     if (override != null) {
       BackupSchedulerWorkmanager.registerLog.add(uniqueName);
+      BackupSchedulerWorkmanager.activeUniqueNames.add(uniqueName);
       await override(
         uniqueName,
         taskName,
@@ -478,7 +530,7 @@ class BackupScheduler {
     );
   }
 
-  static Future<void> _registerOneOffTask({
+  static Future<void> registerOneOffTaskInternal({
     required String uniqueName,
     required String taskName,
     required Constraints constraints,
@@ -516,17 +568,18 @@ class BackupScheduler {
     );
   }
 
-  static Future<void> _cancelByUniqueName(String uniqueName) async {
+  static Future<void> cancelByUniqueNameInternal(String uniqueName) async {
     final override = BackupSchedulerWorkmanager.cancelByUniqueName;
     if (override != null) {
       BackupSchedulerWorkmanager.cancelLog.add(uniqueName);
+      BackupSchedulerWorkmanager.activeUniqueNames.remove(uniqueName);
       await override(uniqueName);
       return;
     }
     await Workmanager().cancelByUniqueName(uniqueName);
   }
 
-  static Future<void> _cancelByTag(String tag) async {
+  static Future<void> cancelByTagInternal(String tag) async {
     final override = BackupSchedulerWorkmanager.cancelByTag;
     if (override != null) {
       BackupSchedulerWorkmanager.cancelLog.add('tag:$tag');
@@ -536,7 +589,7 @@ class BackupScheduler {
     await Workmanager().cancelByTag(tag);
   }
 
-  static Future<bool> _isScheduledByUniqueName(String uniqueName) async {
+  static Future<bool> isScheduledByUniqueNameInternal(String uniqueName) async {
     final override = BackupSchedulerWorkmanager.isScheduledByUniqueName;
     if (override != null) {
       return override(uniqueName);
@@ -544,22 +597,37 @@ class BackupScheduler {
     return Workmanager().isScheduledByUniqueName(uniqueName);
   }
 
-  /// Debug/QA: run the same path as the WorkManager callback (no UI).
-  @visibleForTesting
   Future<bool> runScheduledBackupForTesting() async {
-    return _runScheduledBackup(_logger);
+    final frequency = await getBackupFrequency();
+    if (frequency == 'daily') {
+      return AutoBackupWorker.handleTask(
+        AutoBackupWorkNames.catchupTask,
+        _logger,
+      );
+    }
+    return AutoBackupWorker.handleTask(
+      AutoBackupWorkNames.intervalTask,
+      _logger,
+    );
   }
 
-  /// When set (tests only), skips Firebase/Hive bootstrap in the worker.
+  Future<bool> runDailyEvaluatorForTesting() async {
+    return AutoBackupWorker.handleTask(
+      AutoBackupWorkNames.dailyEvaluatorTask,
+      _logger,
+    );
+  }
+
   @visibleForTesting
   static Future<void> Function(Logger logger)?
       backgroundDependenciesInitializer;
 
-  @visibleForTesting
   static Future<Box<FlightLog>> Function()? openFlightLogsBoxForTesting;
+
+  static Future<void> initializeBackgroundDependencies(Logger logger) =>
+      _initializeBackgroundBackupDependencies(logger);
 }
 
-/// Callback dispatcher for WorkManager.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -567,75 +635,21 @@ void callbackDispatcher() {
 
     try {
       DartPluginRegistrant.ensureInitialized();
-      logger.info('Starting scheduled backup task: $task');
+      logger.info('Starting backup task: $task');
 
-      if (task != BackupScheduler._taskName &&
-          task != Workmanager.iOSBackgroundTask) {
-        logger.info('Ignoring unrelated task: $task');
-        return true;
+      if (task == Workmanager.iOSBackgroundTask) {
+        return AutoBackupWorker.handleTask(
+          AutoBackupWorkNames.intervalTask,
+          logger,
+        );
       }
 
-      final success = await _runScheduledBackup(logger);
-      logger.info('Scheduled backup task completed: $task success=$success');
-      return success;
+      return await AutoBackupWorker.handleTask(task, logger);
     } catch (e, stackTrace) {
-      logger.severe('Scheduled backup task failed', e, stackTrace);
+      logger.severe('Backup task failed', e, stackTrace);
       return false;
     }
   });
-}
-
-Future<bool> _runScheduledBackup(Logger logger) async {
-  final prefs = await SharedPreferences.getInstance();
-  final enabled =
-      prefs.getBool(BackupConstants.settingsKeys['auto_backup_enabled']!) ??
-          false;
-  final frequency =
-      prefs.getString(BackupConstants.settingsKeys['backup_frequency']!) ??
-          'off';
-
-  final provider = await BackupProviderPreferences.getSelectedProvider();
-  final preInitPlan = planScheduledBackup(
-    autoBackupEnabled: enabled,
-    frequency: frequency,
-    provider: provider,
-    hasFlightLogs: true,
-  );
-
-  if (!preInitPlan.shouldRunBackup) {
-    switch (preInitPlan.skipReason) {
-      case ScheduledBackupSkipReason.disabled:
-        logger.info('Auto backup is disabled; skipping task.');
-        break;
-      case ScheduledBackupSkipReason.unsupportedProvider:
-        logger.warning(
-          'Scheduled backup skipped: selected provider is not supported.',
-        );
-        break;
-      case ScheduledBackupSkipReason.noFlightLogs:
-      case null:
-        break;
-    }
-    return preInitPlan.reportWorkmanagerSuccess;
-  }
-
-  await _initializeBackgroundBackupDependencies(logger);
-
-  final flightLogsBox = await (BackupScheduler.openFlightLogsBoxForTesting ??
-          () => HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
-  if (flightLogsBox.isEmpty) {
-    logger.info('No flight logs to back up; skipping task.');
-    return true;
-  }
-
-  final backupService = BackupService();
-  final success = await backupService.startBackup(interactive: false);
-
-  if (success) {
-    await BackupScheduler().updateLastBackupTime();
-  }
-
-  return success;
 }
 
 Future<void> _initializeBackgroundBackupDependencies(Logger logger) async {
@@ -658,13 +672,15 @@ Future<void> _initializeBackgroundBackupDependencies(Logger logger) async {
   logger.info('Background backup dependencies initialized.');
 }
 
-/// Backup schedule status information.
 class BackupScheduleStatus {
   final bool isScheduled;
   final String frequency;
   final bool wifiOnly;
   final DateTime? nextBackupTime;
   final bool isOverdue;
+  final String? pendingDueDay;
+  final DateTime? lastAutoBackupSuccessAt;
+  final String? lastAutoBackupFailureReason;
 
   const BackupScheduleStatus({
     required this.isScheduled,
@@ -672,9 +688,11 @@ class BackupScheduleStatus {
     required this.wifiOnly,
     required this.nextBackupTime,
     required this.isOverdue,
+    this.pendingDueDay,
+    this.lastAutoBackupSuccessAt,
+    this.lastAutoBackupFailureReason,
   });
 
-  /// Get formatted next backup time.
   String get nextBackupTimeFormatted {
     if (nextBackupTime == null) {
       return 'Not scheduled';
@@ -696,7 +714,6 @@ class BackupScheduleStatus {
     }
   }
 
-  /// Get frequency display name.
   String get frequencyDisplayName {
     switch (frequency) {
       case 'daily':

@@ -20,6 +20,7 @@ import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
 import 'security/security_lifecycle_handler.dart';
 import 'utils/app_snack_bar.dart';
+import 'backup/ui/auto_backup_lifecycle_binder.dart';
 import 'backup/ui/restore_recovery_notice_host.dart';
 
 class FalconLogApp extends ConsumerWidget {
@@ -30,8 +31,9 @@ class FalconLogApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final isRTL = ref.watch(isRTLProvider);
 
-    return SecurityLifecycleBinder(
-      child: MaterialApp(
+    return AutoBackupLifecycleBinder(
+      child: SecurityLifecycleBinder(
+        child: MaterialApp(
         title: 'FalconLog',
         navigatorKey: NavigationService.navigatorKey,
         navigatorObservers: [NavigationService.routeObserver],
@@ -124,6 +126,7 @@ class FalconLogApp extends ConsumerWidget {
           }
           return null;
         },
+        ),
       ),
     );
   }

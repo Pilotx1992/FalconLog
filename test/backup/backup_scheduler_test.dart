@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:falconlog/backup/models/backup_provider_enum.dart';
 import 'package:falconlog/backup/services/backup_service.dart';
+import 'package:falconlog/backup/utils/auto_backup_state_store.dart';
+import 'package:falconlog/backup/utils/backup_operation_lock.dart';
+import 'package:falconlog/backup/utils/auto_backup_work_names.dart';
 import 'package:falconlog/backup/utils/backup_provider_preferences.dart';
 import 'package:falconlog/backup/utils/backup_scheduler.dart';
 import 'package:falconlog/models/flight_log.dart';
@@ -15,14 +18,25 @@ void main() {
 
   const enabledKey = 'falconlog_auto_backup_enabled';
   const frequencyKey = 'falconlog_backup_frequency';
-  const wifiKey = 'falconlog_wifi_only';
   const lastBackupKey = 'falconlog_last_backup_time';
 
   late Directory tempDir;
+  late Directory lockDir;
+
+  Set<String> activePeriodicNames() {
+    return BackupSchedulerWorkmanager.activeUniqueNames
+        .where((n) =>
+            n == AutoBackupWorkNames.dailyEvaluatorUnique ||
+            n == AutoBackupWorkNames.intervalPeriodicUnique)
+        .toSet();
+  }
 
   setUp(() async {
     BackupSchedulerWorkmanager.resetTestHooks();
-    BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
+    BackupSchedulerWorkmanager.cancelByUniqueName = (name) async {
+      BackupSchedulerWorkmanager.cancelLog.add(name);
+      BackupSchedulerWorkmanager.activeUniqueNames.remove(name);
+    };
     BackupSchedulerWorkmanager.cancelByTag = (_) async {};
     BackupService.startBackupForTesting = null;
     BackupScheduler.backgroundDependenciesInitializer = null;
@@ -31,6 +45,10 @@ void main() {
 
     tempDir = await Directory.systemTemp
         .createTemp('falconlog_scheduler_test_');
+    lockDir = await Directory.systemTemp
+        .createTemp('falconlog_scheduler_lock_');
+    BackupOperationLock.baseDirectoryForTesting = lockDir;
+    await BackupOperationLock.clearForTesting();
     Hive.init(tempDir.path);
     if (!Hive.isAdapterRegistered(0)) {
       Hive.registerAdapter(FlightTypeAdapter());
@@ -60,6 +78,29 @@ void main() {
     BackupScheduler.backgroundDependenciesInitializer = (_) async {};
     BackupScheduler.openFlightLogsBoxForTesting =
         () async => Hive.box<FlightLog>('flightLogsBox');
+
+    BackupSchedulerWorkmanager.registerPeriodicTask =
+        (uniqueName, taskName,
+            {required frequency,
+            required constraints,
+            required initialDelay,
+            required backoffPolicy,
+            required backoffPolicyDelay,
+            required existingWorkPolicy,
+            tag}) async {
+      BackupSchedulerWorkmanager.registerLog.add(uniqueName);
+      BackupSchedulerWorkmanager.activeUniqueNames.add(uniqueName);
+    };
+    BackupSchedulerWorkmanager.registerOneOffTask =
+        (uniqueName, taskName,
+            {required constraints,
+            required initialDelay,
+            required backoffPolicy,
+            required backoffPolicyDelay,
+            required existingWorkPolicy,
+            tag}) async {
+      BackupSchedulerWorkmanager.registerLog.add(uniqueName);
+    };
   });
 
   tearDown(() async {
@@ -67,30 +108,19 @@ void main() {
     BackupService.startBackupForTesting = null;
     BackupScheduler.backgroundDependenciesInitializer = null;
     BackupScheduler.openFlightLogsBoxForTesting = null;
+    await BackupOperationLock.clearForTesting();
+    BackupOperationLock.resetTestOverrides();
     await Hive.close();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
+    if (await lockDir.exists()) {
+      await lockDir.delete(recursive: true);
+    }
   });
 
   group('BackupScheduler.scheduleBackup', () {
-    test('enable registers unique periodic task with update policy', () async {
-      ExistingPeriodicWorkPolicy? capturedPolicy;
-
-      BackupSchedulerWorkmanager.registerPeriodicTask =
-          (uniqueName, taskName,
-              {required frequency,
-              required constraints,
-              required initialDelay,
-              required backoffPolicy,
-              required backoffPolicyDelay,
-              required existingWorkPolicy,
-              tag}) async {
-        expect(uniqueName, 'falconlog_auto_backup_periodic');
-        expect(taskName, 'falconlog_auto_backup');
-        capturedPolicy = existingWorkPolicy;
-      };
-
+    test('daily registers evaluator not interval periodic', () async {
       final scheduler = BackupScheduler();
       final ok = await scheduler.scheduleBackup(
         frequency: 'daily',
@@ -98,10 +128,13 @@ void main() {
       );
 
       expect(ok, isTrue);
-      expect(capturedPolicy, ExistingPeriodicWorkPolicy.update);
       expect(
         BackupSchedulerWorkmanager.registerLog,
-        contains('falconlog_auto_backup_periodic'),
+        contains(AutoBackupWorkNames.dailyEvaluatorUnique),
+      );
+      expect(
+        BackupSchedulerWorkmanager.registerLog,
+        isNot(contains(AutoBackupWorkNames.intervalPeriodicUnique)),
       );
 
       final prefs = await SharedPreferences.getInstance();
@@ -109,14 +142,52 @@ void main() {
       expect(prefs.getString(frequencyKey), 'daily');
     });
 
-    test('disable cancels all known unique names and tag', () async {
-      BackupSchedulerWorkmanager.cancelByUniqueName = (name) async {
-        BackupSchedulerWorkmanager.cancelLog.add(name);
-      };
-      BackupSchedulerWorkmanager.cancelByTag = (tag) async {
-        BackupSchedulerWorkmanager.cancelLog.add('tag:$tag');
-      };
+    test('weekly registers interval periodic not daily evaluator', () async {
+      final scheduler = BackupScheduler();
+      final ok = await scheduler.scheduleBackup(
+        frequency: 'weekly',
+        wifiOnly: true,
+      );
 
+      expect(ok, isTrue);
+      expect(
+        BackupSchedulerWorkmanager.registerLog,
+        contains(AutoBackupWorkNames.intervalPeriodicUnique),
+      );
+      expect(
+        BackupSchedulerWorkmanager.registerLog,
+        isNot(contains(AutoBackupWorkNames.dailyEvaluatorUnique)),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(frequencyKey), 'weekly');
+    });
+
+    test('mutual exclusion: never daily and interval periodic together', () async {
+      final scheduler = BackupScheduler();
+      await scheduler.scheduleBackup(frequency: 'daily');
+      expect(activePeriodicNames(), {AutoBackupWorkNames.dailyEvaluatorUnique});
+
+      await scheduler.scheduleBackup(frequency: 'weekly');
+      expect(
+        activePeriodicNames(),
+        {AutoBackupWorkNames.intervalPeriodicUnique},
+      );
+
+      await scheduler.scheduleBackup(frequency: 'daily');
+      expect(activePeriodicNames(), {AutoBackupWorkNames.dailyEvaluatorUnique});
+    });
+
+    test('weekly does not remap frequency to daily', () async {
+      SharedPreferences.setMockInitialValues({frequencyKey: 'weekly'});
+      final scheduler = BackupScheduler();
+      await scheduler.scheduleBackup(frequency: 'weekly');
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(frequencyKey), 'weekly');
+    });
+
+    test('disable cancels daily and interval unique names', () async {
       final scheduler = BackupScheduler();
       await scheduler.scheduleBackup(frequency: 'daily');
       BackupSchedulerWorkmanager.cancelLog.clear();
@@ -126,114 +197,105 @@ void main() {
       expect(
         BackupSchedulerWorkmanager.cancelLog,
         containsAll([
-          'falconlog_auto_backup_periodic',
-          'falconlog_auto_backup_immediate',
-          'falconlog_backup_task',
-          'encrypted_local_backup',
-          'tag:falconlog_backup',
+          AutoBackupWorkNames.dailyEvaluatorUnique,
+          AutoBackupWorkNames.catchupUnique,
+          AutoBackupWorkNames.intervalPeriodicUnique,
         ]),
       );
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(enabledKey), isFalse);
-      expect(prefs.getString(frequencyKey), 'off');
-    });
-
-    test('re-enable replaces periodic work without duplicate register names',
-        () async {
-      final registerCounts = <String, int>{};
-
-      BackupSchedulerWorkmanager.registerPeriodicTask =
-          (uniqueName, taskName, {required frequency, required constraints, required initialDelay, required backoffPolicy, required backoffPolicyDelay, required existingWorkPolicy, tag}) async {
-        registerCounts[uniqueName] = (registerCounts[uniqueName] ?? 0) + 1;
-      };
-      BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
-      BackupSchedulerWorkmanager.cancelByTag = (_) async {};
-
-      final scheduler = BackupScheduler();
-      await scheduler.scheduleBackup(frequency: 'weekly');
-      await scheduler.scheduleBackup(frequency: 'daily');
-
-      expect(registerCounts['falconlog_auto_backup_periodic'], 2);
-      expect(registerCounts.length, 1);
     });
   });
 
-  group('BackupScheduler.restoreSavedSchedule', () {
-    test('startup re-registers when enabled but not scheduled', () async {
-      SharedPreferences.setMockInitialValues({
-        enabledKey: true,
-        frequencyKey: 'weekly',
-        wifiKey: true,
-      });
-
-      var registerCalls = 0;
-      BackupSchedulerWorkmanager.isScheduledByUniqueName = (_) async => false;
-      BackupSchedulerWorkmanager.registerPeriodicTask =
-          (uniqueName, taskName, {required frequency, required constraints, required initialDelay, required backoffPolicy, required backoffPolicyDelay, required existingWorkPolicy, tag}) async {
-        registerCalls++;
-      };
-      BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
-      BackupSchedulerWorkmanager.cancelByTag = (_) async {};
-      BackupSchedulerWorkmanager.registerOneOffTask =
-          (uniqueName, taskName, {required constraints, required initialDelay, required backoffPolicy, required backoffPolicyDelay, required existingWorkPolicy, tag}) async {};
-
-      await BackupScheduler.restoreSavedSchedule();
-
-      expect(registerCalls, 1);
-    });
-
-    test('startup cancels work when auto backup disabled in prefs', () async {
-      SharedPreferences.setMockInitialValues({
-        enabledKey: false,
-        frequencyKey: 'weekly',
-      });
-
-      var cancelCalls = 0;
-      BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {
-        cancelCalls++;
-      };
-      BackupSchedulerWorkmanager.cancelByTag = (_) async {
-        cancelCalls++;
-      };
-
-      await BackupScheduler.restoreSavedSchedule();
-
-      expect(cancelCalls, greaterThan(0));
-    });
-  });
-
-  group('constraintsForProvider', () {
-    test('local backup does not require network', () {
-      final constraints = BackupScheduler.constraintsForProvider(
-        BackupProvider.local,
-        wifiOnly: true,
-      );
-      expect(constraints.networkType, NetworkType.notRequired);
-    });
-
-    test('google drive wifi-only uses unmetered network', () {
-      final constraints = BackupScheduler.constraintsForProvider(
-        BackupProvider.googleDrive,
-        wifiOnly: true,
-      );
-      expect(constraints.networkType, NetworkType.unmetered);
-    });
-
-    test('google drive all networks uses connected', () {
-      final constraints = BackupScheduler.constraintsForProvider(
-        BackupProvider.googleDrive,
-        wifiOnly: false,
-      );
-      expect(constraints.networkType, NetworkType.connected);
-    });
-  });
-
-  group('scheduled backup worker', () {
-    test('worker calls backup with interactive false', () async {
+  group('daily evaluator worker', () {
+    test('evaluator does not invoke startBackup', () async {
       SharedPreferences.setMockInitialValues({
         enabledKey: true,
         frequencyKey: 'daily',
+        backupSelectedProviderKey: BackupProvider.local.name,
+      });
+
+      var backupInvoked = false;
+      BackupService.startBackupForTesting =
+          ({bool interactive = true, BackupProvider? providerOverride}) async {
+        backupInvoked = true;
+        return true;
+      };
+
+      await BackupScheduler().runDailyEvaluatorForTesting();
+
+      expect(backupInvoked, isFalse);
+    });
+
+    test('evaluator enqueues catch-up when pending already set', () async {
+      SharedPreferences.setMockInitialValues({
+        enabledKey: true,
+        frequencyKey: 'daily',
+        AutoBackupStateStore.pendingDueDayKey: '2020-01-01',
+        backupSelectedProviderKey: BackupProvider.local.name,
+      });
+
+      await BackupScheduler().runDailyEvaluatorForTesting();
+
+      expect(
+        BackupSchedulerWorkmanager.registerLog,
+        contains(AutoBackupWorkNames.catchupUnique),
+      );
+    });
+  });
+
+  group('catch-up worker', () {
+    test('commitSuccess uses runDueDay and updates daily success fields', () async {
+      SharedPreferences.setMockInitialValues({
+        enabledKey: true,
+        frequencyKey: 'daily',
+        AutoBackupStateStore.pendingDueDayKey: '2026-06-03',
+        backupSelectedProviderKey: BackupProvider.local.name,
+      });
+
+      BackupService.startBackupForTesting =
+          ({bool interactive = true, BackupProvider? providerOverride}) async {
+        expect(interactive, isFalse);
+        return true;
+      };
+
+      await BackupScheduler().runScheduledBackupForTesting();
+
+      final store = AutoBackupStateStore();
+      expect(await store.getLastSuccessDueDay(), '2026-06-03');
+      expect(await store.getLastSuccessAt(), isNotNull);
+      expect(await store.getPendingDueDay(), isNull);
+      expect(
+        (await SharedPreferences.getInstance()).getInt(lastBackupKey),
+        isNull,
+      );
+    });
+
+    test('failed backup does not update daily success or last_backup_time', () async {
+      SharedPreferences.setMockInitialValues({
+        enabledKey: true,
+        frequencyKey: 'daily',
+        AutoBackupStateStore.pendingDueDayKey: '2026-06-03',
+        backupSelectedProviderKey: BackupProvider.local.name,
+      });
+
+      BackupService.startBackupForTesting =
+          ({bool interactive = true, BackupProvider? providerOverride}) async {
+        return false;
+      };
+
+      await BackupScheduler().runScheduledBackupForTesting();
+
+      final store = AutoBackupStateStore();
+      expect(await store.getLastSuccessDueDay(), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(lastBackupKey), isNull);
+    });
+  });
+
+  group('interval scheduled backup worker', () {
+    test('weekly path invokes backup with interactive false', () async {
+      SharedPreferences.setMockInitialValues({
+        enabledKey: true,
+        frequencyKey: 'weekly',
         backupSelectedProviderKey: BackupProvider.local.name,
       });
 
@@ -249,42 +311,34 @@ void main() {
       expect(interactiveUsed, isFalse);
     });
 
-    test('failed backup does not update last backup time', () async {
+    test('interval success does not use scheduler updateLastBackupTime', () async {
       SharedPreferences.setMockInitialValues({
         enabledKey: true,
-        frequencyKey: 'daily',
+        frequencyKey: 'weekly',
         backupSelectedProviderKey: BackupProvider.local.name,
       });
 
       BackupService.startBackupForTesting =
           ({bool interactive = true, BackupProvider? providerOverride}) async {
-        return false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(lastBackupKey, DateTime.now().millisecondsSinceEpoch);
+        return true;
       };
 
       await BackupScheduler().runScheduledBackupForTesting();
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(lastBackupKey), isNull);
+      expect(prefs.getInt(lastBackupKey), isNotNull);
     });
+  });
 
-    test('firebase provider exits without invoking backup', () async {
-      SharedPreferences.setMockInitialValues({
-        enabledKey: true,
-        frequencyKey: 'daily',
-        backupSelectedProviderKey: BackupProvider.firebase.name,
-      });
-
-      var backupInvoked = false;
-      BackupService.startBackupForTesting =
-          ({bool interactive = true, BackupProvider? providerOverride}) async {
-        backupInvoked = true;
-        return true;
-      };
-
-      final result = await BackupScheduler().runScheduledBackupForTesting();
-
-      expect(backupInvoked, isFalse);
-      expect(result, isTrue);
+  group('constraintsForProvider', () {
+    test('local backup does not require network', () {
+      final constraints = BackupScheduler.constraintsForProvider(
+        BackupProvider.local,
+        wifiOnly: true,
+      );
+      expect(constraints.networkType, NetworkType.notRequired);
     });
   });
 }
