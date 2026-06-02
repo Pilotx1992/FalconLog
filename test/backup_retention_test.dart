@@ -10,6 +10,7 @@ import 'package:falconlog/backup/models/backup_metadata.dart';
 import 'package:falconlog/backup/models/backup_provider_enum.dart'
     hide BackupStatus;
 import 'package:falconlog/backup/services/backup_service.dart';
+import 'package:falconlog/backup/utils/backup_account_identity_guard.dart';
 import 'package:falconlog/backup/utils/backup_filename.dart';
 import 'package:falconlog/backup/utils/backup_provider_preferences.dart';
 import 'package:falconlog/backup/utils/drive_backup_discovery.dart';
@@ -296,6 +297,46 @@ void main() {
       expect(toDelete, isEmpty);
     });
 
+    test('legacy BackupHealth byte 2 remains restore-ineligible', () async {
+      final legacyByte2Health = _backupHealthFromHiveByte(2);
+      expect(legacyByte2Health, BackupHealth.failed);
+
+      final files = [
+        driveBackupFile('legacy-byte-2-newer', DateTime(2026, 5, 22)),
+        driveBackupFile('verified-older', DateTime(2026, 5, 20)),
+      ];
+
+      final result = await service.resolveLatestRestorableDriveBackupForTesting(
+        backupFiles: files,
+        storedByDriveId: {
+          'legacy-byte-2-newer': cloudMetadata(
+            id: 'metadata-legacy-byte-2',
+            driveFileId: 'legacy-byte-2-newer',
+            createdAt: DateTime(2026, 5, 22),
+            health: legacyByte2Health,
+          ),
+          'verified-older': cloudMetadata(
+            id: 'metadata-verified',
+            driveFileId: 'verified-older',
+            createdAt: DateTime(2026, 5, 20),
+          ),
+        },
+        identitySnapshot: const BackupAccountIdentitySnapshot(
+          firebaseEmail: 'pilot@example.com',
+          firebaseProviderIds: ['google.com'],
+          googleDriveEmail: 'pilot@example.com',
+          keyOwnerEmail: 'pilot@example.com',
+        ),
+        downloadFile: (_) async {
+          fail('Stored metadata path should not need Drive download.');
+        },
+      );
+
+      expect(result, isNotNull);
+      expect(result!.driveFileId, 'verified-older');
+      expect(result.health, BackupHealth.verified);
+    });
+
     test(
         'verified Drive appProperties can prove success without local metadata',
         () {
@@ -360,4 +401,33 @@ void main() {
       expect(latest?.id, 'valid-backup');
     });
   });
+}
+
+BackupHealth _backupHealthFromHiveByte(int byte) {
+  return BackupHealthAdapter().read(_SingleByteReader(byte));
+}
+
+class _SingleByteReader implements BinaryReader {
+  _SingleByteReader(this._byte);
+
+  final int _byte;
+  var _used = false;
+
+  @override
+  int get availableBytes => _used ? 0 : 1;
+
+  @override
+  int get usedBytes => _used ? 1 : 0;
+
+  @override
+  int readByte() {
+    if (_used) {
+      throw RangeError('No unread bytes remain.');
+    }
+    _used = true;
+    return _byte;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -1967,6 +1967,18 @@ class BackupService extends ChangeNotifier {
     return DriveBackupDiscovery.hasVerifiedBackupAppProperties(file);
   }
 
+  static bool _isRestoreEligibleMetadata(BackupMetadata metadata) {
+    switch (metadata.health) {
+      case BackupHealth.failed:
+      case BackupHealth.cancelled:
+      case BackupHealth.corrupted:
+        return false;
+      case BackupHealth.verified:
+      case BackupHealth.unverified:
+        return true;
+    }
+  }
+
   Future<void> _deleteBackupMetadataByDriveFileId(String driveFileId) async {
     try {
       final box = await HiveInitializationService.openBox<BackupMetadata>(
@@ -2023,8 +2035,7 @@ class BackupService extends ChangeNotifier {
       BackupMetadata? latest;
       for (final entry in box.values) {
         if (entry.location != BackupLocation.local) continue;
-        if (entry.health == BackupHealth.failed ||
-            entry.health == BackupHealth.cancelled) {
+        if (!_isRestoreEligibleMetadata(entry)) {
           continue;
         }
 
@@ -2101,6 +2112,9 @@ class BackupService extends ChangeNotifier {
 
         final stored = storedByDriveId[file.id!];
         if (stored != null) {
+          if (!_isRestoreEligibleMetadata(stored)) {
+            continue;
+          }
           results.add(
             DriveBackupDiscovery.metadataFromDriveFile(file, stored: stored),
           );
@@ -2349,6 +2363,9 @@ class BackupService extends ChangeNotifier {
       }
       final stored = storedByDriveId[file.id!];
       if (stored == null) {
+        continue;
+      }
+      if (!_isRestoreEligibleMetadata(stored)) {
         continue;
       }
 
