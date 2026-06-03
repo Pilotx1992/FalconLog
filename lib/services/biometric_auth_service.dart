@@ -52,24 +52,24 @@ class BiometricAuthService {
 
   // Authenticate using biometrics
   static Future<bool> authenticate({
-    String reason = 'Please authenticate to access FalconLog',
+    String reason = 'Authenticate to access FalconLog',
     bool useErrorDialogs = true,
     bool stickyAuth = true,
   }) async {
     try {
       // Check if device supports biometrics
       if (!await isDeviceSupported()) {
-        throw BiometricException('Device does not support biometric authentication');
+        throw BiometricException('Device not supported');
       }
 
       // Check if biometrics are available
       if (!await canCheckBiometrics()) {
-        throw BiometricException('Biometric authentication is not available');
+        throw BiometricException('Biometrics not available');
       }
 
       // Check if user has enrolled biometrics
       if (!await hasEnrolledBiometrics()) {
-        throw BiometricException('No biometrics enrolled on this device');
+        throw BiometricException('No biometrics enrolled');
       }
 
       // Perform authentication
@@ -79,10 +79,10 @@ class BiometricAuthService {
           AndroidAuthMessages(
             signInTitle: 'FalconLog Authentication',
             cancelButton: 'Cancel',
-            deviceCredentialsRequiredTitle: 'Device credentials required',
-            deviceCredentialsSetupDescription: 'Please set up device credentials',
-            goToSettingsButton: 'Go to Settings',
-            goToSettingsDescription: 'Please set up biometric authentication in settings',
+            deviceCredentialsRequiredTitle: 'Credentials required',
+            deviceCredentialsSetupDescription: 'Set up device credentials',
+            goToSettingsButton: 'Settings',
+            goToSettingsDescription: 'Set up biometrics in settings',
           ),
         ],
         options: AuthenticationOptions(
@@ -98,7 +98,7 @@ class BiometricAuthService {
       throw BiometricException(_getErrorMessage(e.code));
     } catch (e) {
       debugPrint('Unexpected biometric error: $e');
-      throw BiometricException('Biometric authentication failed: $e');
+      throw BiometricException('Auth failed');
     }
   }
 
@@ -106,25 +106,25 @@ class BiometricAuthService {
   static String _getErrorMessage(String errorCode) {
     switch (errorCode) {
       case 'NotAvailable':
-        return 'Biometric authentication is not available on this device';
+        return 'Not available';
       case 'NotEnrolled':
-        return 'No biometrics are enrolled on this device';
+        return 'Not enrolled';
       case 'LockedOut':
-        return 'Biometric authentication is locked out. Please try again later';
+        return 'Locked out';
       case 'PermanentlyLockedOut':
-        return 'Biometric authentication is permanently locked out';
+        return 'Permanently locked';
       case 'UserCancel':
-        return 'Authentication was cancelled by user';
+        return 'Cancelled';
       case 'UserFallback':
-        return 'User chose to use fallback authentication';
+        return 'Fallback used';
       case 'SystemCancel':
-        return 'Authentication was cancelled by system';
+        return 'System cancelled';
       case 'InvalidContext':
-        return 'Authentication context is invalid';
+        return 'Invalid context';
       case 'NotSupported':
-        return 'Biometric authentication is not supported';
+        return 'Not supported';
       default:
-        return 'Biometric authentication failed';
+        return 'Failed';
     }
   }
 
@@ -144,14 +144,14 @@ class BiometricAuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_biometricEnabledKey, enabled);
-      
+
       if (enabled) {
         // Mark setup as complete when enabling
         await prefs.setBool(_biometricSetupKey, true);
       }
     } catch (e) {
       debugPrint('Error setting biometric enabled status: $e');
-      throw BiometricException('Failed to save biometric settings');
+      throw BiometricException('Failed to save settings');
     }
   }
 
@@ -169,7 +169,7 @@ class BiometricAuthService {
   // Get biometric type names for display
   static String getBiometricTypeName(List<BiometricType> types) {
     if (types.isEmpty) return 'Biometric';
-    
+
     if (types.contains(BiometricType.face)) {
       return 'Face ID';
     } else if (types.contains(BiometricType.fingerprint)) {
@@ -181,7 +181,7 @@ class BiometricAuthService {
     } else if (types.contains(BiometricType.weak)) {
       return 'Biometric';
     }
-    
+
     return 'Biometric';
   }
 
@@ -203,7 +203,7 @@ class BiometricAuthService {
 
       // Test authentication
       final authenticated = await authenticate(
-        reason: 'Enable biometric authentication for FalconLog',
+        reason: 'Enable biometric auth',
       );
 
       if (authenticated) {
@@ -224,17 +224,35 @@ class BiometricAuthService {
       await setBiometricEnabled(false);
     } catch (e) {
       debugPrint('Error disabling biometric auth: $e');
-      throw BiometricException('Failed to disable biometric authentication');
+      throw BiometricException('Failed to disable auth');
     }
+  }
+
+  // Instance methods for compatibility with backup service
+  Future<bool> isBiometricAvailable() async {
+    return await canCheckBiometrics() && await hasEnrolledBiometrics();
+  }
+
+  Future<String> getBiometricAvailability() async {
+    if (!await isDeviceSupported()) {
+      return 'Device not supported';
+    }
+    if (!await canCheckBiometrics()) {
+      return 'Biometrics not available';
+    }
+    if (!await hasEnrolledBiometrics()) {
+      return 'No biometrics enrolled';
+    }
+    return 'Available';
   }
 }
 
 // Custom exception for biometric errors
 class BiometricException implements Exception {
   final String message;
-  
+
   const BiometricException(this.message);
-  
+
   @override
   String toString() => 'BiometricException: $message';
 }
@@ -254,19 +272,17 @@ extension BiometricSetupResultMessages on BiometricSetupResult {
   String get message {
     switch (this) {
       case BiometricSetupResult.success:
-        return 'Biometric authentication enabled successfully!';
+        return 'Enabled Successfully';
       case BiometricSetupResult.deviceNotSupported:
-        return 'Your device does not support biometric authentication';
+        return 'Not supported';
       case BiometricSetupResult.biometricsNotAvailable:
-        return 'Biometric authentication is not available on this device';
+        return 'Unavailable';
       case BiometricSetupResult.noBiometricsEnrolled:
-        return 'Please enroll fingerprint or face ID in device settings first';
+        return 'None enrolled';
       case BiometricSetupResult.authenticationFailed:
-        return 'Biometric authentication failed. Please try again';
+        return 'Failed';
       case BiometricSetupResult.error:
-        return 'An error occurred while setting up biometric authentication';
+        return 'Error';
     }
   }
-
-  bool get isSuccess => this == BiometricSetupResult.success;
 }

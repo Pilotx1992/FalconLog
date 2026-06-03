@@ -37,7 +37,8 @@ class FlightFilter {
 
   FlightFilter({this.date, this.aircraftType, this.flightType});
 
-  bool get isApplied => date != null || aircraftType != null || flightType != null;
+  bool get isApplied =>
+      date != null || aircraftType != null || flightType != null;
 
   FlightFilter copyWith({
     DateTime? date,
@@ -55,7 +56,8 @@ class FlightFilter {
   }
 }
 
-final flightFilterProvider = StateProvider<FlightFilter>((ref) => FlightFilter());
+final flightFilterProvider =
+    StateProvider<FlightFilter>((ref) => FlightFilter());
 
 class AllFlightsScreen extends ConsumerStatefulWidget {
   const AllFlightsScreen({super.key});
@@ -65,6 +67,10 @@ class AllFlightsScreen extends ConsumerStatefulWidget {
 }
 
 class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
+  List<FlightLog>? _cachedFilteredLogs;
+  FlightFilter? _lastFilter;
+  int? _lastLogsCount;
+
   @override
   Widget build(BuildContext context) {
     final logsAsyncValue = ref.watch(flightLogsProvider);
@@ -123,7 +129,17 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
   }
 
   List<FlightLog> _applyFilter(List<FlightLog> logs, FlightFilter filter) {
-    return logs.where((log) {
+    // Use cached results if filter hasn't changed AND logs count is same
+    if (_lastFilter != null &&
+        _lastFilter!.date == filter.date &&
+        _lastFilter!.aircraftType == filter.aircraftType &&
+        _lastFilter!.flightType == filter.flightType &&
+        _lastLogsCount == logs.length &&
+        _cachedFilteredLogs != null) {
+      return _cachedFilteredLogs!;
+    }
+
+    final filtered = logs.where((log) {
       if (filter.date != null) {
         if (log.date.year != filter.date!.year ||
             log.date.month != filter.date!.month ||
@@ -141,6 +157,13 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
       }
       return true;
     }).toList();
+
+    // Cache the results
+    _cachedFilteredLogs = filtered;
+    _lastFilter = filter;
+    _lastLogsCount = logs.length;
+
+    return filtered;
   }
 
   Future<void> _showFilterDialog(BuildContext context, WidgetRef ref) async {
@@ -225,7 +248,7 @@ class _AllFlightsScreenState extends ConsumerState<AllFlightsScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF3949ab).withOpacity(0.3),
+                  color: const Color(0xFF3949ab).withValues(alpha: 0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -277,7 +300,8 @@ class _FlightCardWithExpansion extends StatefulWidget {
   const _FlightCardWithExpansion({required this.log, required this.ref});
 
   @override
-  State<_FlightCardWithExpansion> createState() => _FlightCardWithExpansionState();
+  State<_FlightCardWithExpansion> createState() =>
+      _FlightCardWithExpansionState();
 }
 
 class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
@@ -292,7 +316,7 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -318,7 +342,7 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3949ab).withOpacity(0.1),
+                      color: const Color(0xFF3949ab).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -361,7 +385,8 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _showDeleteDialog(context, widget.ref, widget.log),
+                          onPressed: () => _showDeleteDialog(
+                              context, widget.ref, widget.log),
                         ),
                       ],
                     ),
@@ -375,7 +400,8 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                 children: [
                   _buildInfoChip(
                     icon: Icons.schedule,
-                    label: '${widget.log.durationHours}:${widget.log.durationMinutes.toString().padLeft(2, '0')}',
+                    label:
+                        '${widget.log.durationHours}:${widget.log.durationMinutes.toString().padLeft(2, '0')}',
                     color: Colors.green,
                   ),
                   const Spacer(),
@@ -388,9 +414,10 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3949ab).withOpacity(0.1),
+                          color: const Color(0xFF3949ab).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -406,7 +433,9 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                             ),
                             const SizedBox(width: 6),
                             Icon(
-                              _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              _isExpanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
                               color: const Color(0xFF3949ab),
                               size: 16,
                             ),
@@ -432,9 +461,13 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                       color: Colors.blue,
                     ),
                     _buildInfoChip(
-                      icon: widget.log.isSimulated ? Icons.computer : Icons.flight,
+                      icon: widget.log.isSimulated
+                          ? Icons.computer
+                          : Icons.flight,
                       label: widget.log.isSimulated ? 'Sim' : 'Real',
-                      color: widget.log.isSimulated ? Colors.purple : Colors.orange,
+                      color: widget.log.isSimulated
+                          ? Colors.purple
+                          : Colors.orange,
                     ),
                   ],
                 ),
@@ -447,9 +480,10 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
                     runSpacing: 8,
                     children: widget.log.flightTypes.map<Widget>((type) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1a237e).withOpacity(0.1),
+                          color: const Color(0xFF1a237e).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -470,7 +504,7 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
         ), // Padding
       ), // GestureDetector
     ); // Container
-}
+  }
 
   Widget _buildInfoChip({
     required IconData icon,
@@ -480,7 +514,7 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -503,14 +537,16 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
 
   String _getRoleName(PilotRole role) {
     switch (role) {
-      case PilotRole.IP:
+      case PilotRole.ip:
         return 'IP';
-      case PilotRole.MTP:
+      case PilotRole.mtp:
         return 'MTP';
-      case PilotRole.PIC:
+      case PilotRole.pic:
         return 'PIC';
-      case PilotRole.CPG_GUNNER:
-        return 'CPG GUNNER';
+      case PilotRole.cpgGunner:
+        return 'CPG';
+      case PilotRole.wzo:
+        return 'WZO';
     }
   }
 
@@ -523,7 +559,8 @@ class _FlightCardWithExpansionState extends State<_FlightCardWithExpansion> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Flight'),
-          content: Text('Delete flight from ${DateFormat('MMM dd, yyyy').format(log.date)}?'),
+          content: Text(
+              'Delete flight from ${DateFormat('MMM dd, yyyy').format(log.date)}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -642,7 +679,8 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
                   child: Text(
                     _currentFilter.date == null
                         ? 'Any Date'
-                        : DateFormat('MMM dd, yyyy').format(_currentFilter.date!),
+                        : DateFormat('MMM dd, yyyy')
+                            .format(_currentFilter.date!),
                   ),
                 ),
                 if (_currentFilter.date != null)
@@ -664,10 +702,11 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Aircraft Type', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Aircraft Type',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _currentFilter.aircraftType,
+          initialValue: _currentFilter.aircraftType,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12),
@@ -685,7 +724,8 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
           ],
           onChanged: (value) {
             setState(() {
-              _currentFilter = _currentFilter.copyWith(aircraftType: value, clearAircraft: value == null);
+              _currentFilter = _currentFilter.copyWith(
+                  aircraftType: value, clearAircraft: value == null);
             });
           },
         ),
@@ -697,10 +737,11 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Flight Type', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Flight Type',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<FlightType>(
-          value: _currentFilter.flightType,
+          initialValue: _currentFilter.flightType,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
             contentPadding: EdgeInsets.symmetric(horizontal: 12),
@@ -713,12 +754,14 @@ class _FilterDialogState extends ConsumerState<FilterDialog> {
               child: Text('Any Type'),
             ),
             ...FlightType.values.map((type) {
-              return DropdownMenuItem(value: type, child: Text(_getTypeName(type)));
+              return DropdownMenuItem(
+                  value: type, child: Text(_getTypeName(type)));
             }),
           ],
           onChanged: (value) {
             setState(() {
-              _currentFilter = _currentFilter.copyWith(flightType: value, clearFlightType: value == null);
+              _currentFilter = _currentFilter.copyWith(
+                  flightType: value, clearFlightType: value == null);
             });
           },
         ),

@@ -1,7 +1,21 @@
 {
-  /* Visit https://firebase.google.com/docs/database/security to learn more about security rules. */
   "rules": {
-    ".read": false,
-    ".write": false
+    "backups": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "flight_data": {
+          "$backupId": {
+            ".validate": "newData.exists() && newData.data.keys().hasAll(['logs', 'timestamp', 'logs_count', 'schema', 'created_at']) && newData.child('logs_count').isNumber() && newData.child('logs').isList()"
+          }
+        }
+      }
+    },
+    "users": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
   }
 }

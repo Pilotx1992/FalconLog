@@ -1,140 +1,156 @@
+import '../auth/auth_error_mapper.dart';
 import '../services/navigation_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+enum NotificationType {
+  success,
+  error,
+  info,
+  warning,
+}
 
 class NotificationService {
   // Show success message
   static void showSuccess(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
-  
+
   // Show error message
   static void showError(String message) {
     NavigationService.showSnackBar(message, isError: true);
   }
-  
+
+  // Show warning message
+  static void showWarning(String message) {
+    NavigationService.showSnackBar(message, isError: false);
+  }
+
   // Show info message
   static void showInfo(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
-  
+
   // Show authentication success
   static void showAuthSuccess(String action) {
-    showSuccess('$action successful! Welcome to FalconLog.');
+    showSuccess('$action successful!');
   }
-  
-  // Show authentication error
+
+  // Show authentication error ([error] is a Firebase code or user message).
   static void showAuthError(String action, String error) {
-    String message = 'Failed to $action: ';
-    
-    // Handle common Firebase Auth errors
-    if (error.contains('user-not-found')) {
-      message += 'No account found with this email address.';
-    } else if (error.contains('wrong-password')) {
-      message += 'Incorrect password. Please try again.';
-    } else if (error.contains('email-already-in-use')) {
-      message += 'An account already exists with this email address.';
-    } else if (error.contains('weak-password')) {
-      message += 'Password is too weak. Please choose a stronger password.';
-    } else if (error.contains('invalid-email')) {
-      message += 'Invalid email address format.';
-    } else if (error.contains('user-disabled')) {
-      message += 'This account has been disabled.';
-    } else if (error.contains('too-many-requests')) {
-      message += 'Too many failed attempts. Please try again later.';
-    } else if (error.contains('network-request-failed')) {
-      message += 'Network error. Please check your internet connection.';
-    } else if (error.contains('requires-recent-login')) {
-      message += 'Please sign in again to continue.';
-    } else {
-      message += error;
-    }
-    
-    showError(message);
+    final mapped = mapFirebaseAuthException(
+      FirebaseAuthException(code: error, message: null),
+    );
+    final detail =
+        mapped == 'Authentication failed. Please try again.' ? error : mapped;
+    showError('Failed to $action: $detail');
   }
-  
+
   // Show validation error
   static void showValidationError(String field) {
-    showError('Please enter a valid $field.');
+    showError('Enter valid $field.');
   }
-  
+
   // Show flight log notifications
   static void showFlightLogSaved() {
-    showSuccess('Flight log saved successfully!');
+    showSuccess('Flight saved!');
   }
-  
+
   static void showFlightLogUpdated() {
-    showSuccess('Flight log updated successfully!');
+    showSuccess('Flight updated!');
   }
-  
+
   static void showFlightLogDeleted() {
-    showSuccess('Flight log deleted successfully!');
+    showSuccess('Flight deleted!');
   }
-  
+
   // Show currency alerts
   static void showCurrencyAlert(String type, int daysRemaining) {
     if (daysRemaining <= 0) {
-      showError('Your $type currency has expired! Log a flight to renew.');
+      showError('$type currency expired! Log flight to renew.');
     } else if (daysRemaining <= 7) {
-      showInfo('Your $type currency expires in $daysRemaining days.');
+      showInfo('$type currency expires in $daysRemaining days.');
     }
   }
-  
+
   // Show email verification reminders
   static void showEmailVerificationReminder() {
-    showInfo('Please verify your email address to access all features.');
+    showInfo('Verify email to access all features.');
   }
-  
+
   static void showEmailVerificationSent() {
-    showSuccess('Verification email sent! Please check your inbox.');
+    showSuccess('Verification email sent!');
   }
-  
+
   // Show backup/sync notifications
   static void showBackupSuccess() {
-    showSuccess('Data backed up successfully!');
+    showSuccess('Data backed up!');
   }
-  
+
   static void showSyncSuccess() {
-    showSuccess('Data synchronized successfully!');
+    showSuccess('Data synced!');
   }
-  
+
   static void showBackupError() {
-    showError('Failed to backup data. Please try again.');
+    showError('Backup failed. Try again.');
   }
-  
+
   // Show settings changes
   static void showSettingsSaved() {
-    showSuccess('Settings saved successfully!');
+    showSuccess('Settings saved!');
   }
-  
+
   // Show import/export notifications
   static void showDataExported() {
-    showSuccess('Flight data exported successfully!');
+    showSuccess('Data exported!');
   }
-  
+
   static void showDataImported(int count) {
-    showSuccess('$count flight logs imported successfully!');
+    showSuccess('$count flights imported!');
   }
-  
+
   // Show permission requests
   static void showPermissionDenied(String permission) {
-    showError('$permission permission is required for this feature.');
+    showError('$permission permission required.');
   }
-  
+
   // Show maintenance notifications
   static void showMaintenanceMode() {
-    showInfo('App is under maintenance. Some features may be unavailable.');
+    showInfo('Under maintenance. Some features unavailable.');
   }
-  
+
   // Show update notifications
   static void showUpdateAvailable() {
-    showInfo('A new version of FalconLog is available!');
+    showInfo('Update available!');
   }
-  
+
   // Show connection status
   static void showConnectionLost() {
-    showError('Connection lost. Some features may be unavailable.');
+    showError('Connection lost.');
   }
-  
+
   static void showConnectionRestored() {
-    showSuccess('Connection restored!');
+    showSuccess('Connected!');
+  }
+
+  // Show backup notifications
+  static Future<void> showBackupNotification({
+    required String title,
+    required String body,
+    NotificationType type = NotificationType.success,
+  }) async {
+    switch (type) {
+      case NotificationType.success:
+        showSuccess('$title: $body');
+        break;
+      case NotificationType.error:
+        showError('$title: $body');
+        break;
+      case NotificationType.info:
+        showInfo('$title: $body');
+        break;
+      case NotificationType.warning:
+        showInfo('$title: $body');
+        break;
+    }
   }
 }

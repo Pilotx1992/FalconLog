@@ -48,24 +48,28 @@ const List<AppLanguage> availableLanguages = [
 // Language notifier
 class LanguageNotifier extends StateNotifier<AppLanguage> {
   static const String _languageKey = 'selected_language';
-  
+
   LanguageNotifier() : super(availableLanguages.first) {
     _loadLanguage();
   }
 
   Future<void> _loadLanguage() async {
+    await reloadFromPrefs();
+  }
+
+  Future<void> reloadFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final languageCode = prefs.getString(_languageKey) ?? 'en';
-      
+
       final language = availableLanguages.firstWhere(
         (lang) => lang.code == languageCode,
         orElse: () => availableLanguages.first,
       );
-      
+
+      if (language.code == state.code) return;
       state = language;
     } catch (e) {
-      // If loading fails, keep default language
       state = availableLanguages.first;
     }
   }

@@ -6,6 +6,10 @@
 -keep class com.google.android.gms.auth.** { *; }
 -keep class com.google.android.gms.common.** { *; }
 
+# Keep Google Play Core classes
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
+
 # Keep Hive classes (Flutter local database)
 -keep class hive.** { *; }
 

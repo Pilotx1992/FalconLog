@@ -95,6 +95,6 @@ final advancedStatsProvider = Provider<AdvancedStats>((ref) {
 });
 
 double _calculateTotalHours(List<FlightLog> logList) {
-  return logList.fold(
-      0.0, (sum, log) => sum + log.durationHours + (log.durationMinutes / 60.0));
+  return logList.fold(0.0,
+      (sum, log) => sum + log.durationHours + (log.durationMinutes / 60.0));
 }

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:google_sign_in/google_sign_in.dart'; // Temporarily disabled
+import 'package:google_sign_in/google_sign_in.dart' as g;
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../auth/auth_error_mapper.dart';
+import '../auth/auth_exception.dart';
+import '../auth/auth_signup_guard.dart';
+import '../auth/legacy_auth_credential_cleanup.dart';
 
 enum AuthMethod {
   email,
@@ -13,8 +18,16 @@ enum AuthMethod {
 
 class EnhancedAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  // final GoogleSignIn _googleSignIn = GoogleSignIn(); // Temporarily disabled
+  final g.GoogleSignIn _googleSignIn = g.GoogleSignIn(scopes: const ['email']);
   final LocalAuthentication _localAuth = LocalAuthentication();
+
+  static bool _legacyCleanupDone = false;
+
+  /// Resets one-time legacy cleanup flag (tests only).
+  @visibleForTesting
+  static void resetLegacyCleanupForTesting() {
+    _legacyCleanupDone = false;
+  }
 
   // Current user stream
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
@@ -25,23 +38,30 @@ class EnhancedAuthService {
   // Check if user is signed in
   bool get isSignedIn => currentUser != null;
 
+  /// Purges legacy plaintext credential keys once per process.
+  Future<void> ensureInitialized() async {
+    if (_legacyCleanupDone) {
+      return;
+    }
+    _legacyCleanupDone = true;
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
+  }
+
   // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
+    await ensureInitialized();
     try {
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Save credentials for biometric login (encrypted)
-      await _saveBiometricCredentials(email, password);
-      
+
       return credential;
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -50,41 +70,38 @@ class EnhancedAuthService {
     required String email,
     required String password,
   }) async {
+    await ensureInitialized();
     try {
       final credential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      // Save credentials for biometric login
-      await _saveBiometricCredentials(email, password);
-      
+
       return credential;
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
-  // Sign in with Google
+  // Sign in with Google (v6 compatible implementation)
   Future<UserCredential?> signInWithGoogle() async {
+    await ensureInitialized();
     try {
-      // TODO: Google Sign-In implementation temporarily disabled due to API compatibility issues
-      throw Exception('Google Sign-In is currently under maintenance. Please use email/password login.');
-      
-      /* Original implementation commented out
-      // Check if Google Play Services are available first
-      final isAvailable = await _googleSignIn.isSignedIn();
-      debugPrint('Google Sign-In availability check: $isAvailable');
-      
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+      // Trigger the Google Sign-In flow
+      final g.GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
       if (googleUser == null) {
-        throw Exception('Google sign-in was cancelled by user');
+        throw Exception('Sign in cancelled');
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final g.GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Verify we have the required tokens
+      if (googleAuth.idToken == null) {
+        throw Exception('Failed to obtain Google ID token');
+      }
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -93,31 +110,58 @@ class EnhancedAuthService {
       );
 
       // Sign in to Firebase with the Google credential
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      
-      // Save Google sign-in preference
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+
+      // Persist Google sign-in preference
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('prefer_google_signin', true);
       await prefs.setString('google_email', googleUser.email);
-      
+
       debugPrint('Google sign-in successful for: ${googleUser.email}');
       return userCredential;
-      */
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'account-exists-with-different-credential') {
+        throw const AuthException(
+          kGoogleSignInPasswordAccountExistsMessage,
+          code: 'account-exists-with-different-credential',
+        );
+      }
+      throw AuthException(mapFirebaseAuthException(e), code: e.code);
     } on PlatformException catch (e) {
-      if (e.code == 'sign_in_canceled') {
-        throw Exception('Google sign-in was cancelled');
-      } else if (e.code == 'network_error') {
-        throw Exception('Network error occurred during Google sign-in');
-      } else {
-        throw Exception('Google sign-in failed: ${e.message}');
+      debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}');
+      switch (e.code) {
+        case 'sign_in_canceled':
+          throw Exception('Sign in cancelled');
+        case 'sign_in_failed':
+          throw Exception('Google sign-in failed. Please try again.');
+        case 'network_error':
+          throw Exception(
+              'Network error. Please check your internet connection.');
+        case 'sign_in_required':
+          throw Exception('Google sign-in is required for this action');
+        default:
+          throw Exception('Google sign-in error: ${e.message ?? e.code}');
       }
     } catch (e) {
-      if (e.toString().contains('Google Play Services')) {
-        throw Exception('Google Play Services not available. This feature requires Google Play Services and works on real devices only.');
-      } else if (e.toString().contains('SERVICE_INVALID')) {
-        throw Exception('Google Play Services not available on this device');
+      debugPrint('Google Sign-In general error: $e');
+
+      // Handle common issues
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('play services')) {
+        throw Exception(
+            'Google Play Services is not available. Please ensure it\'s installed and updated.');
+      } else if (errorString.contains('network')) {
+        throw Exception(
+            'Network error. Please check your internet connection.');
+      } else if (errorString.contains('developer_error')) {
+        throw Exception(
+            'Google Sign-In configuration error. Please check app setup.');
+      } else if (errorString.contains('internal_error')) {
+        throw Exception('Internal error occurred. Please try again later.');
+      } else {
+        throw Exception('Google sign-in failed: ${e.toString()}');
       }
-      throw Exception('Google sign-in failed: ${e.toString()}');
     }
   }
 
@@ -126,8 +170,9 @@ class EnhancedAuthService {
     try {
       final bool isAvailable = await _localAuth.canCheckBiometrics;
       final bool isDeviceSupported = await _localAuth.isDeviceSupported();
-      final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
-      
+      final List<BiometricType> availableBiometrics =
+          await _localAuth.getAvailableBiometrics();
+
       return isAvailable && isDeviceSupported && availableBiometrics.isNotEmpty;
     } catch (e) {
       debugPrint('Error checking biometric availability: $e');
@@ -145,19 +190,19 @@ class EnhancedAuthService {
     }
   }
 
-  // Sign in with biometric authentication
+  /// Biometric gate for an existing Firebase session only (no stored password).
+  ///
+  /// Returns a [UserCredential] only when a fresh sign-in occurred (never for
+  /// session-only unlock). When [isSignedIn] is already true after success,
+  /// returns `null` and callers should navigate using [isSignedIn].
   Future<UserCredential?> signInWithBiometric() async {
-    try {
-      // Check if biometric credentials are saved
-      final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('biometric_email');
-      final savedPassword = prefs.getString('biometric_password');
-      
-      if (savedEmail == null || savedPassword == null) {
-        throw Exception('No biometric credentials saved. Please sign in with email first.');
-      }
+    await ensureInitialized();
 
-      // Authenticate with biometric
+    if (!await isBiometricEnabled()) {
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
+    }
+
+    try {
       final bool didAuthenticate = await _localAuth.authenticate(
         localizedReason: 'Please authenticate to access FalconLog',
         options: const AuthenticationOptions(
@@ -167,34 +212,39 @@ class EnhancedAuthService {
       );
 
       if (!didAuthenticate) {
-        throw Exception('Biometric authentication failed');
+        throw const AuthException('Biometric authentication was cancelled.');
       }
 
-      // If biometric auth successful, sign in with saved credentials
-      return await signInWithEmailAndPassword(
-        email: savedEmail,
-        password: savedPassword, // In production, this should be encrypted
-      );
+      if (_firebaseAuth.currentUser != null) {
+        return null;
+      }
+
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
+    } on AuthException {
+      rethrow;
     } catch (e) {
-      throw Exception('Biometric sign-in failed: ${e.toString()}');
+      debugPrint('Biometric sign-in error: $e');
+      throw const AuthException(kBiometricLoginRequiresSignInMessage);
     }
   }
 
-  // Check if biometric credentials are saved
+  /// Whether biometric login is enabled (does not imply stored credentials).
   Future<bool> hasBiometricCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('biometric_email') && prefs.containsKey('biometric_password');
+    await ensureInitialized();
+    return isBiometricEnabled();
   }
 
   // Enable biometric authentication for current user
   Future<void> enableBiometricAuth() async {
+    await ensureInitialized();
     if (currentUser == null) {
       throw Exception('No user signed in');
     }
 
     final bool isAvailable = await isBiometricAvailable();
     if (!isAvailable) {
-      throw Exception('Biometric authentication is not available on this device');
+      throw Exception(
+          'Biometric authentication is not available on this device');
     }
 
     // Test biometric authentication
@@ -210,17 +260,17 @@ class EnhancedAuthService {
       throw Exception('Biometric authentication setup failed');
     }
 
-    // Save biometric preference
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_enabled', true);
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
   }
 
   // Disable biometric authentication
   Future<void> disableBiometricAuth() async {
+    await ensureInitialized();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('biometric_enabled', false);
-    await prefs.remove('biometric_email');
-    await prefs.remove('biometric_password');
+    await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
   }
 
   // Check if biometric auth is enabled
@@ -229,36 +279,41 @@ class EnhancedAuthService {
     return prefs.getBool('biometric_enabled') ?? false;
   }
 
-  // Save credentials for biometric login (Note: In production, use proper encryption)
-  Future<void> _saveBiometricCredentials(String email, String password) async {
-    final prefs = await SharedPreferences.getInstance();
-    final biometricEnabled = await isBiometricEnabled();
-    
-    if (biometricEnabled || await isBiometricAvailable()) {
-      // In production, encrypt these values properly
-      await prefs.setString('biometric_email', email);
-      await prefs.setString('biometric_password', password);
-    }
-  }
-
   // Sign out
   Future<void> signOut() async {
     try {
-      // Sign out from Google if signed in (temporarily disabled)
-      /*
-      if (await _googleSignIn.isSignedIn()) {
+      await ensureInitialized();
+      debugPrint('Starting comprehensive sign-out process...');
+
+      // Sign out from Google if signed in
+      try {
         await _googleSignIn.signOut();
+        debugPrint('Google sign-out completed');
+      } catch (e) {
+        debugPrint('Google sign-out warning (non-fatal): $e');
+        // Continue with Firebase sign out even if Google sign out fails
       }
-      */
-      
+
       // Sign out from Firebase
       await _firebaseAuth.signOut();
-      
-      // Clear saved preferences
+      debugPrint('Firebase sign-out completed');
+
+      // Clear ALL saved preferences related to auth
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('prefer_google_signin');
       await prefs.remove('google_email');
+      await prefs.remove('user_email');
+      await prefs.remove('auth_method');
+      await prefs.remove('biometric_enabled');
+      await prefs.remove('remember_me');
+      await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
+      debugPrint('Auth preferences cleared');
+
+      // Force Firebase auth state to refresh
+      await Future.delayed(const Duration(milliseconds: 100));
+      debugPrint('Sign-out process completed successfully');
     } catch (e) {
+      debugPrint('Sign out error: $e');
       throw Exception('Sign out failed: ${e.toString()}');
     }
   }
@@ -268,7 +323,7 @@ class EnhancedAuthService {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
@@ -279,57 +334,29 @@ class EnhancedAuthService {
       if (user != null) {
         // Clear biometric credentials
         await disableBiometricAuth();
-        
+
         // Delete user account
         await user.delete();
       }
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthError(e);
+      throw toAuthException(e);
     }
   }
 
   // Get preferred sign-in method
   Future<AuthMethod?> getPreferredSignInMethod() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    if (await isBiometricEnabled() && await hasBiometricCredentials()) {
+    await ensureInitialized();
+
+    if (await isBiometricEnabled() && isSignedIn) {
       return AuthMethod.biometric;
     }
-    
+
+    final prefs = await SharedPreferences.getInstance();
+
     if (prefs.getBool('prefer_google_signin') ?? false) {
       return AuthMethod.google;
     }
-    
-    return AuthMethod.email;
-  }
 
-  // Handle Firebase Auth errors
-  String _handleFirebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return 'No user found with this email address. Please check your email or sign up for a new account.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again or reset your password.';
-      case 'invalid-credential':
-        return 'Invalid email or password. Please check your credentials and try again.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email address. Please sign in instead.';
-      case 'weak-password':
-        return 'The password provided is too weak. Please use at least 6 characters.';
-      case 'invalid-email':
-        return 'The email address is not valid. Please enter a valid email address.';
-      case 'user-disabled':
-        return 'This user account has been disabled. Please contact support.';
-      case 'too-many-requests':
-        return 'Too many failed attempts. Please wait a few minutes before trying again.';
-      case 'operation-not-allowed':
-        return 'This operation is not allowed. Please contact support.';
-      case 'network-request-failed':
-        return 'Network error. Please check your internet connection and try again.';
-      case 'auth/invalid-credential':
-        return 'Authentication failed. Please check your email and password.';
-      default:
-        return 'Authentication failed: ${e.message ?? e.code}';
-    }
+    return AuthMethod.email;
   }
 }

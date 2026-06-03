@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,11 +13,15 @@ import 'screens/edit_flight_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/modern_login_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'debug/auth_debug_screen.dart';
-import 'widgets/auth_wrapper.dart';
 import 'widgets/auth_guard.dart';
 import 'services/navigation_service.dart';
+import 'security/security_lifecycle_handler.dart';
+import 'utils/app_snack_bar.dart';
+import 'backup/ui/auto_backup_lifecycle_binder.dart';
+import 'backup/ui/restore_recovery_notice_host.dart';
 
 class FalconLogApp extends ConsumerWidget {
   const FalconLogApp({super.key});
@@ -25,54 +30,104 @@ class FalconLogApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
     final isRTL = ref.watch(isRTLProvider);
-    
-    return MaterialApp(
-      title: 'FalconLog',
-      navigatorKey: NavigationService.navigatorKey,
-      locale: locale,
-      supportedLocales: availableLanguages.map((lang) => lang.locale).toList(),
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      builder: (context, child) {
-        return Directionality(
-          textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
-          child: child!,
-        );
-      },
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const AuthWrapper(),
-        '/home': (context) => const AuthGuard(child: DashboardScreen()),
-        '/logFlight': (context) => const LogFlightScreen(),
-        '/flights': (context) => const AllFlightsScreen(),
-        '/summary': (context) => const SummaryScreen(),
-        '/advanced': (context) => const AdvancedScreen(),
-        '/settings': (context) => const SettingsScreen(),
-        '/login': (context) => AuthGuard(requireAuth: false, child: const ModernLoginScreen()),
-        '/register': (context) => const AuthGuard(requireAuth: false, child: RegisterScreen()),
-        '/forgot-password': (context) => const AuthGuard(requireAuth: false, child: ForgotPasswordScreen()),
-        '/debug-auth': (context) => const AuthDebugScreen(),
-      },
-      onGenerateRoute: (settings) {
-        if (settings.name != null &&
-            settings.name!.startsWith('/editFlight/')) {
-          final id = settings.name!.split('/').last;
-          return MaterialPageRoute(
-            builder: (context) => AuthGuard(
-              child: EditFlightScreen(flightId: id),
+
+    return AutoBackupLifecycleBinder(
+      child: SecurityLifecycleBinder(
+        child: MaterialApp(
+        title: 'FalconLog',
+        navigatorKey: NavigationService.navigatorKey,
+        navigatorObservers: [NavigationService.routeObserver],
+        locale: locale,
+        supportedLocales:
+            availableLanguages.map((lang) => lang.locale).toList(),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        // --- ابدأ التعديل هنا ---
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF3949ab), // لون بنفسجي ليتناسب مع تصميمك
+            // قم بتغيير السطر التالي إلى Brightness.light
+            brightness: Brightness.light,
+          ),
+          // يمكنك الآن تحديد ألوان إضافية للوضع الفاتح
+          scaffoldBackgroundColor:
+              const Color(0xFFF8FAFC), // خلفية فاتحة للشاشات
+          cardColor: Colors.white, // خلفية بيضاء للكروت
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Colors.white, // خلفية بيضاء لمربعات الحوار
+          ),
+
+          // تخصيص لون النص ليكون داكنًا في الوضع الفاتح
+          textTheme: const TextTheme(
+            bodyMedium: TextStyle(color: Color(0xFF334155)), // لون نص داكن
+            titleLarge:
+                TextStyle(color: Color(0xFF334155)), // لون للعناوين الكبيرة
+            titleMedium:
+                TextStyle(color: Color(0xFF334155)), // لون للعناوين المتوسطة
+          ),
+
+          // تخصيص مظهر الـ AppBar ليكون متناسقًا
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.transparent, // شفاف ليظهر التدرج اللوني
+            elevation: 0,
+            iconTheme: IconThemeData(color: Colors.white), // لون الأيقونات
+            titleTextStyle: TextStyle(
+              // تصميم نص العنوان
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          snackBarTheme: AppSnackBar.themeData(),
+        ),
+        // --- انتهى التعديل ---
+        builder: (context, child) {
+          return RestoreRecoveryNoticeHost(
+            child: Directionality(
+              textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+              child: child!,
             ),
           );
-        }
-        return null;
-      },
+        },
+        initialRoute: '/splash',
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/splash': (context) => const SplashScreen(),
+          '/home': (context) => const AuthGuard(child: DashboardScreen()),
+          '/dashboard': (context) =>
+              const AuthGuard(child: DashboardScreen()), // Alias for /home
+          '/logFlight': (context) => const AuthGuard(child: LogFlightScreen()),
+          '/flights': (context) => const AuthGuard(child: AllFlightsScreen()),
+          '/summary': (context) => const AuthGuard(child: SummaryScreen()),
+          '/advanced': (context) => const AuthGuard(child: AdvancedScreen()),
+          '/settings': (context) => const AuthGuard(child: SettingsScreen()),
+          '/login': (context) => const LoginScreen(),
+          '/register': (context) => const RegisterScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
+          if (kDebugMode) '/debug-auth': (context) => const AuthDebugScreen(),
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/debug-auth' && !kDebugMode) {
+            return null;
+          }
+          if (settings.name != null &&
+              settings.name!.startsWith('/editFlight/')) {
+            final id = settings.name!.split('/').last;
+            return MaterialPageRoute(
+              builder: (context) => AuthGuard(
+                child: EditFlightScreen(flightId: id),
+              ),
+            );
+          }
+          return null;
+        },
+        ),
+      ),
     );
   }
 }

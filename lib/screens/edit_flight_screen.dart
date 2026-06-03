@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/flight_log.dart';
 import '../providers/flight_logs_provider.dart';
+import '../utils/user_safe_message.dart';
 
 class EditFlightScreen extends ConsumerStatefulWidget {
   final String flightId;
-  
+
   const EditFlightScreen({super.key, required this.flightId});
 
   @override
@@ -66,7 +67,11 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF1a237e), Color(0xFF3949ab), Color(0xFF5e35b1)],
+                colors: [
+                  Color(0xFF1a237e),
+                  Color(0xFF3949ab),
+                  Color(0xFF5e35b1)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -103,7 +108,11 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF1a237e), Color(0xFF3949ab), Color(0xFF5e35b1)],
+                colors: [
+                  Color(0xFF1a237e),
+                  Color(0xFF3949ab),
+                  Color(0xFF5e35b1)
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -156,7 +165,7 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
         ),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -192,7 +201,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+              icon:
+                  const Icon(Icons.delete_outline_rounded, color: Colors.white),
               onPressed: () => _showDeleteDialog(),
             ),
           ),
@@ -250,7 +260,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                               ),
                             ),
                             Text(
-                              DateFormat('MMM dd, yyyy').format(_flightLog!.date),
+                              DateFormat('MMM dd, yyyy')
+                                  .format(_flightLog!.date),
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF64748B),
@@ -263,7 +274,7 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Flight Details Grid
                   Row(
                     children: [
@@ -292,7 +303,9 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                       Expanded(
                         child: _buildInfoCard(
                           'Type',
-                          _flightLog!.isDayFlight ? 'Day Flight' : 'Night Flight',
+                          _flightLog!.isDayFlight
+                              ? 'Day Flight'
+                              : 'Night Flight',
                           _flightLog!.isDayFlight
                               ? Icons.wb_sunny_rounded
                               : Icons.nights_stay_rounded,
@@ -314,9 +327,9 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Flight Types
                   const Text(
                     'Flight Types',
@@ -340,7 +353,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                           color: const Color(0xFF3949ab).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color(0xFF3949ab).withValues(alpha: 0.3),
+                            color:
+                                const Color(0xFF3949ab).withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -358,9 +372,9 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Action Buttons
             Row(
               children: [
@@ -432,7 +446,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                       onPressed: () {
                         // Navigate to full edit form (to be implemented)
                         ScaffoldMessenger.of(context).showSnackBar(
-                          _buildSnackBar('Full edit functionality coming soon!'),
+                          _buildSnackBar(
+                              'Full edit functionality coming soon!'),
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -466,7 +481,7 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 20),
           ],
         ),
@@ -474,7 +489,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
     );
   }
 
-  Widget _buildInfoCard(String label, String value, IconData icon, Color color) {
+  Widget _buildInfoCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -525,7 +541,7 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -546,7 +562,7 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text(
               'Cancel',
               style: TextStyle(color: Color(0xFF64748B)),
@@ -564,16 +580,22 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
                       .read(flightLogsProvider.notifier)
                       .deleteFlightLog(widget.flightId);
                   if (!mounted) return;
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Close edit screen
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop(); // Close dialog
+                  }
+                  Navigator.of(context).pop(); // Close edit screen
                   ScaffoldMessenger.of(context).showSnackBar(
                     _buildSnackBar('Flight deleted successfully'),
                   );
                 } catch (e) {
                   if (!mounted) return;
-                  Navigator.pop(context);
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    _buildSnackBar('Error deleting flight: ${e.toString()}', isError: true),
+                    _buildSnackBar(
+                        'Could not delete flight. ${userSafeErrorMessage(e)}',
+                        isError: true),
                   );
                 }
               },
@@ -615,14 +637,16 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
 
   String _getPilotRoleName(PilotRole role) {
     switch (role) {
-      case PilotRole.IP:
+      case PilotRole.ip:
         return 'IP';
-      case PilotRole.MTP:
+      case PilotRole.mtp:
         return 'MTP';
-      case PilotRole.PIC:
+      case PilotRole.pic:
         return 'PIC';
-      case PilotRole.CPG_GUNNER:
-        return 'CPG GUNNER';
+      case PilotRole.cpgGunner:
+        return 'CPG';
+      case PilotRole.wzo:
+        return 'WZO';
     }
   }
 
@@ -647,7 +671,8 @@ class _EditFlightScreenState extends ConsumerState<EditFlightScreen> {
           ),
         ],
       ),
-      backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF059669),
+      backgroundColor:
+          isError ? const Color(0xFFDC2626) : const Color(0xFF059669),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
