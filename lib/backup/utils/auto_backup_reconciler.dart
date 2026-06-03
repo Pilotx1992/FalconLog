@@ -1,5 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 
+import '../models/backup_provider_enum.dart';
+import '../services/backup_service.dart';
+import 'auto_backup_conditions.dart';
 import 'auto_backup_log.dart';
 import 'auto_backup_state_store.dart';
 import 'auto_backup_work_names.dart';
@@ -14,9 +18,14 @@ class AutoBackupReconciler {
     AutoBackupStateStore? stateStore,
     AutoBackupScheduler? scheduler,
     Logger? logger,
+    @visibleForTesting this.conditionsSatisfiableForTesting,
   })  : _stateStore = stateStore ?? AutoBackupStateStore(),
         _scheduler = scheduler ?? AutoBackupScheduler(),
         _logger = logger ?? Logger('AutoBackupReconciler');
+
+  @visibleForTesting
+  final Future<bool> Function({required bool wifiOnly})?
+      conditionsSatisfiableForTesting;
 
   final AutoBackupStateStore _stateStore;
   final AutoBackupScheduler _scheduler;
@@ -84,8 +93,35 @@ class AutoBackupReconciler {
     final pending = await _stateStore.getPendingDueDay();
     if (pending != null) {
       AutoBackupLog.dueEngine('pending dueDay=$pending (reconcile daily)');
+      if (await _conditionsSatisfiableForCatchup(wifiOnly: wifiOnly)) {
+        await _stateStore.clearStaleFailureState();
+      }
       await _enqueueCatchupIfNeeded(wifiOnly: wifiOnly);
     }
+  }
+
+  Future<bool> _conditionsSatisfiableForCatchup({
+    required bool wifiOnly,
+  }) async {
+    final override = conditionsSatisfiableForTesting;
+    if (override != null) {
+      return override(wifiOnly: wifiOnly);
+    }
+    final networkOk =
+        await AutoBackupConditionsEvaluator.isNetworkSatisfiedForAutoBackup(
+      wifiOnly: wifiOnly,
+    );
+    if (!networkOk) return false;
+
+    final provider = await BackupProviderPreferences.getSelectedProvider();
+    if (provider == BackupProvider.googleDrive) {
+      try {
+        return await BackupService().initialize(interactive: false);
+      } catch (_) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _reconcileInterval({

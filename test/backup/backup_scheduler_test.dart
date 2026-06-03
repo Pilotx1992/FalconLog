@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:falconlog/backup/models/backup_provider_enum.dart';
 import 'package:falconlog/backup/services/backup_service.dart';
+import 'package:falconlog/backup/utils/auto_backup_worker.dart';
 import 'package:falconlog/backup/utils/auto_backup_state_store.dart';
 import 'package:falconlog/backup/utils/backup_operation_lock.dart';
 import 'package:falconlog/backup/utils/auto_backup_work_names.dart';
@@ -39,6 +40,7 @@ void main() {
     };
     BackupSchedulerWorkmanager.cancelByTag = (_) async {};
     BackupService.startBackupForTesting = null;
+    AutoBackupWorker.networkSatisfiedOverride = (_) async => true;
     BackupScheduler.backgroundDependenciesInitializer = null;
     BackupScheduler.openFlightLogsBoxForTesting = null;
     SharedPreferences.setMockInitialValues({});
@@ -106,6 +108,7 @@ void main() {
   tearDown(() async {
     BackupSchedulerWorkmanager.resetTestHooks();
     BackupService.startBackupForTesting = null;
+    AutoBackupWorker.networkSatisfiedOverride = null;
     BackupScheduler.backgroundDependenciesInitializer = null;
     BackupScheduler.openFlightLogsBoxForTesting = null;
     await BackupOperationLock.clearForTesting();

@@ -21,4 +21,12 @@ void main() {
     expect(constraints.requiresBatteryNotLow, isTrue);
     expect(constraints.requiresStorageNotLow, isTrue);
   });
+
+  test('catch-up uses connected network when cellular backup On', () {
+    final constraints = BackupScheduler.constraintsForProvider(
+      BackupProvider.googleDrive,
+      wifiOnly: false,
+    );
+    expect(constraints.networkType, NetworkType.connected);
+  });
 }

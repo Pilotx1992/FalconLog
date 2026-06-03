@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:falconlog/backup/models/backup_provider_enum.dart';
 import 'package:falconlog/backup/models/restore_mode.dart';
+import 'package:falconlog/backup/utils/backup_scheduler.dart';
 import 'package:falconlog/backup/utils/backup_payload_codec.dart';
 import 'package:falconlog/backup/utils/backup_restore_logic.dart';
 import 'package:falconlog/models/flight_log.dart';
@@ -30,6 +31,29 @@ void main() {
       Hive.registerAdapter(FlightLogAdapter());
     }
     SharedPreferences.setMockInitialValues({});
+    BackupSchedulerWorkmanager.resetTestHooks();
+    BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
+    BackupSchedulerWorkmanager.cancelByTag = (_) async {};
+    BackupSchedulerWorkmanager.isScheduledByUniqueName = (_) async => false;
+    BackupSchedulerWorkmanager.registerPeriodicTask =
+        (uniqueName, taskName, {
+      required frequency,
+      required constraints,
+      required initialDelay,
+      required backoffPolicy,
+      required backoffPolicyDelay,
+      required existingWorkPolicy,
+      String? tag,
+    }) async {};
+    BackupSchedulerWorkmanager.registerOneOffTask =
+        (uniqueName, taskName, {
+      required constraints,
+      required initialDelay,
+      required backoffPolicy,
+      required backoffPolicyDelay,
+      required existingWorkPolicy,
+      String? tag,
+    }) async {};
     PackageInfo.setMockInitialValues(
       appName: 'FalconLog',
       packageName: 'com.falconlog.test',

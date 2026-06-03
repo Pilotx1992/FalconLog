@@ -19,6 +19,17 @@ class AutoBackupStateStore {
   static const String lastFailureReasonKey =
       'falconlog_auto_backup_last_failure_reason';
   static const String scheduleGenKey = 'falconlog_auto_backup_schedule_gen';
+  static const String qaSimulateWifiUnavailableKey =
+      'falconlog_qa_simulate_wifi_unavailable';
+
+  /// Device-local transient keys — never restored from backup bundles.
+  static const Set<String> deviceLocalRuntimeKeys = {
+    pendingDueDayKey,
+    lastAttemptAtKey,
+    lastFailureReasonKey,
+    scheduleGenKey,
+    qaSimulateWifiUnavailableKey,
+  };
 
   Future<SharedPreferences> _ensurePrefs() async {
     return _prefs ??= await SharedPreferences.getInstance();
@@ -118,6 +129,24 @@ class AutoBackupStateStore {
     final prefs = await _ensurePrefs();
     await prefs.setInt(lastAttemptAtKey, DateTime.now().millisecondsSinceEpoch);
     await prefs.setString(lastFailureReasonKey, reason);
+  }
+
+  /// Clears stale attempt/failure after conditions become satisfiable again.
+  Future<void> clearStaleFailureState() async {
+    final prefs = await _ensurePrefs();
+    await prefs.remove(lastAttemptAtKey);
+    await prefs.remove(lastFailureReasonKey);
+    AutoBackupLog.stateStore('clearStaleFailureState');
+  }
+
+  /// Clears device-local runtime fields (restore / QA reset).
+  Future<void> clearDeviceLocalRuntimeState() async {
+    final prefs = await _ensurePrefs();
+    for (final key in deviceLocalRuntimeKeys) {
+      await prefs.remove(key);
+    }
+    await clearDailyAutoBackupState();
+    AutoBackupLog.stateStore('clearDeviceLocalRuntimeState');
   }
 
   /// Clears daily-path pending/failure/success tracking (debug QA reset).

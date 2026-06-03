@@ -6,7 +6,6 @@ import '../../core/services/hive_initialization_service.dart';
 import '../../models/flight_log.dart';
 import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
-import 'auto_backup_debug_qa.dart';
 import 'auto_backup_conditions.dart';
 import 'auto_backup_log.dart';
 import 'auto_backup_run_planner.dart';
@@ -21,6 +20,9 @@ import 'scheduled_backup_logic.dart';
 /// WorkManager task handlers for daily evaluator, catch-up, and interval backup.
 class AutoBackupWorker {
   AutoBackupWorker._();
+
+  @visibleForTesting
+  static Future<bool> Function(SharedPreferences prefs)? networkSatisfiedOverride;
 
   static Future<bool> handleTask(String task, Logger logger) async {
     if (task == AutoBackupWorkNames.dailyEvaluatorTask) {
@@ -219,12 +221,20 @@ class AutoBackupWorker {
   }
 
   static Future<bool> _isNetworkSatisfied(SharedPreferences prefs) async {
+    final override = networkSatisfiedOverride;
+    if (override != null) {
+      return override(prefs);
+    }
     if (kDebugMode &&
-        (prefs.getBool(AutoBackupDebugQa.simulateWifiUnavailableKey) ??
+        (prefs.getBool(AutoBackupStateStore.qaSimulateWifiUnavailableKey) ??
             false)) {
       return false;
     }
-    return true;
+    final wifiOnly =
+        prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ?? true;
+    return AutoBackupConditionsEvaluator.isNetworkSatisfiedForAutoBackup(
+      wifiOnly: wifiOnly,
+    );
   }
 
   static Future<bool> _isDriveReady({required bool interactive}) async {

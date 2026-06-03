@@ -23,7 +23,7 @@ class AutoBackupDebugQa {
   }
 
   static const String simulateWifiUnavailableKey =
-      'falconlog_qa_simulate_wifi_unavailable';
+      AutoBackupStateStore.qaSimulateWifiUnavailableKey;
 
   /// Debug-only: blocks catch-up execution without turning off device Wi-Fi
   /// (required for wireless ADB QA where `svc wifi disable` drops the session).

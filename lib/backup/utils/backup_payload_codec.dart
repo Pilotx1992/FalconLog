@@ -269,6 +269,7 @@ class BackupPayloadCodec {
         bundle: appSettingsData,
         replace: mode == RestoreMode.replace,
       );
+      await AppSettingsBackup.finalizeAutoBackupAfterRestore(prefs: prefs);
     }
 
     if (aircraftData != null && aircraftData.isNotEmpty) {

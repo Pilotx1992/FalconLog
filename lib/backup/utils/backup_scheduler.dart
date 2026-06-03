@@ -13,10 +13,14 @@ import '../../firebase_options.dart';
 import '../../models/flight_log.dart';
 import '../models/backup_metadata.dart';
 import '../models/backup_provider_enum.dart';
+import '../services/backup_service.dart';
+import 'auto_backup_conditions.dart';
 import 'auto_backup_due_engine.dart';
+import 'auto_backup_network_preference.dart';
 import 'auto_backup_reconciler.dart';
 import 'auto_backup_scheduler.dart';
 import 'auto_backup_state_store.dart';
+import 'auto_backup_status_resolver.dart';
 import 'auto_backup_work_names.dart';
 import 'auto_backup_worker.dart';
 import 'backup_constants.dart';
@@ -293,7 +297,8 @@ class BackupScheduler {
   Future<bool> isWifiOnly() async {
     try {
       final prefs = await sharedPreferences();
-      return prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ?? true;
+      return prefs.getBool(BackupConstants.settingsKeys['wifi_only']!) ??
+          AutoBackupNetworkPreference.defaultWifiOnly;
     } catch (e) {
       _logger.warning('Error checking Wi-Fi only setting: $e');
       return true;
@@ -428,6 +433,11 @@ class BackupScheduler {
     }
   }
 
+  Future<BackupScheduleStatus> reconcileAndGetBackupStatus() async {
+    await _reconciler.reconcile();
+    return getBackupStatus();
+  }
+
   Future<BackupScheduleStatus> getBackupStatus() async {
     try {
       final isScheduled = await isBackupScheduled();
@@ -442,9 +452,13 @@ class BackupScheduler {
       final lastSuccessAt = frequency == 'daily'
           ? await store.getLastSuccessAt()
           : null;
-      final lastFailureReason = frequency == 'daily'
-          ? await store.getLastFailureReason()
-          : null;
+
+      String? pendingStatusMessage;
+      if (pendingDueDay != null && frequency == 'daily') {
+        pendingStatusMessage = await _resolvePendingStatusMessage(
+          wifiOnly: wifiOnly,
+        );
+      }
 
       return BackupScheduleStatus(
         isScheduled: isScheduled,
@@ -454,7 +468,7 @@ class BackupScheduler {
         isOverdue: isOverdue,
         pendingDueDay: pendingDueDay,
         lastAutoBackupSuccessAt: lastSuccessAt,
-        lastAutoBackupFailureReason: lastFailureReason,
+        pendingStatusMessage: pendingStatusMessage,
       );
     } catch (e, stackTrace) {
       _logger.severe('Error getting backup status', e, stackTrace);
@@ -466,6 +480,34 @@ class BackupScheduler {
         isOverdue: false,
       );
     }
+  }
+
+  Future<String> _resolvePendingStatusMessage({
+    required bool wifiOnly,
+  }) async {
+    final provider = await BackupProviderPreferences.getSelectedProvider();
+    final networkSatisfied =
+        await AutoBackupConditionsEvaluator.isNetworkSatisfiedForAutoBackup(
+      wifiOnly: wifiOnly,
+    );
+    var driveReady = true;
+    if (provider == BackupProvider.googleDrive) {
+      try {
+        driveReady = await BackupService().initialize(interactive: false);
+      } catch (_) {
+        driveReady = false;
+      }
+    }
+    final lockFree = await AutoBackupConditionsEvaluator.isOperationLockFree();
+    return AutoBackupStatusResolver.resolvePendingMessage(
+      AutoBackupPendingContext(
+        wifiOnly: wifiOnly,
+        provider: provider,
+        networkSatisfied: networkSatisfied,
+        driveReady: driveReady,
+        operationLockFree: lockFree,
+      ),
+    );
   }
 
   static Constraints constraintsForProvider(
@@ -680,7 +722,7 @@ class BackupScheduleStatus {
   final bool isOverdue;
   final String? pendingDueDay;
   final DateTime? lastAutoBackupSuccessAt;
-  final String? lastAutoBackupFailureReason;
+  final String? pendingStatusMessage;
 
   const BackupScheduleStatus({
     required this.isScheduled,
@@ -690,7 +732,7 @@ class BackupScheduleStatus {
     required this.isOverdue,
     this.pendingDueDay,
     this.lastAutoBackupSuccessAt,
-    this.lastAutoBackupFailureReason,
+    this.pendingStatusMessage,
   });
 
   String get nextBackupTimeFormatted {

@@ -2,6 +2,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/legacy_auth_credential_cleanup.dart';
 import '../../settings/currency_alert_settings.dart';
+import 'auto_backup_due_engine.dart';
+import 'auto_backup_reconciler.dart';
+import 'auto_backup_state_store.dart';
 import 'backup_provider_preferences.dart' show backupSelectedProviderKey;
 
 /// Non-secret app preferences included in full-app backups.
@@ -16,18 +19,13 @@ class AppSettingsBackup {
     'remember_me',
   };
 
-  /// Keys safe to restore on a new device (no credentials).
-  static const List<String> backupableKeys = [
+  /// User preferences safe to restore on a new device.
+  static const List<String> preferenceKeys = [
     'selected_language',
     'falconlog_auto_backup_enabled',
     'falconlog_backup_frequency',
     'falconlog_wifi_only',
-    'falconlog_auto_backup_due_minute',
-    'falconlog_auto_backup_pending_due_day',
-    'falconlog_auto_backup_last_success_due_day',
-    'falconlog_auto_backup_last_success_at',
-    'falconlog_auto_backup_last_attempt_at',
-    'falconlog_auto_backup_last_failure_reason',
+    AutoBackupStateStore.dueMinuteKey,
     'falconlog_auto_verification_enabled',
     'falconlog_verification_frequency',
     'falconlog_verification_wifi_only',
@@ -39,11 +37,14 @@ class AppSettingsBackup {
     CurrencyAlertSettings.prefKeySetupCompleted,
   ];
 
+  /// Legacy export list kept for tests — preferences only, no runtime state.
+  static const List<String> backupableKeys = preferenceKeys;
+
   static Future<Map<String, dynamic>> exportFromPrefs(
     SharedPreferences prefs,
   ) async {
     final values = <String, dynamic>{};
-    for (final key in backupableKeys) {
+    for (final key in preferenceKeys) {
       if (excludedFromBackupKeys.contains(key)) continue;
       final value = _readValue(prefs, key);
       if (value != null) {
@@ -79,8 +80,9 @@ class AppSettingsBackup {
     var applied = 0;
     for (final entry in values.entries) {
       final key = entry.key.toString();
-      if (!backupableKeys.contains(key) ||
-          excludedFromBackupKeys.contains(key)) {
+      if (!preferenceKeys.contains(key) ||
+          excludedFromBackupKeys.contains(key) ||
+          AutoBackupStateStore.deviceLocalRuntimeKeys.contains(key)) {
         continue;
       }
 
@@ -89,6 +91,12 @@ class AppSettingsBackup {
       }
 
       final value = entry.value;
+      if (key == AutoBackupStateStore.dueMinuteKey && value is int) {
+        await prefs.setInt(key, sanitizeRestoredDueMinute(value));
+        applied++;
+        continue;
+      }
+
       if (value is bool) {
         await prefs.setBool(key, value);
         applied++;
@@ -110,6 +118,39 @@ class AppSettingsBackup {
       }
     }
     return applied;
+  }
+
+  /// Only production default due minute is portable across devices.
+  static int sanitizeRestoredDueMinute(int minute) {
+    if (minute == AutoBackupDueEngine.defaultDueMinuteOfDay) {
+      return minute;
+    }
+    return AutoBackupDueEngine.defaultDueMinuteOfDay;
+  }
+
+  /// After restore: drop transient auto-backup runtime state and re-align WM.
+  static Future<void> clearAutoBackupRuntimeAfterRestore({
+    SharedPreferences? prefs,
+  }) async {
+    final resolved = prefs ?? await SharedPreferences.getInstance();
+    for (final key in AutoBackupStateStore.deviceLocalRuntimeKeys) {
+      await resolved.remove(key);
+    }
+    await AutoBackupStateStore(prefs: resolved).clearDailyAutoBackupState();
+    if (resolved.containsKey(AutoBackupStateStore.dueMinuteKey)) {
+      final minute = resolved.getInt(AutoBackupStateStore.dueMinuteKey)!;
+      await resolved.setInt(
+        AutoBackupStateStore.dueMinuteKey,
+        sanitizeRestoredDueMinute(minute),
+      );
+    }
+  }
+
+  static Future<void> finalizeAutoBackupAfterRestore({
+    SharedPreferences? prefs,
+  }) async {
+    await clearAutoBackupRuntimeAfterRestore(prefs: prefs);
+    await AutoBackupReconciler().reconcile();
   }
 
   static int countSettings(Map<String, dynamic>? bundle) {

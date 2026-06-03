@@ -1,3 +1,5 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
+
 import '../models/backup_provider_enum.dart';
 import 'backup_operation_lock.dart';
 
@@ -113,5 +115,22 @@ class AutoBackupConditionsEvaluator {
       DateTime.now().toUtc(),
       BackupOperationLock.defaultStaleTimeout,
     );
+  }
+
+  /// Current network suitability for auto backup (not persisted state).
+  static Future<bool> isNetworkSatisfiedForAutoBackup({
+    required bool wifiOnly,
+  }) async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (wifiOnly) {
+        return results.contains(ConnectivityResult.wifi);
+      }
+      return results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.mobile) ||
+          results.contains(ConnectivityResult.ethernet);
+    } catch (_) {
+      return false;
+    }
   }
 }
