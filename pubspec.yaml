@@ -1,0 +1,75 @@
+name: falconlog
+description: "FalconLog"
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  json_annotation: ^4.9.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  shared_preferences: ^2.2.2
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  fl_chart: ^1.0.0
+  flutter_feather_icons: ^2.0.0+1
+  flutter_svg: ^2.0.10
+  flutter_riverpod: ^2.4.10
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  local_auth: ^2.1.8
+  local_auth_android: ^1.0.35
+  # Downgraded to v6 API for compatibility with existing sign-in code. Upgrade to 7.x requires migration.
+  google_sign_in: ^6.2.1
+  googleapis: ^13.1.0
+  googleapis_auth: ^1.6.0
+  http: ^1.2.0
+  cryptography: ^2.7.0
+  connectivity_plus: ^6.0.5
+  path_provider: ^2.1.5
+  url_launcher: ^6.3.0
+  archive: ^4.0.7
+  crypto: ^3.0.6
+  flutter_secure_storage: ^9.2.2
+  path: ^1.9.1
+  workmanager: ^0.9.0+2
+  package_info_plus: ^8.0.2
+  device_info_plus: ^10.1.2
+  pointycastle: ^3.9.1
+  file_picker: ^8.1.2
+  share_plus: ^10.0.2
+  logging: ^1.2.0
+  percent_indicator: ^4.2.3
+  flutter_local_notifications: ^18.0.1
+  csv: ^6.0.0
+  xml: ^6.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  hive_generator: ^2.0.1
+  json_serializable: ^6.8.0
+  mockito: ^5.4.4
+  very_good_analysis: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/airplane.svg
+    - assets/airplane.png
+    - assets/google.png
+

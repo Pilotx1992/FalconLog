@@ -1,0 +1,116 @@
+# ☁️ Cloud Backup Workflow -- Full Documentation
+
+This document explains the complete **Google Auth + Google Drive +
+CloudBackupService** workflow for your Flutter app.\
+It includes **Mermaid diagrams** for quick visual understanding.
+
+------------------------------------------------------------------------
+
+## 1️⃣ High-Level Flowchart
+
+``` mermaid
+flowchart TD
+    A[App Startup] --> B[DriveAuthService.init()]
+    B -->|Silent sign-in success| C[AuthState = SignedIn]
+    B -->|Silent sign-in fail| D[AuthState = SignedOut]
+
+    C --> E[User taps "Backup Now"]
+    D --> E
+
+    E --> F[CloudBackupService.backupEncryptedZip()]
+    F -->|interactive:true| G[DriveAuthService.getAuthHeaders()]
+    F -->|interactive:false| H[DriveAuthService.getAuthHeaders()]
+
+    G -->|OK| I[GoogleDriveService._getDriveApi()]
+    H -->|Silent fail| J[Throw silentSignInRequired]
+
+    I --> K[Upload ZIP to Drive]
+    K --> L[BackupResult.success()]
+    J --> M[Log + UI Badge: "Sign-in required"]
+    L --> N[UI shows ✅ Backup Successful]
+```
+
+------------------------------------------------------------------------
+
+## 2️⃣ Manual Backup Sequence
+
+``` mermaid
+sequenceDiagram
+    participant UI
+    participant CloudBackup as CloudBackupService
+    participant DriveAuth as DriveAuthService
+    participant DriveSvc as GoogleDriveService
+    participant GoogleAPI as Google Drive API
+
+    UI->>CloudBackup: backupEncryptedZip(zip, interactive:true)
+    CloudBackup->>DriveSvc: uploadToAppData(zip, interactive:true)
+    DriveSvc->>DriveAuth: getAuthHeaders(interactive:true)
+    alt SignedOut
+        DriveAuth->>User: Show Google Sign-In UI
+        User-->>DriveAuth: Approves sign-in
+    end
+    DriveAuth-->>DriveSvc: Fresh Headers
+    DriveSvc->>GoogleAPI: Create DriveApi + upload file
+    GoogleAPI-->>DriveSvc: File(id, size)
+    DriveSvc-->>CloudBackup: Success(fileId)
+    CloudBackup-->>UI: Show success message + update history
+```
+
+------------------------------------------------------------------------
+
+## 3️⃣ Auto-Backup (Non-Interactive)
+
+``` mermaid
+sequenceDiagram
+    participant Scheduler
+    participant CloudBackup as CloudBackupService
+    participant DriveAuth as DriveAuthService
+    participant DriveSvc as GoogleDriveService
+
+    Scheduler->>CloudBackup: backupEncryptedZip(zip, interactive:false)
+    CloudBackup->>DriveSvc: uploadToAppData(zip, interactive:false)
+    DriveSvc->>DriveAuth: getAuthHeaders(interactive:false)
+    alt No session
+        DriveAuth-->>DriveSvc: throw silentSignInRequired
+        DriveSvc-->>CloudBackup: Exception
+        CloudBackup-->>Scheduler: Mark as failed (no popup)
+    else Session valid
+        DriveAuth-->>DriveSvc: Fresh headers
+        DriveSvc->>Google API: Upload file
+        Google API-->>DriveSvc: OK
+        DriveSvc-->>CloudBackup: Success
+    end
+```
+
+------------------------------------------------------------------------
+
+## 4️⃣ Account Switch Handling
+
+``` mermaid
+flowchart LR
+    A[GoogleSignIn account changed] --> B[DriveAuthService broadcasts new AuthState]
+    B --> C[GoogleDriveService.dispose()]
+    C --> D[Clear cached DriveApi & folderId]
+    D --> E[Next backup/restore builds new client with fresh headers]
+```
+
+------------------------------------------------------------------------
+
+## 🧠 Notes & Recommendations
+
+-   **Silent sign-in first**: avoid annoying users with UI prompts
+    unless needed.
+-   **Fresh headers per call**: prevents expired token errors.
+-   **Auto-backup** should never show popups; just mark as failed and
+    surface a gentle badge or toast.
+-   **Dispose DriveApi on account switch** to avoid stale sessions.
+-   **Test**: manual flow, auto-flow, account switch, and 404 recovery.
+
+------------------------------------------------------------------------
+
+*This file is designed to be placed under
+`/docs/cloud_backup_workflow.md` in your repo for AI agents and
+developers.*
+---
+alwaysApply: true
+---
