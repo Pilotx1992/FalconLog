@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
 import '../utils/auto_backup_network_preference.dart';
-import '../utils/auto_backup_status_resolver.dart';
 import '../utils/backup_constants.dart';
 import '../utils/backup_filename.dart';
 import '../utils/backup_scheduler.dart';
@@ -43,7 +42,6 @@ class BackupSettingsPage extends ConsumerStatefulWidget {
     @visibleForTesting this.skipInitializeForTesting = false,
     @visibleForTesting this.initialBackupFrequencyForTesting = 'off',
     @visibleForTesting this.initialWifiOnlyForTesting = true,
-    @visibleForTesting this.initialAutoBackupStatusLineForTesting,
     @visibleForTesting this.initialLastGoogleDriveBackupTimeForTesting,
   });
 
@@ -55,9 +53,6 @@ class BackupSettingsPage extends ConsumerStatefulWidget {
 
   @visibleForTesting
   final bool initialWifiOnlyForTesting;
-
-  @visibleForTesting
-  final String? initialAutoBackupStatusLineForTesting;
 
   @visibleForTesting
   final DateTime? initialLastGoogleDriveBackupTimeForTesting;
@@ -76,7 +71,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
   String _backupFrequency = 'off';
   bool _wifiOnly = true;
-  String? _autoBackupStatusLine;
 
   @override
   void initState() {
@@ -84,7 +78,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     if (widget.skipInitializeForTesting) {
       _backupFrequency = widget.initialBackupFrequencyForTesting;
       _wifiOnly = widget.initialWifiOnlyForTesting;
-      _autoBackupStatusLine = widget.initialAutoBackupStatusLineForTesting;
       _lastGoogleDriveBackupTime =
           widget.initialLastGoogleDriveBackupTimeForTesting;
       _isLoading = false;
@@ -101,7 +94,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       );
       final frequency = await _backupScheduler.getBackupFrequency();
       final wifiOnly = await _backupScheduler.isWifiOnly();
-      final scheduleStatus = await _backupScheduler.reconcileAndGetBackupStatus();
+      await _backupScheduler.reconcileAndGetBackupStatus();
       await ref.read(backupHistoryProvider.notifier).refresh();
 
       if (mounted) {
@@ -110,7 +103,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           _lastGoogleDriveBackupTime = backupMetadata?.createdAt;
           _backupFrequency = frequency;
           _wifiOnly = wifiOnly;
-          _autoBackupStatusLine = _formatAutoBackupStatus(scheduleStatus);
           _isLoading = false;
         });
       }
@@ -362,29 +354,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
-  String? _formatAutoBackupStatus(BackupScheduleStatus status) {
-    if (status.frequency == 'off' || !status.isScheduled) return null;
-
-    if (status.frequency == 'daily') {
-      if (status.pendingDueDay != null) {
-        return status.pendingStatusMessage ??
-            AutoBackupStatusResolver.waitingForConditions;
-      }
-
-      return 'Backups are due after 11:59 PM when conditions are met — not at an exact time.';
-    }
-
-    if (status.frequency == 'weekly') {
-      return 'Weekly backups run when conditions are met.';
-    }
-
-    if (status.frequency == 'monthly') {
-      return 'Monthly backups run when conditions are met.';
-    }
-
-    return null;
-  }
-
   Widget _buildAutoBackupCard(
       Color surfaceCard, Color sectionTitleColor, bool operationRunning) {
     final cs = Theme.of(context).colorScheme;
@@ -459,17 +428,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
-          if (_autoBackupStatusLine != null) ...[
-            Text(
-              _autoBackupStatusLine!,
-              style: TextStyle(
-                color: sectionTitleColor.withValues(alpha: 0.72),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
           row(
             icon: Icons.autorenew_rounded,
             title: 'Enable',
@@ -895,10 +853,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }
 
     if (!mounted) return;
-    final scheduleStatus = await _backupScheduler.reconcileAndGetBackupStatus();
-    setState(() {
-      _autoBackupStatusLine = _formatAutoBackupStatus(scheduleStatus);
-    });
+    await _backupScheduler.reconcileAndGetBackupStatus();
     _showSuccessSnackBar(
       frequency == 'off'
           ? 'Auto backup disabled'
@@ -939,10 +894,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }
 
     if (!mounted) return;
-    final scheduleStatus = await _backupScheduler.reconcileAndGetBackupStatus();
-    setState(() {
-      _autoBackupStatusLine = _formatAutoBackupStatus(scheduleStatus);
-    });
+    await _backupScheduler.reconcileAndGetBackupStatus();
     _showSuccessSnackBar(
       allowCellular
           ? 'Cellular backup enabled'

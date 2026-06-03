@@ -128,9 +128,20 @@ class SummaryScreen extends ConsumerWidget {
   }
 
   Widget _buildRecentActivity(List<FlightLog> logs) {
-    // Sort logs by date (newest first) and take the most recent 2
     final sortedLogs = logs.toList()..sort((a, b) => b.date.compareTo(a.date));
-    final recentLogs = sortedLogs.take(2).toList();
+
+    FlightLog? lastDayFlight;
+    FlightLog? lastNightFlight;
+    for (final log in sortedLogs) {
+      if (lastDayFlight == null && log.isDayFlight) lastDayFlight = log;
+      if (lastNightFlight == null && !log.isDayFlight) lastNightFlight = log;
+      if (lastDayFlight != null && lastNightFlight != null) break;
+    }
+
+    final recentLogs = <FlightLog>[
+      if (lastDayFlight != null) lastDayFlight,
+      if (lastNightFlight != null) lastNightFlight,
+    ];
 
     return Container(
       padding: const EdgeInsets.all(24),

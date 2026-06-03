@@ -34,9 +34,6 @@ void main() {
   late Directory tempDir;
   late Directory lockDir;
 
-  const dailyStatusLine =
-      'Backups are due after 11:59 PM when conditions are met — not at an exact time.';
-
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -174,7 +171,6 @@ void main() {
             skipInitializeForTesting: true,
             initialBackupFrequencyForTesting: 'daily',
             initialWifiOnlyForTesting: true,
-            initialAutoBackupStatusLineForTesting: dailyStatusLine,
             initialLastGoogleDriveBackupTimeForTesting:
                 lastGoogleDriveBackupTime,
           ),
@@ -225,12 +221,8 @@ void main() {
       expect(find.byKey(const Key('cellular_backup_on')), findsNothing);
       expect(find.byType(Radio<bool>), findsNothing);
 
-      final statusLine = find.text(dailyStatusLine);
-      expect(statusLine, findsOneWidget);
-      expect(
-        tester.widget<Text>(statusLine).data,
-        isNot(contains('Last backup:')),
-      );
+      expect(find.textContaining('Backups are due after 11:59 PM'), findsNothing);
+      expect(find.textContaining('Weekly backups run'), findsNothing);
       expect(find.textContaining('Last backup:'), findsNothing);
     },
   );
@@ -244,11 +236,7 @@ void main() {
       );
 
       expect(find.textContaining('Last backup:'), findsOneWidget);
-      expect(find.text(dailyStatusLine), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.text(dailyStatusLine)).data,
-        isNot(contains('Last backup:')),
-      );
+      expect(find.textContaining('Backups are due after 11:59 PM'), findsNothing);
     },
   );
 }
