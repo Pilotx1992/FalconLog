@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "441066678931-2lnjsdtsvrm76cgcdlosd6l8iusdo13u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.falcon_log.falconlog",
+            "certificate_hash": "2cd1557acf169dd28ce40fbdc3e6535a4f5dd719"
+          }
+        },
+        {
           "client_id": "441066678931-qh8i9n460akjohthd9kelavpki5vc88o.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
