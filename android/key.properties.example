@@ -1,11 +1,42 @@
 ﻿# Copy to android/key.properties and fill in values. Do NOT commit key.properties.
 #
-# Generate a release keystore (one-time):
-#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# See docs/release/ANDROID_RELEASE_CHECKLIST.md for the full Play release workflow.
 #
-# Signing migration note:
-# - APKs signed with the debug keystore cannot be updated by a release-signed APK.
-# - Users on debug-signed builds must export/backup data before uninstalling, then install release build.
+# --- Play upload keystore (one-time) ---
+#
+# Generate a dedicated upload keystore. Use a production-oriented DN; avoid OU=Development
+# in the certificate, which can trigger Play Protect warnings on sideloaded APKs.
+#
+#   keytool -genkey -v \
+#     -keystore android/upload-keystore.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 \
+#     -alias upload \
+#     -dname "CN=FalconLog, OU=Mobile, O=YourOrg, L=City, ST=Region, C=EG"
+#
+# Recommended keystore location: android/upload-keystore.jks
+#
+# storeFile is resolved relative to the android/app/ Gradle module, so:
+#   storeFile=../upload-keystore.jks  ->  android/upload-keystore.jks
+#
+# --- Play App Signing ---
+#
+# Upload the release AAB to Play Console. Google manages the app signing key.
+# Register your upload certificate SHA-1 and SHA-256 in Firebase Console
+# (Project settings > Your apps > com.falcon_log.falconlog) for Google Sign-In.
+#
+#   keytool -list -v -keystore android/upload-keystore.jks -alias upload
+#
+# --- Debug vs release installs ---
+#
+# APKs signed with the debug keystore cannot be updated by a release-signed APK.
+# Testers switching from debug to release must uninstall first. See:
+#   docs/EXISTING_USER_UPDATE.md
+#
+# --- Security ---
+#
+# - Use strong store/key passwords (not committed here).
+# - Back up the keystore offline; loss prevents publishing updates.
+# - Never commit key.properties, *.jks, or *.keystore files.
 #
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD

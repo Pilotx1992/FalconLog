@@ -55,7 +55,9 @@ class AutoBackupConditionsEvaluator {
     AutoBackupExecutionContext ctx,
   ) {
     if (!ctx.autoBackupEnabled) return AutoBackupBlockReason.disabled;
-    if (ctx.frequency != 'daily') return AutoBackupBlockReason.notDailyFrequency;
+    if (ctx.frequency != 'daily') {
+      return AutoBackupBlockReason.notDailyFrequency;
+    }
     if (ctx.provider == BackupProvider.firebase) {
       return AutoBackupBlockReason.unsupportedProvider;
     }

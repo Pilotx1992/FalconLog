@@ -13,13 +13,53 @@ plugins {
 // Never commit key.properties or *.jks / *.keystore files.
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
-val hasReleaseKeystore = keystorePropertiesFile.exists()
-val missingReleaseKeystoreMessage = "Release keystore is required for release builds. " +
-    "Create android/key.properties from key.properties.example " +
-    "and keep key.properties / keystore files out of Git."
-if (hasReleaseKeystore) {
+val hasReleaseKeystoreFile = keystorePropertiesFile.exists()
+
+data class ReleaseKeystoreConfig(
+    val storeFile: java.io.File,
+    val storePassword: String,
+    val keyAlias: String,
+    val keyPassword: String,
+)
+
+fun validateReleaseKeystore(): ReleaseKeystoreConfig? {
+    if (!hasReleaseKeystoreFile) {
+        return null
+    }
+
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+    val requiredKeys = listOf("storePassword", "keyPassword", "keyAlias", "storeFile")
+    val missingKeys = requiredKeys.filter { key ->
+        keystoreProperties.getProperty(key).isNullOrBlank()
+    }
+    if (missingKeys.isNotEmpty()) {
+        throw GradleException(
+            "Release keystore misconfigured: missing or empty key.properties entries: " +
+                missingKeys.joinToString(", ") +
+                ". Copy android/key.properties.example → android/key.properties. " +
+                "See docs/release/ANDROID_RELEASE_CHECKLIST.md",
+        )
+    }
+
+    val storeFile = file(keystoreProperties.getProperty("storeFile"))
+    if (!storeFile.exists()) {
+        throw GradleException(
+            "Release keystore misconfigured: storeFile not found at ${storeFile.path}. " +
+                "Create the upload keystore per android/key.properties.example. " +
+                "See docs/release/ANDROID_RELEASE_CHECKLIST.md",
+        )
+    }
+
+    return ReleaseKeystoreConfig(
+        storeFile = storeFile,
+        storePassword = keystoreProperties.getProperty("storePassword"),
+        keyAlias = keystoreProperties.getProperty("keyAlias"),
+        keyPassword = keystoreProperties.getProperty("keyPassword"),
+    )
 }
+
+val releaseKeystoreConfig = validateReleaseKeystore()
 
 android {
     namespace = "com.falcon_log.falconlog"
@@ -37,12 +77,14 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseKeystore) {
+        if (releaseKeystoreConfig != null) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = releaseKeystoreConfig.keyAlias
+                keyPassword = releaseKeystoreConfig.keyPassword
+                storeFile = releaseKeystoreConfig.storeFile
+                storePassword = releaseKeystoreConfig.storePassword
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
@@ -66,7 +108,7 @@ android {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
-            if (hasReleaseKeystore) {
+            if (releaseKeystoreConfig != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(
@@ -82,8 +124,13 @@ gradle.taskGraph.whenReady {
         task.project == project && task.name.contains("Release", ignoreCase = true)
     }
 
-    if (requestedReleaseBuild && !hasReleaseKeystore) {
-        throw GradleException(missingReleaseKeystoreMessage)
+    if (requestedReleaseBuild && releaseKeystoreConfig == null) {
+        throw GradleException(
+            "Release keystore is required for release builds. " +
+                "Create android/key.properties from key.properties.example " +
+                "and keep key.properties / keystore files out of Git. " +
+                "See docs/release/ANDROID_RELEASE_CHECKLIST.md",
+        )
     }
 }
 
