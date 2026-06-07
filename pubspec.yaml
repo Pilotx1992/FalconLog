@@ -51,8 +51,11 @@ dependencies:
   logging: ^1.2.0
   percent_indicator: ^4.2.3
   flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.1
+  flutter_timezone: ^4.0.0
   csv: ^6.0.0
   xml: ^6.5.0
+  pdf: ^3.11.3
 
 dev_dependencies:
   flutter_test:
@@ -72,4 +75,5 @@ flutter:
     - assets/airplane.svg
     - assets/airplane.png
     - assets/google.png
+    - assets/uil--export.svg
 
