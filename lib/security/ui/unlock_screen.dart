@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme/app_colors.dart';
+import '../../utils/responsive_layout.dart';
 import '../providers/security_providers.dart';
 import '../security_constants.dart';
 import 'pin_pad_widget.dart';
@@ -269,9 +270,17 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxHeight < 720;
-              final brandGap = compact ? 12.0 : 20.0;
-              final lockoutGap = compact ? 10.0 : 14.0;
+              final compact = isCompactHeight(constraints.maxHeight);
+              final brandGap = responsiveVerticalGap(
+                maxHeight: constraints.maxHeight,
+                normal: 20,
+                compact: 12,
+              );
+              final lockoutGap = responsiveVerticalGap(
+                maxHeight: constraints.maxHeight,
+                normal: 14,
+                compact: 10,
+              );
 
               return SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),

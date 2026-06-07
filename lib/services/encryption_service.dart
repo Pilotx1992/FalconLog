@@ -272,7 +272,8 @@ class EncryptionService {
       final checksum = hmac.convert(encryptedData);
 
       // Split encrypted data and tag (tag is last 16 bytes)
-      final dataWithoutTag = encryptedData.sublist(0, encryptedData.length - _tagLength);
+      final dataWithoutTag =
+          encryptedData.sublist(0, encryptedData.length - _tagLength);
       final tag = encryptedData.sublist(encryptedData.length - _tagLength);
 
       return {
@@ -303,7 +304,8 @@ class EncryptionService {
 
       // Reconstruct encrypted data with tag
       Uint8List encryptedData;
-      if (encryptedBackup.containsKey('data') && encryptedBackup.containsKey('tag')) {
+      if (encryptedBackup.containsKey('data') &&
+          encryptedBackup.containsKey('tag')) {
         // New format: data and tag are separate
         final data = base64Decode(encryptedBackup['data'] as String);
         final tag = base64Decode(encryptedBackup['tag'] as String);
@@ -312,7 +314,8 @@ class EncryptionService {
         encryptedData.setRange(data.length, encryptedData.length, tag);
       } else {
         // Old format: encryptedData contains both data and tag
-        encryptedData = base64Decode(encryptedBackup['encryptedData'] as String);
+        encryptedData =
+            base64Decode(encryptedBackup['encryptedData'] as String);
       }
 
       // Verify checksum if present

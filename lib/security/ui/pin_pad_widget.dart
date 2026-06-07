@@ -506,15 +506,22 @@ class PinEntryLayout extends StatelessWidget {
           return constrained;
         }
 
-        return Padding(
+        final minHeight = constraints.maxHeight.isFinite && constraints.maxHeight > 0
+            ? constraints.maxHeight
+            : 0.0;
+
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              constrained,
-              const Spacer(flex: 3),
-              const SizedBox(height: 8),
-            ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                constrained,
+                SizedBox(height: compactVertical ? 4 : 8),
+              ],
+            ),
           ),
         );
       },

@@ -29,6 +29,13 @@ class _SecurityLifecycleBinderState
   }
 
   @override
+  void didChangeMetrics() {
+    final init = ref.read(securityInitProvider);
+    if (!init.hasValue) return;
+    ref.read(securityServiceProvider).markOrientationChange();
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final init = ref.read(securityInitProvider);
     if (!init.hasValue) return;
@@ -36,9 +43,10 @@ class _SecurityLifecycleBinderState
     final service = ref.read(securityServiceProvider);
     switch (state) {
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
         service.onAppPaused();
+      case AppLifecycleState.inactive:
+        break;
       case AppLifecycleState.resumed:
         service.onAppResumed();
       case AppLifecycleState.detached:

@@ -84,7 +84,8 @@ class _SecurityErrorShell extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.lock_outline, size: 48, color: Color(0xFF3949ab)),
+              const Icon(Icons.lock_outline,
+                  size: 48, color: Color(0xFF3949ab)),
               const SizedBox(height: 16),
               const Text(
                 'App lock could not be initialized.',

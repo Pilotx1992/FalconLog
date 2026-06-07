@@ -12,6 +12,8 @@ void main() {
   const compact360x640 = Size(360, 640);
   const tall412x915 = Size(412, 915);
   const onePlus8TApprox = Size(360, 673);
+  const landscape640x360 = Size(640, 360);
+  const landscape915x412 = Size(915, 412);
 
   Future<void> pumpLockedUnlock(
     WidgetTester tester, {
@@ -63,6 +65,18 @@ void main() {
     testWidgets('OnePlus 8T height ~673 has no overflow', (tester) async {
       await pumpLockedUnlock(tester, size: onePlus8TApprox);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('640x360 landscape has no overflow', (tester) async {
+      await pumpLockedUnlock(tester, size: landscape640x360);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Enter PIN'), findsOneWidget);
+    });
+
+    testWidgets('915x412 landscape has no overflow', (tester) async {
+      await pumpLockedUnlock(tester, size: landscape915x412);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Enter PIN'), findsOneWidget);
     });
   });
 }

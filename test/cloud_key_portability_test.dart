@@ -17,11 +17,11 @@ void main() {
     );
 
     expect(keyFile.validateChecksum(), isTrue);
-    expect(keyFile.belongsToUser('pilot@example.com', 'google-account-123'), isTrue);
+    expect(keyFile.belongsToUser('pilot@example.com', 'google-account-123'),
+        isTrue);
     expect(keyFile.getMasterKey(), masterKey);
 
-    final jsonRoundTrip =
-        KeyFileFormatNew.fromJson(keyFile.toJson());
+    final jsonRoundTrip = KeyFileFormatNew.fromJson(keyFile.toJson());
     expect(jsonRoundTrip.getMasterKey(), masterKey);
     expect(base64Decode(jsonRoundTrip.keyBytes).length, 32);
   });

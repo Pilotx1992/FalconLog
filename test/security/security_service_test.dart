@@ -42,6 +42,34 @@ void main() {
       expect(service.isLocked, isFalse);
     });
 
+    test('does not lock on resume after brief pause within grace', () async {
+      await service.initialize();
+      await service.enablePin('2580');
+      await service.setAutoLockTimeoutSeconds(60);
+      service.onAppPaused();
+      service.onAppResumed();
+      expect(service.isLocked, isFalse);
+    });
+
+    test('does not lock on pause during orientation grace window', () async {
+      await service.initialize();
+      await service.enablePin('2580');
+      await service.setAutoLockTimeoutSeconds(0);
+      service.markOrientationChange();
+      service.onAppPaused();
+      expect(service.isLocked, isFalse);
+    });
+
+    test('locks on resume when pause exceeds auto-lock timeout', () async {
+      await service.initialize();
+      await service.enablePin('2580');
+      await service.setAutoLockTimeoutSeconds(1);
+      service.onAppPaused();
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      service.onAppResumed();
+      expect(service.isLocked, isTrue);
+    });
+
     test('integrity repair disables PIN when secrets missing', () async {
       repository = FakeSecurityRepository(
         initial: SecuritySettings.initial().copyWith(isPinEnabled: true),

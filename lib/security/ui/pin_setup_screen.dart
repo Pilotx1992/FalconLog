@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/security_providers.dart';
 import '../security_constants.dart';
+import '../../utils/responsive_layout.dart';
 import '../utils/pin_validator.dart';
 import 'pin_pad_widget.dart';
 
@@ -96,8 +97,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final isConfirm = _step == _PinSetupStep.confirm;
-    final title =
-        isConfirm ? 'Confirm your PIN' : 'Create a 4-digit PIN';
+    final title = isConfirm ? 'Confirm your PIN' : 'Create a 4-digit PIN';
     final subtitle = isConfirm
         ? 'Enter the same PIN again'
         : 'Avoid simple sequences like 1234';
@@ -117,17 +117,29 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
       ),
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: PinEntryLayout(
-          title: title,
-          subtitle: subtitle,
-          statusMessage: _error,
-          statusIsError: _error != null,
-          pinLength: SecurityConstants.pinLength,
-          filled: _pin.length,
-          errorPulse: _errorPulse,
-          busy: _busy,
-          onDigit: _onDigit,
-          onBackspace: _onBackspace,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = isCompactHeight(constraints.maxHeight);
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: PinEntryLayout(
+                  compactVertical: compact,
+                  title: title,
+                  subtitle: subtitle,
+                  statusMessage: _error,
+                  statusIsError: _error != null,
+                  pinLength: SecurityConstants.pinLength,
+                  filled: _pin.length,
+                  errorPulse: _errorPulse,
+                  busy: _busy,
+                  onDigit: _onDigit,
+                  onBackspace: _onBackspace,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

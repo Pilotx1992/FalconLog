@@ -22,6 +22,7 @@ class SecurityService {
   DateTime? _pausedAt;
   DateTime? _lastInteractionMemory;
   DateTime? _lastInteractionPersisted;
+  DateTime? _lastOrientationChangeAt;
 
   final _lockStateController = StreamController<bool>.broadcast();
   final _settingsController = StreamController<SecuritySettings>.broadcast();
@@ -361,6 +362,18 @@ class SecurityService {
     _emitLockState();
   }
 
+  /// Called when screen metrics change (rotation, resize).
+  void markOrientationChange() {
+    _lastOrientationChangeAt = DateTime.now();
+  }
+
+  bool get _isWithinOrientationGrace {
+    final at = _lastOrientationChangeAt;
+    if (at == null) return false;
+    return DateTime.now().difference(at) <
+        SecurityConstants.orientationChangeGracePeriod;
+  }
+
   void recordInteraction() {
     if (!_settings.isPinEnabled || _isLocked) return;
 
@@ -401,6 +414,7 @@ class SecurityService {
 
   void onAppPaused() {
     if (!_settings.isPinEnabled) return;
+    if (_isWithinOrientationGrace) return;
 
     _pausedAt = DateTime.now();
     unawaited(flushInteractionTime());
@@ -431,6 +445,12 @@ class SecurityService {
 
     if (_pausedAt != null) {
       final elapsed = DateTime.now().difference(_pausedAt!);
+      final withinOrientationGrace =
+          elapsed < SecurityConstants.orientationChangeGracePeriod;
+      if (withinOrientationGrace && elapsed < autoLockTimeout) {
+        _pausedAt = null;
+        return;
+      }
       if (elapsed >= autoLockTimeout) {
         lock();
       }

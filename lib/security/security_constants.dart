@@ -50,4 +50,10 @@ class SecurityConstants {
   // ── Interaction throttle ──────────────────────────────────────────
   /// Minimum interval between Hive flushes for `lastInteractionTime`.
   static const Duration interactionPersistThrottle = Duration(seconds: 45);
+
+  // ── Orientation / config change ───────────────────────────────────
+  /// Ignore pause/resume cycles within this window after a screen metrics
+  /// change (rotation, resize) so auto-lock does not fire spuriously.
+  static const Duration orientationChangeGracePeriod =
+      Duration(milliseconds: 1500);
 }
