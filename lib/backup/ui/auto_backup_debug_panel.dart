@@ -30,7 +30,8 @@ class _AutoBackupDebugPanelState extends State<AutoBackupDebugPanel> {
   Widget build(BuildContext context) {
     if (!kDebugMode) return const SizedBox.shrink();
 
-    final muted = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
+    final muted =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
@@ -38,7 +39,8 @@ class _AutoBackupDebugPanelState extends State<AutoBackupDebugPanel> {
         children: [
           Text(
             'Auto Backup QA (debug)',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: muted),
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600, color: muted),
           ),
           if (_status != null) ...[
             const SizedBox(height: 4),

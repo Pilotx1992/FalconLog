@@ -45,7 +45,8 @@ class BackupPayloadCodec {
 
       final appSettings = await AppSettingsBackup.exportFromPrefs(prefs);
       final aircraftRecords = await _loadAircraftRecords(prefs);
-      final aircraftTypesData = AircraftTypesStorage.toBackupMap(aircraftRecords);
+      final aircraftTypesData =
+          AircraftTypesStorage.toBackupMap(aircraftRecords);
 
       final logs = flightLogsBox.values.toList()
         ..sort(_compareFlightsForExport);
@@ -82,7 +83,8 @@ class BackupPayloadCodec {
           BackupPayloadManifest.computeCollectionHash(aircraftTypesData);
       final settingsHash =
           BackupPayloadManifest.computeCollectionHash(appSettings);
-      final fullHash = BackupPayloadManifest.computeFullPayloadHash(payloadBody);
+      final fullHash =
+          BackupPayloadManifest.computeFullPayloadHash(payloadBody);
 
       final manifest = BackupPayloadManifest(
         backupId: backupId,
@@ -234,8 +236,7 @@ class BackupPayloadCodec {
     final flightLogsData =
         backupData[flightLogsKey] as Map<String, dynamic>? ?? {};
     final aircraftData = backupData[aircraftTypesKey] as Map<String, dynamic>?;
-    final appSettingsData =
-        backupData[appSettingsKey] as Map<String, dynamic>?;
+    final appSettingsData = backupData[appSettingsKey] as Map<String, dynamic>?;
 
     final parseError = _validateEntitiesForRestore(
       flightLogsData: flightLogsData,
@@ -290,8 +291,7 @@ class BackupPayloadCodec {
 
     final manifestJson = backupData[manifestKey];
     final countError = _verifyRestoredCounts(
-      manifestJson:
-          manifestJson is Map<String, dynamic> ? manifestJson : null,
+      manifestJson: manifestJson is Map<String, dynamic> ? manifestJson : null,
       restoredFlights: restoredFlights,
       restoredAircraft: restoredAircraft,
       restoredSettings: restoredSettings,
@@ -321,8 +321,7 @@ class BackupPayloadCodec {
 
     final existing = await _loadAircraftRecords(prefs);
     final existingIds = existing.map((r) => r.id).toSet();
-    final existingNames =
-        existing.map((r) => r.name.toLowerCase()).toSet();
+    final existingNames = existing.map((r) => r.name.toLowerCase()).toSet();
 
     final merged = merge ? [...existing] : <AircraftTypeRecord>[];
     var added = 0;

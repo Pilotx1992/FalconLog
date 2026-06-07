@@ -9,7 +9,8 @@ import '../models/backup_metadata.dart';
 class ResetBackupSystem {
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+    iOptions: IOSOptions(
+        accessibility: KeychainAccessibility.first_unlock_this_device),
   );
 
   /// Reset everything - backups, keys, metadata
@@ -25,7 +26,8 @@ class ResetBackupSystem {
         print('☁️ Deleting backups from Google Drive...');
       }
 
-      final backups = await driveService.listFiles(query: "name contains 'falconlog_backup_'");
+      final backups = await driveService.listFiles(
+          query: "name contains 'falconlog_backup_'");
       int deletedCount = 0;
 
       for (final backup in backups) {
@@ -128,19 +130,24 @@ class ResetBackupSystem {
   }
 
   /// Check current backup system status
-  static Future<Map<String, dynamic>> getStatus(GoogleDriveService driveService) async {
+  static Future<Map<String, dynamic>> getStatus(
+      GoogleDriveService driveService) async {
     try {
       // Count cloud backups
-      final cloudBackups = await driveService.listFiles(query: "name contains 'falconlog_backup_'");
+      final cloudBackups = await driveService.listFiles(
+          query: "name contains 'falconlog_backup_'");
 
       // Count local metadata
       final metadataBox = await Hive.openBox<BackupMetadata>('backupMetadata');
       final localMetadata = metadataBox.length;
 
       // Check for stored keys
-      final hasOldKey = await _secureStorage.read(key: 'falconlog_backup_master_key') != null;
-      final hasNewKey = await _secureStorage.read(key: 'falconlog_master_key_v3') != null;
-      final hasVeryOldKey = await _secureStorage.read(key: 'backup_master_key_v2') != null;
+      final hasOldKey =
+          await _secureStorage.read(key: 'falconlog_backup_master_key') != null;
+      final hasNewKey =
+          await _secureStorage.read(key: 'falconlog_master_key_v3') != null;
+      final hasVeryOldKey =
+          await _secureStorage.read(key: 'backup_master_key_v2') != null;
 
       return {
         'cloud_backups': cloudBackups.length,

@@ -10,6 +10,7 @@ import '../backup/services/backup_service.dart';
 import '../backup/utils/backup_constants.dart';
 import '../backup/utils/backup_provider_preferences.dart';
 import '../backup/utils/backup_scheduler.dart';
+
 const _autoBackupTriggerKey = 'falconlog_auto_backup_trigger';
 const _maxBackupsKey = 'falconlog_max_backups';
 

@@ -19,7 +19,8 @@ Future<bool> backgroundDispatcher() async {
     // Ensure Flutter bindings
     // WidgetsFlutterBinding.ensureInitialized(); // Avoid heavy UI binding in background
     // Init minimal platform services
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
 
     // Open Hive (only if not already). Using try to avoid race.
     if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(FlightTypeAdapter());
@@ -31,7 +32,7 @@ Future<bool> backgroundDispatcher() async {
     }
 
     Workmanager().executeTask((task, inputData) async {
-  log('[BackgroundBackup] Executing task: $task');
+      log('[BackgroundBackup] Executing task: $task');
       if (task == BackgroundBackupTasks.periodicEncryptedLocal) {
         try {
           final box = Hive.box<FlightLog>('flightLogsBox');
@@ -45,7 +46,7 @@ Future<bool> backgroundDispatcher() async {
             log('[BackgroundBackup] No logs to backup.');
           }
         } catch (e, st) {
-            log('[BackgroundBackup] Error: $e');
+          log('[BackgroundBackup] Error: $e');
           log(st.toString());
         }
       }
@@ -53,7 +54,7 @@ Future<bool> backgroundDispatcher() async {
     });
     return true;
   } catch (e, st) {
-  log('[BackgroundBackup] Initialization error: $e');
+    log('[BackgroundBackup] Initialization error: $e');
     log(st.toString());
     return false;
   }
@@ -62,7 +63,7 @@ Future<bool> backgroundDispatcher() async {
 /// Helper to register periodic task
 class BackgroundBackupScheduler {
   static Future<void> initAndSchedule() async {
-  await Workmanager().initialize(backgroundDispatcher);
+    await Workmanager().initialize(backgroundDispatcher);
     await Workmanager().registerPeriodicTask(
       'encrypted_local_backup',
       BackgroundBackupTasks.periodicEncryptedLocal,

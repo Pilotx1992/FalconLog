@@ -15,11 +15,11 @@ void main() {
       BackupSchedulerWorkmanager.cancelLog.add(name);
     };
     BackupSchedulerWorkmanager.cancelByTag = (_) async {};
-    BackupSchedulerWorkmanager.isScheduledByUniqueName =
-        (_) async => false;
+    BackupSchedulerWorkmanager.isScheduledByUniqueName = (_) async => false;
     BackupSchedulerWorkmanager.cancelByTag = (_) async {};
-    BackupSchedulerWorkmanager.registerOneOffTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerOneOffTask = (
+      uniqueName,
+      taskName, {
       required constraints,
       required initialDelay,
       required backoffPolicy,
@@ -29,8 +29,9 @@ void main() {
     }) async {
       BackupSchedulerWorkmanager.registerLog.add(uniqueName);
     };
-    BackupSchedulerWorkmanager.registerPeriodicTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerPeriodicTask = (
+      uniqueName,
+      taskName, {
       required frequency,
       required constraints,
       required initialDelay,
@@ -45,7 +46,8 @@ void main() {
 
   tearDown(BackupSchedulerWorkmanager.resetTestHooks);
 
-  test('pending with stale waiting_for_wifi clears failure and enqueues catch-up',
+  test(
+      'pending with stale waiting_for_wifi clears failure and enqueues catch-up',
       () async {
     SharedPreferences.setMockInitialValues({
       BackupConstants.settingsKeys['auto_backup_enabled']!: true,

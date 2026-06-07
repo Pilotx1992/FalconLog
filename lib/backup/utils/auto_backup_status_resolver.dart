@@ -24,8 +24,7 @@ class AutoBackupPendingContext {
 class AutoBackupStatusResolver {
   AutoBackupStatusResolver._();
 
-  static const String waitingForWifi =
-      'Backup pending — waiting for Wi-Fi.';
+  static const String waitingForWifi = 'Backup pending — waiting for Wi-Fi.';
   static const String waitingForBattery =
       'Backup pending — waiting for sufficient battery.';
   static const String waitingForDriveAuth =

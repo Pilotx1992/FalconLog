@@ -22,7 +22,8 @@ class VerificationScheduler {
       );
       _logger.info('Verification scheduler initialized');
     } catch (e, stackTrace) {
-      _logger.severe('Failed to initialize verification scheduler', e, stackTrace);
+      _logger.severe(
+          'Failed to initialize verification scheduler', e, stackTrace);
     }
   }
 
@@ -53,7 +54,8 @@ class VerificationScheduler {
         frequency: Duration(seconds: interval),
         constraints: Constraints(
           networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
-          requiresBatteryNotLow: false, // Verification is less resource intensive
+          requiresBatteryNotLow:
+              false, // Verification is less resource intensive
           requiresCharging: false,
           requiresDeviceIdle: true, // Run when device is idle
           requiresStorageNotLow: false,
@@ -63,11 +65,15 @@ class VerificationScheduler {
 
       // Save settings
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(BackupConstants.settingsKeys['verification_frequency']!, frequency);
-      await prefs.setBool(BackupConstants.settingsKeys['verification_wifi_only']!, wifiOnly);
-      await prefs.setBool(BackupConstants.settingsKeys['auto_verification_enabled']!, true);
+      await prefs.setString(
+          BackupConstants.settingsKeys['verification_frequency']!, frequency);
+      await prefs.setBool(
+          BackupConstants.settingsKeys['verification_wifi_only']!, wifiOnly);
+      await prefs.setBool(
+          BackupConstants.settingsKeys['auto_verification_enabled']!, true);
 
-      _logger.info('Verification scheduled: $frequency (Wi-Fi only: $wifiOnly)');
+      _logger
+          .info('Verification scheduled: $frequency (Wi-Fi only: $wifiOnly)');
     } catch (e, stackTrace) {
       _logger.severe('Failed to schedule verification', e, stackTrace);
     }
@@ -80,7 +86,8 @@ class VerificationScheduler {
 
       // Update settings
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(BackupConstants.settingsKeys['auto_verification_enabled']!, false);
+      await prefs.setBool(
+          BackupConstants.settingsKeys['auto_verification_enabled']!, false);
 
       _logger.info('Verification schedule cancelled');
     } catch (e, stackTrace) {
@@ -92,7 +99,9 @@ class VerificationScheduler {
   Future<bool> isVerificationScheduled() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(BackupConstants.settingsKeys['auto_verification_enabled']!) ?? false;
+      return prefs.getBool(
+              BackupConstants.settingsKeys['auto_verification_enabled']!) ??
+          false;
     } catch (e, stackTrace) {
       _logger.severe('Failed to check verification schedule', e, stackTrace);
       return false;
@@ -103,7 +112,9 @@ class VerificationScheduler {
   Future<String> getVerificationFrequency() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(BackupConstants.settingsKeys['verification_frequency']!) ?? 'weekly';
+      return prefs.getString(
+              BackupConstants.settingsKeys['verification_frequency']!) ??
+          'weekly';
     } catch (e, stackTrace) {
       _logger.severe('Failed to get verification frequency', e, stackTrace);
       return 'weekly';
@@ -114,7 +125,9 @@ class VerificationScheduler {
   Future<bool> isVerificationWifiOnly() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(BackupConstants.settingsKeys['verification_wifi_only']!) ?? true;
+      return prefs.getBool(
+              BackupConstants.settingsKeys['verification_wifi_only']!) ??
+          true;
     } catch (e, stackTrace) {
       _logger.severe('Failed to get verification Wi-Fi setting', e, stackTrace);
       return true;
@@ -146,7 +159,7 @@ void callbackDispatcher() {
 Future<void> _performVerificationTask() async {
   try {
     _logger.info('Starting automatic backup verification');
-    
+
     // Note: In a real implementation, you would need to inject the BackupService
     // This is a simplified version that logs the task
     _logger.info('Verification task completed');
@@ -156,4 +169,3 @@ Future<void> _performVerificationTask() async {
 }
 
 final _logger = Logger('VerificationScheduler');
-

@@ -33,7 +33,8 @@ void main() {
       expect(missed, '2026-06-03');
     });
 
-    test('before 23:59 with last success yesterday yields pending yesterday', () {
+    test('before 23:59 with last success yesterday yields pending yesterday',
+        () {
       final now = DateTime(2026, 6, 4, 12, 0);
       final missed = AutoBackupDueEngine.latestMissedDueDay(
         nowLocal: now,

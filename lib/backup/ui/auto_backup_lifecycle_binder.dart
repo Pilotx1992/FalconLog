@@ -65,9 +65,10 @@ class _AutoBackupLifecycleBinderState extends State<AutoBackupLifecycleBinder>
 
   Future<void> _runReconcile() async {
     AutoBackupLog.lifecycle('resume reconcile firing after debounce');
-    final reconcile = widget.onResumeReconcile ?? () async {
-      await AutoBackupReconciler().reconcile();
-    };
+    final reconcile = widget.onResumeReconcile ??
+        () async {
+          await AutoBackupReconciler().reconcile();
+        };
     await reconcile();
     AutoBackupLog.lifecycle('resume reconcile complete');
   }

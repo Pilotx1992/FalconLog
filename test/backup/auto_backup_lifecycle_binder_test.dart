@@ -62,7 +62,8 @@ void main() {
       expect(reconcileCount, 1);
     });
 
-    testWidgets('resume does not invoke BackupService.startBackup', (tester) async {
+    testWidgets('resume does not invoke BackupService.startBackup',
+        (tester) async {
       var backupInvoked = false;
       BackupService.startBackupForTesting =
           ({bool interactive = true, providerOverride}) async {

@@ -14,6 +14,7 @@ import 'auto_backup_state_store.dart';
 import 'auto_backup_work_names.dart';
 import 'backup_constants.dart';
 import 'backup_provider_preferences.dart';
+import '../../notifications/schedulers/backup_notification_dispatcher.dart';
 import 'backup_scheduler.dart';
 import 'scheduled_backup_logic.dart';
 
@@ -22,7 +23,8 @@ class AutoBackupWorker {
   AutoBackupWorker._();
 
   @visibleForTesting
-  static Future<bool> Function(SharedPreferences prefs)? networkSatisfiedOverride;
+  static Future<bool> Function(SharedPreferences prefs)?
+      networkSatisfiedOverride;
 
   static Future<bool> handleTask(String task, Logger logger) async {
     if (task == AutoBackupWorkNames.dailyEvaluatorTask) {
@@ -108,8 +110,7 @@ class AutoBackupWorker {
     await BackupScheduler.initializeBackgroundDependencies(logger);
 
     final flightLogsBox = await (BackupScheduler.openFlightLogsBoxForTesting ??
-            () =>
-                HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
+        () => HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
     final hasFlightLogs = flightLogsBox.isNotEmpty;
 
     final provider = await BackupProviderPreferences.getSelectedProvider();
@@ -160,11 +161,23 @@ class AutoBackupWorker {
       await store.commitSuccess(runDueDay, DateTime.now());
       AutoBackupLog.worker('backup verified success runDueDay=$runDueDay');
       logger.info('Catch-up success for due day $runDueDay');
+      try {
+        await BackupNotificationDispatcher.onBackupSuccess();
+      } catch (_) {
+        // Notification failure must not affect backup outcome.
+      }
       return true;
     }
 
     await store.recordAttemptFailure('backup_failed');
     AutoBackupLog.worker('backup failed runDueDay=$runDueDay');
+    try {
+      await BackupNotificationDispatcher.onBackupFailure(
+        reason: 'Tap to review backup settings.',
+      );
+    } catch (_) {
+      // Notification failure must not affect backup outcome.
+    }
     return false;
   }
 
@@ -208,8 +221,7 @@ class AutoBackupWorker {
     await BackupScheduler.initializeBackgroundDependencies(logger);
 
     final flightLogsBox = await (BackupScheduler.openFlightLogsBoxForTesting ??
-            () =>
-                HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
+        () => HiveInitializationService.openBox<FlightLog>('flightLogsBox'))();
     if (flightLogsBox.isEmpty) {
       logger.info('No flight logs; skipping interval backup');
       return true;
@@ -217,6 +229,17 @@ class AutoBackupWorker {
 
     final backupService = BackupService();
     final success = await backupService.startBackup(interactive: false);
+    try {
+      if (success) {
+        await BackupNotificationDispatcher.onBackupSuccess();
+      } else {
+        await BackupNotificationDispatcher.onBackupFailure(
+          reason: 'Tap to review backup settings.',
+        );
+      }
+    } catch (_) {
+      // Notification failure must not affect backup outcome.
+    }
     return success;
   }
 

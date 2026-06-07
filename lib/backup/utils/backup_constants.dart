@@ -8,7 +8,8 @@ class BackupConstants {
   static const String keyFileName = 'falconlog_backup_keys.encrypted';
 
   // Backup file extensions
-  static const String backupExtension = '.crypt14'; // WhatsApp-style encrypted format
+  static const String backupExtension =
+      '.crypt14'; // WhatsApp-style encrypted format
   static const String metadataExtension = '.json';
 
   // Encryption constants
@@ -41,7 +42,8 @@ class BackupConstants {
 
   // Security constants
   static const String keyStorageKey = 'falconlog_backup_key';
-  static const String biometricReason = 'Authenticate to access backup encryption keys';
+  static const String biometricReason =
+      'Authenticate to access backup encryption keys';
   static const int sessionTimeout = 300; // 5 minutes (seconds)
 
   // Performance constants
@@ -66,9 +68,9 @@ class BackupConstants {
   // Verification scheduling
   static const Map<String, int> verificationIntervals = {
     'off': 0,
-    'daily': 86400,      // 1 day
-    'weekly': 604800,    // 1 week
-    'monthly': 2592000,  // 1 month
+    'daily': 86400, // 1 day
+    'weekly': 604800, // 1 week
+    'monthly': 2592000, // 1 month
   };
 
   // File patterns and filters
@@ -188,7 +190,7 @@ class BackupConstants {
     'wifi_only': true,
     'keep_count': 5,
     'local_backups_enabled': false,
-    'auto_verification_enabled': true,  // Always enabled
+    'auto_verification_enabled': true, // Always enabled
     'verification_frequency': 'weekly',
     'verification_wifi_only': true,
   };

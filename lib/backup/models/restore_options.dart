@@ -32,7 +32,8 @@ class RestoreOptions {
       if (startDate == null || endDate == null) {
         return false;
       }
-      return startDate!.isBefore(endDate!) || startDate!.isAtSameMomentAs(endDate!);
+      return startDate!.isBefore(endDate!) ||
+          startDate!.isAtSameMomentAs(endDate!);
     }
     return true;
   }
@@ -95,6 +96,9 @@ class RestoreOptions {
 
   @override
   int get hashCode {
-    return useDateFilter.hashCode ^ startDate.hashCode ^ endDate.hashCode ^ replaceAll.hashCode;
+    return useDateFilter.hashCode ^
+        startDate.hashCode ^
+        endDate.hashCode ^
+        replaceAll.hashCode;
   }
 }

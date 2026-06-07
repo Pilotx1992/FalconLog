@@ -45,10 +45,10 @@ void main() {
     BackupScheduler.openFlightLogsBoxForTesting = null;
     SharedPreferences.setMockInitialValues({});
 
-    tempDir = await Directory.systemTemp
-        .createTemp('falconlog_scheduler_test_');
-    lockDir = await Directory.systemTemp
-        .createTemp('falconlog_scheduler_lock_');
+    tempDir =
+        await Directory.systemTemp.createTemp('falconlog_scheduler_test_');
+    lockDir =
+        await Directory.systemTemp.createTemp('falconlog_scheduler_lock_');
     BackupOperationLock.baseDirectoryForTesting = lockDir;
     await BackupOperationLock.clearForTesting();
     Hive.init(tempDir.path);
@@ -81,26 +81,24 @@ void main() {
     BackupScheduler.openFlightLogsBoxForTesting =
         () async => Hive.box<FlightLog>('flightLogsBox');
 
-    BackupSchedulerWorkmanager.registerPeriodicTask =
-        (uniqueName, taskName,
-            {required frequency,
-            required constraints,
-            required initialDelay,
-            required backoffPolicy,
-            required backoffPolicyDelay,
-            required existingWorkPolicy,
-            tag}) async {
+    BackupSchedulerWorkmanager.registerPeriodicTask = (uniqueName, taskName,
+        {required frequency,
+        required constraints,
+        required initialDelay,
+        required backoffPolicy,
+        required backoffPolicyDelay,
+        required existingWorkPolicy,
+        tag}) async {
       BackupSchedulerWorkmanager.registerLog.add(uniqueName);
       BackupSchedulerWorkmanager.activeUniqueNames.add(uniqueName);
     };
-    BackupSchedulerWorkmanager.registerOneOffTask =
-        (uniqueName, taskName,
-            {required constraints,
-            required initialDelay,
-            required backoffPolicy,
-            required backoffPolicyDelay,
-            required existingWorkPolicy,
-            tag}) async {
+    BackupSchedulerWorkmanager.registerOneOffTask = (uniqueName, taskName,
+        {required constraints,
+        required initialDelay,
+        required backoffPolicy,
+        required backoffPolicyDelay,
+        required existingWorkPolicy,
+        tag}) async {
       BackupSchedulerWorkmanager.registerLog.add(uniqueName);
     };
   });
@@ -166,7 +164,8 @@ void main() {
       expect(prefs.getString(frequencyKey), 'weekly');
     });
 
-    test('mutual exclusion: never daily and interval periodic together', () async {
+    test('mutual exclusion: never daily and interval periodic together',
+        () async {
       final scheduler = BackupScheduler();
       await scheduler.scheduleBackup(frequency: 'daily');
       expect(activePeriodicNames(), {AutoBackupWorkNames.dailyEvaluatorUnique});
@@ -246,7 +245,8 @@ void main() {
   });
 
   group('catch-up worker', () {
-    test('commitSuccess uses runDueDay and updates daily success fields', () async {
+    test('commitSuccess uses runDueDay and updates daily success fields',
+        () async {
       SharedPreferences.setMockInitialValues({
         enabledKey: true,
         frequencyKey: 'daily',
@@ -272,7 +272,8 @@ void main() {
       );
     });
 
-    test('failed backup does not update daily success or last_backup_time', () async {
+    test('failed backup does not update daily success or last_backup_time',
+        () async {
       SharedPreferences.setMockInitialValues({
         enabledKey: true,
         frequencyKey: 'daily',
@@ -314,7 +315,8 @@ void main() {
       expect(interactiveUsed, isFalse);
     });
 
-    test('interval success does not use scheduler updateLastBackupTime', () async {
+    test('interval success does not use scheduler updateLastBackupTime',
+        () async {
       SharedPreferences.setMockInitialValues({
         enabledKey: true,
         frequencyKey: 'weekly',
@@ -324,7 +326,8 @@ void main() {
       BackupService.startBackupForTesting =
           ({bool interactive = true, BackupProvider? providerOverride}) async {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(lastBackupKey, DateTime.now().millisecondsSinceEpoch);
+        await prefs.setInt(
+            lastBackupKey, DateTime.now().millisecondsSinceEpoch);
         return true;
       };
 

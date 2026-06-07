@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/legacy_auth_credential_cleanup.dart';
+import '../../notifications/domain/notification_preferences.dart';
+import '../../notifications/schedulers/currency_expiry_scheduler.dart';
 import '../../settings/currency_alert_settings.dart';
 import 'auto_backup_due_engine.dart';
 import 'auto_backup_reconciler.dart';
@@ -35,6 +37,7 @@ class AppSettingsBackup {
     CurrencyAlertSettings.prefKeyDayAlertDays,
     CurrencyAlertSettings.prefKeyNightAlertDays,
     CurrencyAlertSettings.prefKeySetupCompleted,
+    ...NotificationPreferences.backupablePreferenceKeys,
   ];
 
   /// Legacy export list kept for tests — preferences only, no runtime state.
@@ -151,6 +154,7 @@ class AppSettingsBackup {
   }) async {
     await clearAutoBackupRuntimeAfterRestore(prefs: prefs);
     await AutoBackupReconciler().reconcile();
+    await CurrencyExpiryScheduler.rescheduleFromHive(allowShowNow: false);
   }
 
   static int countSettings(Map<String, dynamic>? bundle) {

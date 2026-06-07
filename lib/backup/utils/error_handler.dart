@@ -38,15 +38,18 @@ class BackupErrorHandler {
         // Generic error handling
         final errorString = error.toString().toLowerCase();
 
-        if (errorString.contains('network') || errorString.contains('connection')) {
+        if (errorString.contains('network') ||
+            errorString.contains('connection')) {
           return 'Network error. Please check your internet connection.';
         } else if (errorString.contains('timeout')) {
           return 'Operation timed out. Please try again.';
         } else if (errorString.contains('permission')) {
           return 'Permission denied. Please check app permissions.';
-        } else if (errorString.contains('storage') || errorString.contains('disk')) {
+        } else if (errorString.contains('storage') ||
+            errorString.contains('disk')) {
           return 'Storage error. Please free up some space and try again.';
-        } else if (errorString.contains('authentication') || errorString.contains('auth')) {
+        } else if (errorString.contains('authentication') ||
+            errorString.contains('auth')) {
           return 'Authentication failed. Please sign in again.';
         } else {
           return 'An unexpected error occurred. Please try again.';
@@ -88,9 +91,11 @@ class BackupErrorHandler {
 
     if (errorString.contains('network') || errorString.contains('connection')) {
       return BackupConstants.errorCodes['NETWORK_ERROR'];
-    } else if (errorString.contains('authentication') || errorString.contains('auth')) {
+    } else if (errorString.contains('authentication') ||
+        errorString.contains('auth')) {
       return BackupConstants.errorCodes['AUTHENTICATION_FAILED'];
-    } else if (errorString.contains('storage') || errorString.contains('disk')) {
+    } else if (errorString.contains('storage') ||
+        errorString.contains('disk')) {
       return BackupConstants.errorCodes['DISK_FULL'];
     } else if (errorString.contains('permission')) {
       return BackupConstants.errorCodes['PERMISSION_DENIED'];
@@ -132,9 +137,11 @@ class BackupErrorHandler {
 
     if (errorString.contains('network') || errorString.contains('connection')) {
       return 'Check your internet connection and try again.';
-    } else if (errorString.contains('authentication') || errorString.contains('auth')) {
+    } else if (errorString.contains('authentication') ||
+        errorString.contains('auth')) {
       return 'Sign in to Google Drive again.';
-    } else if (errorString.contains('storage') || errorString.contains('disk')) {
+    } else if (errorString.contains('storage') ||
+        errorString.contains('disk')) {
       return 'Free up storage space and try again.';
     } else if (errorString.contains('permission')) {
       return 'Grant necessary permissions to the app.';
@@ -148,7 +155,8 @@ class BackupErrorHandler {
   }
 
   /// Create error report for debugging
-  static Map<String, dynamic> createErrorReport(dynamic error, {String? context}) {
+  static Map<String, dynamic> createErrorReport(dynamic error,
+      {String? context}) {
     return {
       'timestamp': DateTime.now().toIso8601String(),
       'context': context ?? 'Unknown',
@@ -162,10 +170,12 @@ class BackupErrorHandler {
   }
 
   /// Log error with appropriate level
-  static void logError(dynamic error, {String? context, StackTrace? stackTrace}) {
+  static void logError(dynamic error,
+      {String? context, StackTrace? stackTrace}) {
     if (error is BackupException) {
       if (error.errorCode == BackupConstants.errorCodes['CORRUPTED_DATA']) {
-        _logger.severe('Critical backup error in $context: $error', error, stackTrace);
+        _logger.severe(
+            'Critical backup error in $context: $error', error, stackTrace);
       } else {
         _logger.warning('Backup error in $context: $error', error, stackTrace);
       }
@@ -175,7 +185,8 @@ class BackupErrorHandler {
   }
 
   /// Handle and log error in one call
-  static String handleAndLogError(dynamic error, {String? context, StackTrace? stackTrace}) {
+  static String handleAndLogError(dynamic error,
+      {String? context, StackTrace? stackTrace}) {
     logError(error, context: context, stackTrace: stackTrace);
     return handleBackupError(error, context: context);
   }

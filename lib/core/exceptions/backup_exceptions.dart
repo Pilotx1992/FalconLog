@@ -1,4 +1,4 @@
-﻿/// Base exception class for all backup system errors
+/// Base exception class for all backup system errors
 class BackupException implements Exception {
   final String message;
   final int? errorCode;
@@ -12,12 +12,14 @@ class BackupException implements Exception {
 
 /// Thrown when backup creation fails
 class BackupCreationException extends BackupException {
-  const BackupCreationException(super.message, {super.errorCode, super.originalError});
+  const BackupCreationException(super.message,
+      {super.errorCode, super.originalError});
 }
 
 /// Thrown when backup verification fails
 class BackupVerificationException extends BackupException {
-  const BackupVerificationException(super.message, {super.errorCode, super.originalError});
+  const BackupVerificationException(super.message,
+      {super.errorCode, super.originalError});
 }
 
 /// Thrown when backup is not found
@@ -85,7 +87,8 @@ class CloudListException extends SyncException {
 
 /// Thrown when encryption operation fails
 class EncryptionException extends BackupException {
-  const EncryptionException(super.message, {super.errorCode, super.originalError});
+  const EncryptionException(super.message,
+      {super.errorCode, super.originalError});
 }
 
 /// Thrown when validation fails
@@ -104,19 +107,22 @@ class StorageException extends BackupException {
 
 /// Thrown when compression operations fail
 class CompressionException extends BackupException {
-  const CompressionException(super.message, {int? errorCode, super.originalError})
+  const CompressionException(super.message,
+      {int? errorCode, super.originalError})
       : super(errorCode: errorCode ?? 1006);
 }
 
 /// Thrown when key derivation operations fail
 class KeyDerivationException extends BackupException {
-  const KeyDerivationException(super.message, {int? errorCode, super.originalError})
+  const KeyDerivationException(super.message,
+      {int? errorCode, super.originalError})
       : super(errorCode: errorCode ?? 1009);
 }
 
 /// Thrown when decryption operations fail
 class DecryptionException extends BackupException {
-  const DecryptionException(super.message, {int? errorCode, super.originalError})
+  const DecryptionException(super.message,
+      {int? errorCode, super.originalError})
       : super(errorCode: errorCode ?? 1010);
 }
 
@@ -137,5 +143,3 @@ class OperationCancelledException extends BackupException {
   const OperationCancelledException()
       : super('Operation was cancelled by user');
 }
-
-

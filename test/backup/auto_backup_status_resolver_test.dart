@@ -19,7 +19,8 @@ void main() {
       );
     });
 
-    test('stale waiting_for_wifi is not used — wifi available shows scheduled', () {
+    test('stale waiting_for_wifi is not used — wifi available shows scheduled',
+        () {
       expect(
         AutoBackupStatusResolver.resolvePendingMessage(
           const AutoBackupPendingContext(
@@ -79,7 +80,8 @@ void main() {
       );
     });
 
-    test('cellular On without any network shows scheduled not waiting for Wi-Fi',
+    test(
+        'cellular On without any network shows scheduled not waiting for Wi-Fi',
         () {
       expect(
         AutoBackupStatusResolver.resolvePendingMessage(

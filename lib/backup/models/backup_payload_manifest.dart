@@ -91,8 +91,8 @@ class BackupPayloadManifest {
     return BackupPayloadManifest(
       backupId: json['backup_id'] as String,
       schemaVersion: json['schema_version'] as String? ?? '2.0',
-      backupFormatVersion:
-          json['backup_format_version'] as String? ?? currentBackupFormatVersion,
+      backupFormatVersion: json['backup_format_version'] as String? ??
+          currentBackupFormatVersion,
       appVersion: json['app_version'] as String? ?? 'unknown',
       createdAt: DateTime.parse(json['created_at'] as String),
       provider: json['provider'] as String? ?? 'unknown',
@@ -106,14 +106,16 @@ class BackupPayloadManifest {
       flightLogCount: json['flight_log_count'] as int? ?? 0,
       skippedLogCount: json['skipped_log_count'] as int? ?? 0,
       aircraftTypeCount: json['aircraft_type_count'] as int? ?? 0,
-      aircraftTypeSkippedCount: json['aircraft_type_skipped_count'] as int? ?? 0,
+      aircraftTypeSkippedCount:
+          json['aircraft_type_skipped_count'] as int? ?? 0,
       appSettingsCount: json['app_settings_count'] as int? ?? 0,
       appSettingsSkippedCount: json['app_settings_skipped_count'] as int? ?? 0,
     );
   }
 
   /// `null` = OK to restore. Non-null = block restore before data changes.
-  static String? validateBackupFormatVersion(Map<String, dynamic>? manifestJson) {
+  static String? validateBackupFormatVersion(
+      Map<String, dynamic>? manifestJson) {
     if (manifestJson == null) {
       return null;
     }

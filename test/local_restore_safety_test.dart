@@ -17,8 +17,8 @@ void main() {
       localPath: '/nonexistent/path/backup.crypt14',
     );
 
-    expect(RestoreDispatch.routeForProvider(target.provider),
-        RestoreRoute.local);
+    expect(
+        RestoreDispatch.routeForProvider(target.provider), RestoreRoute.local);
     expect(RestoreDispatch.isLocalBackup(target), isTrue);
     expect(RestoreDispatch.isCloudBackup(target), isFalse);
   });

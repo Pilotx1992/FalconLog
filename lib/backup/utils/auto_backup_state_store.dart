@@ -11,11 +11,14 @@ class AutoBackupStateStore {
   SharedPreferences? _prefs;
 
   static const String dueMinuteKey = 'falconlog_auto_backup_due_minute';
-  static const String pendingDueDayKey = 'falconlog_auto_backup_pending_due_day';
+  static const String pendingDueDayKey =
+      'falconlog_auto_backup_pending_due_day';
   static const String lastSuccessDueDayKey =
       'falconlog_auto_backup_last_success_due_day';
-  static const String lastSuccessAtKey = 'falconlog_auto_backup_last_success_at';
-  static const String lastAttemptAtKey = 'falconlog_auto_backup_last_attempt_at';
+  static const String lastSuccessAtKey =
+      'falconlog_auto_backup_last_success_at';
+  static const String lastAttemptAtKey =
+      'falconlog_auto_backup_last_attempt_at';
   static const String lastFailureReasonKey =
       'falconlog_auto_backup_last_failure_reason';
   static const String scheduleGenKey = 'falconlog_auto_backup_schedule_gen';

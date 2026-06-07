@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hive/hive.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +11,8 @@ import 'package:workmanager/workmanager.dart';
 import '../../core/services/hive_initialization_service.dart';
 import '../../firebase_options.dart';
 import '../../models/flight_log.dart';
+import '../../notifications/schedulers/currency_daily_worker.dart';
+import '../../notifications/services/local_notification_service.dart';
 import '../models/backup_metadata.dart';
 import '../models/backup_provider_enum.dart';
 import '../services/backup_service.dart';
@@ -446,12 +448,10 @@ class BackupScheduler {
       final nextBackupTime = await getNextBackupTime();
       final isOverdue = await isBackupOverdue();
       final store = AutoBackupStateStore();
-      final pendingDueDay = frequency == 'daily'
-          ? await store.getPendingDueDay()
-          : null;
-      final lastSuccessAt = frequency == 'daily'
-          ? await store.getLastSuccessAt()
-          : null;
+      final pendingDueDay =
+          frequency == 'daily' ? await store.getPendingDueDay() : null;
+      final lastSuccessAt =
+          frequency == 'daily' ? await store.getLastSuccessAt() : null;
 
       String? pendingStatusMessage;
       if (pendingDueDay != null && frequency == 'daily') {
@@ -676,6 +676,7 @@ void callbackDispatcher() {
     final logger = Logger('BackupTask');
 
     try {
+      WidgetsFlutterBinding.ensureInitialized();
       DartPluginRegistrant.ensureInitialized();
       logger.info('Starting backup task: $task');
 
@@ -685,6 +686,9 @@ void callbackDispatcher() {
           logger,
         );
       }
+
+      final currencyHandled = await CurrencyDailyWorker.handleTask(task, logger);
+      if (currencyHandled) return true;
 
       return await AutoBackupWorker.handleTask(task, logger);
     } catch (e, stackTrace) {
@@ -710,6 +714,9 @@ Future<void> _initializeBackgroundBackupDependencies(Logger logger) async {
   await HiveInitializationService.initialize();
   await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
   await HiveInitializationService.openBox<BackupMetadata>('backupMetadata');
+
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalNotificationService.initialize(isBackground: true);
 
   logger.info('Background backup dependencies initialized.');
 }

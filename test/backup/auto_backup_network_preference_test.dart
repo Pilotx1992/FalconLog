@@ -89,8 +89,9 @@ void main() {
       BackupSchedulerWorkmanager.resetTestHooks();
       BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
       BackupSchedulerWorkmanager.cancelByTag = (_) async {};
-      BackupSchedulerWorkmanager.registerPeriodicTask =
-          (uniqueName, taskName, {
+      BackupSchedulerWorkmanager.registerPeriodicTask = (
+        uniqueName,
+        taskName, {
         required frequency,
         required constraints,
         required initialDelay,
@@ -102,8 +103,9 @@ void main() {
         lastPeriodicConstraints = constraints;
         BackupSchedulerWorkmanager.registerLog.add(uniqueName);
       };
-      BackupSchedulerWorkmanager.registerOneOffTask =
-          (uniqueName, taskName, {
+      BackupSchedulerWorkmanager.registerOneOffTask = (
+        uniqueName,
+        taskName, {
         required constraints,
         required initialDelay,
         required backoffPolicy,

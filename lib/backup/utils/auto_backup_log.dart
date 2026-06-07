@@ -15,7 +15,8 @@ class AutoBackupLog {
       _print('AutoBackupStateStore', message);
 
   /// Due-engine messages (subset of QA diagnostics).
-  static void dueEngine(String message) => _print('AutoBackupDueEngine', message);
+  static void dueEngine(String message) =>
+      _print('AutoBackupDueEngine', message);
 
   static void scheduler(String message) =>
       _print('AutoBackupScheduler', message);

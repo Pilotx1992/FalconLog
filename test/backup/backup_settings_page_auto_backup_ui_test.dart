@@ -102,8 +102,9 @@ void main() {
     BackupSchedulerWorkmanager.isScheduledByUniqueName = (name) async {
       return BackupSchedulerWorkmanager.activeUniqueNames.contains(name);
     };
-    BackupSchedulerWorkmanager.registerPeriodicTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerPeriodicTask = (
+      uniqueName,
+      taskName, {
       required frequency,
       required constraints,
       required initialDelay,
@@ -115,8 +116,9 @@ void main() {
       BackupSchedulerWorkmanager.registerLog.add(uniqueName);
       BackupSchedulerWorkmanager.activeUniqueNames.add(uniqueName);
     };
-    BackupSchedulerWorkmanager.registerOneOffTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerOneOffTask = (
+      uniqueName,
+      taskName, {
       required constraints,
       required initialDelay,
       required backoffPolicy,
@@ -221,7 +223,8 @@ void main() {
       expect(find.byKey(const Key('cellular_backup_on')), findsNothing);
       expect(find.byType(Radio<bool>), findsNothing);
 
-      expect(find.textContaining('Backups are due after 11:59 PM'), findsNothing);
+      expect(
+          find.textContaining('Backups are due after 11:59 PM'), findsNothing);
       expect(find.textContaining('Weekly backups run'), findsNothing);
       expect(find.textContaining('Last backup:'), findsNothing);
     },
@@ -236,7 +239,8 @@ void main() {
       );
 
       expect(find.textContaining('Last backup:'), findsOneWidget);
-      expect(find.textContaining('Backups are due after 11:59 PM'), findsNothing);
+      expect(
+          find.textContaining('Backups are due after 11:59 PM'), findsNothing);
     },
   );
 }

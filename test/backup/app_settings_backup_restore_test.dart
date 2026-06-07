@@ -20,12 +20,14 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final bundle = await AppSettingsBackup.exportFromPrefs(prefs);
       final values = bundle['values'] as Map<String, dynamic>;
-      expect(values.containsKey(AutoBackupStateStore.pendingDueDayKey), isFalse);
+      expect(
+          values.containsKey(AutoBackupStateStore.pendingDueDayKey), isFalse);
       expect(
         values.containsKey(AutoBackupStateStore.lastFailureReasonKey),
         isFalse,
       );
-      expect(values.containsKey(AutoBackupStateStore.lastAttemptAtKey), isFalse);
+      expect(
+          values.containsKey(AutoBackupStateStore.lastAttemptAtKey), isFalse);
       expect(values['falconlog_auto_backup_enabled'], isTrue);
       expect(values['falconlog_backup_frequency'], 'daily');
     });
@@ -100,11 +102,13 @@ void main() {
         prefs.getString(AutoBackupStateStore.lastFailureReasonKey),
         isNull,
       );
-      expect(prefs.getString(AutoBackupStateStore.lastSuccessDueDayKey), isNull);
+      expect(
+          prefs.getString(AutoBackupStateStore.lastSuccessDueDayKey), isNull);
       expect(prefs.getBool('falconlog_auto_backup_enabled'), isTrue);
     });
 
-    test('manual last_backup_time does not imply auto last_success_at', () async {
+    test('manual last_backup_time does not imply auto last_success_at',
+        () async {
       SharedPreferences.setMockInitialValues({
         BackupConstants.settingsKeys['last_backup_time']!: 999,
       });

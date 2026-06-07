@@ -35,8 +35,9 @@ void main() {
     BackupSchedulerWorkmanager.cancelByUniqueName = (_) async {};
     BackupSchedulerWorkmanager.cancelByTag = (_) async {};
     BackupSchedulerWorkmanager.isScheduledByUniqueName = (_) async => false;
-    BackupSchedulerWorkmanager.registerPeriodicTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerPeriodicTask = (
+      uniqueName,
+      taskName, {
       required frequency,
       required constraints,
       required initialDelay,
@@ -45,8 +46,9 @@ void main() {
       required existingWorkPolicy,
       String? tag,
     }) async {};
-    BackupSchedulerWorkmanager.registerOneOffTask =
-        (uniqueName, taskName, {
+    BackupSchedulerWorkmanager.registerOneOffTask = (
+      uniqueName,
+      taskName, {
       required constraints,
       required initialDelay,
       required backoffPolicy,

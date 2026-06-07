@@ -22,7 +22,8 @@ void main() {
       );
     });
 
-    test('full payload manifest tracks per-collection counts and checksums', () {
+    test('full payload manifest tracks per-collection counts and checksums',
+        () {
       final appSettings = {
         'id': AppSettingsBackup.bundleId,
         'values': {'selected_language': 'en'},
@@ -60,29 +61,35 @@ void main() {
         provider: 'googleDrive',
         location: 'cloud',
         payloadSha256: BackupPayloadManifest.computeFullPayloadHash(body),
-        flightLogsSha256: BackupPayloadManifest.computeCollectionHash(flightLogs),
+        flightLogsSha256:
+            BackupPayloadManifest.computeCollectionHash(flightLogs),
         aircraftTypesSha256:
             BackupPayloadManifest.computeCollectionHash(aircraftTypes),
-        appSettingsSha256: BackupPayloadManifest.computeCollectionHash(appSettings),
+        appSettingsSha256:
+            BackupPayloadManifest.computeCollectionHash(appSettings),
         flightLogCount: 1,
         aircraftTypeCount: 1,
         appSettingsCount: 1,
       );
 
-      expect(manifest.verifyPayload(
-        flightLogs: flightLogs,
-        aircraftTypes: aircraftTypes,
-        appSettings: appSettings,
-      ), isTrue);
+      expect(
+          manifest.verifyPayload(
+            flightLogs: flightLogs,
+            aircraftTypes: aircraftTypes,
+            appSettings: appSettings,
+          ),
+          isTrue);
 
       final corrupted = Map<String, dynamic>.from(flightLogs);
       corrupted['f-1'] = Map<String, dynamic>.from(corrupted['f-1'] as Map)
         ..['durationHours'] = 99;
-      expect(manifest.verifyPayload(
-        flightLogs: corrupted,
-        aircraftTypes: aircraftTypes,
-        appSettings: appSettings,
-      ), isFalse);
+      expect(
+          manifest.verifyPayload(
+            flightLogs: corrupted,
+            aircraftTypes: aircraftTypes,
+            appSettings: appSettings,
+          ),
+          isFalse);
     });
   });
 
@@ -182,7 +189,8 @@ void main() {
       });
       final prefs = await SharedPreferences.getInstance();
 
-      expect(await AppDataMigrationService.migrateAircraftTypesForTest(prefs), isTrue);
+      expect(await AppDataMigrationService.migrateAircraftTypesForTest(prefs),
+          isTrue);
       final first = prefs.getString(AircraftTypesStorage.v2Key);
       expect(first, isNotNull);
 
@@ -190,7 +198,8 @@ void main() {
       expect(decoded.length, 2);
       expect(decoded.every((r) => r.id.isNotEmpty), isTrue);
 
-      expect(await AppDataMigrationService.migrateAircraftTypesForTest(prefs), isTrue);
+      expect(await AppDataMigrationService.migrateAircraftTypesForTest(prefs),
+          isTrue);
       expect(prefs.getString(AircraftTypesStorage.v2Key), first);
     });
   });

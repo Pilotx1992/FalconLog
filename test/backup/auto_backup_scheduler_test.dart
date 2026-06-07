@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workmanager/workmanager.dart';
 
 void main() {
-  test('daily evaluator uses minimal constraints without network requirement', () {
+  test('daily evaluator uses minimal constraints without network requirement',
+      () {
     final constraints = AutoBackupScheduler.evaluatorConstraints();
     expect(constraints.networkType, NetworkType.notRequired);
     expect(constraints.requiresBatteryNotLow, isFalse);

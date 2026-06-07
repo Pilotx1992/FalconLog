@@ -8,7 +8,8 @@ import 'backup_scheduler.dart';
 
 /// Registers WorkManager work for daily vs interval auto backup paths.
 class AutoBackupScheduler {
-  AutoBackupScheduler({Logger? logger}) : _logger = logger ?? Logger('AutoBackupScheduler');
+  AutoBackupScheduler({Logger? logger})
+      : _logger = logger ?? Logger('AutoBackupScheduler');
 
   final Logger _logger;
 

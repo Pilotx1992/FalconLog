@@ -7,7 +7,8 @@ void main() {
   group('backup_format_version', () {
     test('current version is accepted', () {
       final error = BackupPayloadManifest.validateBackupFormatVersion({
-        'backup_format_version': BackupPayloadManifest.currentBackupFormatVersion,
+        'backup_format_version':
+            BackupPayloadManifest.currentBackupFormatVersion,
       });
       expect(error, isNull);
       expect(
@@ -70,7 +71,9 @@ void main() {
     expect(manifest.verifyPayload(flightLogs: logs), isTrue);
     expect(
       manifest.verifyPayload(
-        flightLogs: {'other': {'id': 'x'}},
+        flightLogs: {
+          'other': {'id': 'x'}
+        },
       ),
       isFalse,
     );
