@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../notifications/schedulers/currency_expiry_scheduler.dart';
 import 'currency_alert_settings.dart';
 
 class CurrencyAlertSettingsRepository {
@@ -32,6 +35,7 @@ class CurrencyAlertSettingsRepository {
       nightAlertDays,
     );
     await prefs.setBool(CurrencyAlertSettings.prefKeySetupCompleted, true);
+    _rescheduleCurrencyRemindersBestEffort();
   }
 
   Future<void> updateIntervals({
@@ -46,6 +50,13 @@ class CurrencyAlertSettingsRepository {
     await prefs.setInt(
       CurrencyAlertSettings.prefKeyNightAlertDays,
       nightAlertDays,
+    );
+    _rescheduleCurrencyRemindersBestEffort();
+  }
+
+  void _rescheduleCurrencyRemindersBestEffort() {
+    unawaited(
+      CurrencyExpiryScheduler.rescheduleFromHive().catchError((_) {}),
     );
   }
 

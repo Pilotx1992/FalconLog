@@ -39,14 +39,34 @@ void main() {
         now: now,
       );
       expect(status.dayDue, false);
+      expect(status.day.outOfCurrency, false);
+      expect(status.day.daysRemaining, 1);
+      expect(status.dayMessage, '');
     });
 
-    test('dayAlert 15 and last day flight 15 days ago: dayDue true', () {
+    test('dayAlert 15 and last day flight 15 days ago: expires today', () {
+      final lastDate = now.subtract(const Duration(days: 15));
       final logs = [
-        _flight(
-          date: now.subtract(const Duration(days: 15)),
-          isDay: true,
-        ),
+        _flight(date: lastDate, isDay: true),
+      ];
+      final status = computeCurrencyStatus(
+        logs: logs,
+        dayAlertDays: 15,
+        nightAlertDays: 10,
+        now: now,
+      );
+      expect(status.dayDue, false);
+      expect(status.day.outOfCurrency, false);
+      expect(status.day.daysRemaining, 0);
+      expect(status.day.lastFlightDate, lastDate);
+      expect(status.dayMessage, '');
+      expect(status.hasFlights, true);
+    });
+
+    test('dayAlert 15 and last day flight 16 days ago: dayDue true', () {
+      final lastDate = now.subtract(const Duration(days: 16));
+      final logs = [
+        _flight(date: lastDate, isDay: true),
       ];
       final status = computeCurrencyStatus(
         logs: logs,
@@ -55,6 +75,25 @@ void main() {
         now: now,
       );
       expect(status.dayDue, true);
+      expect(status.day.outOfCurrency, true);
+      expect(status.day.daysRemaining, -1);
+      expect(status.day.lastFlightDate, lastDate);
+      expect(status.dayMessage, 'Last flight: 16 days ago');
+    });
+
+    test('last day flight 10 days ago with interval 15: 5 days remaining', () {
+      final lastDate = now.subtract(const Duration(days: 10));
+      final logs = [
+        _flight(date: lastDate, isDay: true),
+      ];
+      final status = computeCurrencyStatus(
+        logs: logs,
+        dayAlertDays: 15,
+        nightAlertDays: 10,
+        now: now,
+      );
+      expect(status.day.daysRemaining, 5);
+      expect(status.day.outOfCurrency, false);
     });
 
     test('nightAlert 10 and last night flight 9 days ago: nightDue false', () {
@@ -71,9 +110,11 @@ void main() {
         now: now,
       );
       expect(status.nightDue, false);
+      expect(status.night.daysRemaining, 1);
+      expect(status.nightMessage, '');
     });
 
-    test('nightAlert 10 and last night flight 10 days ago: nightDue true', () {
+    test('nightAlert 10 and last night flight 10 days ago: expires today', () {
       final logs = [
         _flight(
           date: now.subtract(const Duration(days: 10)),
@@ -86,7 +127,29 @@ void main() {
         nightAlertDays: 10,
         now: now,
       );
+      expect(status.nightDue, false);
+      expect(status.night.outOfCurrency, false);
+      expect(status.night.daysRemaining, 0);
+      expect(status.nightMessage, '');
+    });
+
+    test('nightAlert 10 and last night flight 11 days ago: nightDue true', () {
+      final logs = [
+        _flight(
+          date: now.subtract(const Duration(days: 11)),
+          isDay: false,
+        ),
+      ];
+      final status = computeCurrencyStatus(
+        logs: logs,
+        dayAlertDays: 15,
+        nightAlertDays: 10,
+        now: now,
+      );
       expect(status.nightDue, true);
+      expect(status.night.outOfCurrency, true);
+      expect(status.night.daysRemaining, -1);
+      expect(status.nightMessage, 'Last flight: 11 days ago');
     });
 
     test('uses exact manual intervals 21 and 15', () {
@@ -108,8 +171,8 @@ void main() {
       );
       expect(status.dayDue, false);
       expect(status.nightDue, false);
-      expect(status.dayMessage, contains('21'));
-      expect(status.nightMessage, contains('15'));
+      expect(status.day.daysRemaining, 1);
+      expect(status.night.daysRemaining, 1);
     });
 
     test('high total hours in logs does not change interval (night 15)', () {
@@ -132,8 +195,46 @@ void main() {
         now: now,
       );
       expect(status.nightDue, true);
-      expect(status.nightMessage, contains('15'));
-      expect(status.nightMessage, isNot(contains('10')));
+      expect(status.night.outOfCurrency, true);
+      expect(status.night.daysRemaining, -1);
+      expect(status.nightMessage, 'Last flight: 16 days ago');
+    });
+
+    test('formatLastFlightDaysAgo uses singular day', () {
+      expect(formatLastFlightDaysAgo(1), 'Last flight: 1 day ago');
+    });
+
+    test('no day flights when due shows Last flight: none', () {
+      final logs = [
+        _flight(
+          date: now.subtract(const Duration(days: 5)),
+          isDay: false,
+        ),
+      ];
+      final status = computeCurrencyStatus(
+        logs: logs,
+        dayAlertDays: 15,
+        nightAlertDays: 10,
+        now: now,
+      );
+      expect(status.dayDue, true);
+      expect(status.day.lastFlightDate, isNull);
+      expect(status.day.daysRemaining, isNull);
+      expect(status.day.outOfCurrency, true);
+      expect(status.dayMessage, 'Last flight: none');
+    });
+
+    test('empty logs: no alert', () {
+      final status = computeCurrencyStatus(
+        logs: [],
+        dayAlertDays: 15,
+        nightAlertDays: 10,
+        now: now,
+      );
+      expect(status.hasAlert, false);
+      expect(status.hasFlights, false);
+      expect(status.day.outOfCurrency, false);
+      expect(status.night.outOfCurrency, false);
     });
   });
 }

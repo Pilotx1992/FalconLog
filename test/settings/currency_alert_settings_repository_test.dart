@@ -16,7 +16,8 @@ void main() {
   test('load returns defaults when prefs missing', () async {
     final settings = await repository.load();
     expect(settings.dayAlertDays, CurrencyAlertSettings.defaultDayAlertDays);
-    expect(settings.nightAlertDays, CurrencyAlertSettings.defaultNightAlertDays);
+    expect(
+        settings.nightAlertDays, CurrencyAlertSettings.defaultNightAlertDays);
     expect(settings.hasCompletedSetup, false);
   });
 

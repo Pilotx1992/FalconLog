@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../currency_alert_settings_provider.dart';
+import '../../utils/responsive_layout.dart';
 import 'currency_alert_interval_form.dart';
 
 /// Blocking first-run screen for manual currency alert intervals.
@@ -46,30 +47,43 @@ class _CurrencyAlertSetupScreenState
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Set Currency Alerts',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Colors.grey[850],
-                    fontSize: 26,
-                  ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = isCompactHeight(constraints.maxHeight);
+              final topPad = compact ? 16.0 : 32.0;
+              final sectionGap = compact ? 16.0 : 24.0;
+              final buttonGap = compact ? 20.0 : 32.0;
+              final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  topPad,
+                  24,
+                  24 + bottomInset,
                 ),
-                const SizedBox(height: 24),
-                CurrencyAlertIntervalForm(
-                  key: _formKey,
-                  mode: CurrencyAlertFormMode.firstRun,
-                  onValidityChanged: (valid) {
-                    if (_canSave != valid) {
-                      setState(() => _canSave = valid);
-                    }
-                  },
-                ),
-                const SizedBox(height: 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Set Currency Alerts',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Colors.grey[850],
+                        fontSize: compact ? 22 : 26,
+                      ),
+                    ),
+                    SizedBox(height: sectionGap),
+                    CurrencyAlertIntervalForm(
+                      key: _formKey,
+                      mode: CurrencyAlertFormMode.firstRun,
+                      onValidityChanged: (valid) {
+                        if (_canSave != valid) {
+                          setState(() => _canSave = valid);
+                        }
+                      },
+                    ),
+                    SizedBox(height: buttonGap),
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
@@ -101,9 +115,11 @@ class _CurrencyAlertSetupScreenState
                             ),
                           ),
                   ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),

@@ -95,9 +95,7 @@ class SettingsCurrencyAlertsSection extends ConsumerWidget {
               title: Row(
                 children: [
                   Icon(
-                    isDay
-                        ? Icons.wb_sunny_rounded
-                        : Icons.nights_stay_rounded,
+                    isDay ? Icons.wb_sunny_rounded : Icons.nights_stay_rounded,
                     color: Theme.of(ctx).colorScheme.primary,
                     size: 24,
                   ),
@@ -138,8 +136,7 @@ class SettingsCurrencyAlertsSection extends ConsumerWidget {
                       ? () {
                           final form = formKey.currentState;
                           if (form == null || !form.validateAndSave()) return;
-                          final value =
-                              isDay ? form.dayDays : form.nightDays;
+                          final value = isDay ? form.dayDays : form.nightDays;
                           if (value == null) return;
                           Navigator.pop(ctx, value);
                         }
@@ -156,10 +153,8 @@ class SettingsCurrencyAlertsSection extends ConsumerWidget {
     if (result == null || !context.mounted) return;
 
     await ref.read(currencyAlertSettingsProvider.notifier).updateIntervals(
-          dayAlertDays:
-              isDay ? result : settings.dayAlertDays,
-          nightAlertDays:
-              isDay ? settings.nightAlertDays : result,
+          dayAlertDays: isDay ? result : settings.dayAlertDays,
+          nightAlertDays: isDay ? settings.nightAlertDays : result,
         );
 
     if (!context.mounted) return;
