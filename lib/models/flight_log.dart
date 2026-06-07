@@ -368,67 +368,43 @@ class FlightDataSummary {
 // JSON serialization extensions
 extension FlightLogJson on FlightLog {
   Map<String, dynamic> toJson() {
-    try {
-      if (kDebugMode) {
-        print(
-            '🐛 DEBUG: Converting FlightLog to JSON - ID: $id, flightTypes: ${flightTypes.length}');
-      }
-
-      final result = {
-        'id': id,
-        'date': date.toIso8601String(),
-        'flightTypes': flightTypes.map((e) => _safeEnumName(e)).toList(),
-        'durationHours': durationHours,
-        'durationMinutes': durationMinutes,
-        'aircraftType': aircraftType,
-        'pilotRole': _safeEnumName(pilotRole),
-        'isDayFlight': isDayFlight,
-        'isSimulated': isSimulated,
-        'createdAt': createdAt.toIso8601String(),
-        'dateUpdated': dateUpdated?.toIso8601String(),
-        'registration': registration,
-        'departure': departure,
-        'arrival': arrival,
-        'flightTime': flightTime,
-        'picTime': picTime,
-        'sicTime': sicTime,
-        'nightTime': nightTime,
-        'ifrTime': ifrTime,
-        'crossCountry': crossCountry,
-        'dayLandings': dayLandings,
-        'nightLandings': nightLandings,
-        'remarks': remarks,
-        'updatedAt': updatedAt?.toIso8601String(),
-      };
-
-      if (kDebugMode) {
-        print('🐛 DEBUG: FlightLog JSON conversion successful');
-      }
-
-      return result;
-    } catch (e) {
-      if (kDebugMode) {
-        print('💥 DEBUG: Error in FlightLog.toJson(): $e');
-        print(
-            '💥 DEBUG: FlightLog ID: $id, flightTypes: $flightTypes, pilotRole: $pilotRole');
-      }
-
-      // Fallback to basic data if conversion fails
-      return {
-        'id': id,
-        'date': date.toIso8601String(),
-        'flightTypes': flightTypes
-            .map((e) => e.index)
-            .toList(), // Use index instead of name
-        'durationHours': durationHours,
-        'durationMinutes': durationMinutes,
-        'aircraftType': aircraftType,
-        'pilotRole': pilotRole.index, // Use index instead of name
-        'isDayFlight': isDayFlight,
-        'isSimulated': isSimulated,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    if (kDebugMode) {
+      print(
+          '🐛 DEBUG: Converting FlightLog to JSON - ID: $id, flightTypes: ${flightTypes.length}');
     }
+
+    final result = {
+      'id': id,
+      'date': date.toIso8601String(),
+      'flightTypes': flightTypes.map((e) => _safeEnumName(e)).toList(),
+      'durationHours': durationHours,
+      'durationMinutes': durationMinutes,
+      'aircraftType': aircraftType,
+      'pilotRole': _safeEnumName(pilotRole),
+      'isDayFlight': isDayFlight,
+      'isSimulated': isSimulated,
+      'createdAt': createdAt.toIso8601String(),
+      'dateUpdated': dateUpdated?.toIso8601String(),
+      'registration': registration,
+      'departure': departure,
+      'arrival': arrival,
+      'flightTime': flightTime,
+      'picTime': picTime,
+      'sicTime': sicTime,
+      'nightTime': nightTime,
+      'ifrTime': ifrTime,
+      'crossCountry': crossCountry,
+      'dayLandings': dayLandings,
+      'nightLandings': nightLandings,
+      'remarks': remarks,
+      'updatedAt': updatedAt?.toIso8601String(),
+    };
+
+    if (kDebugMode) {
+      print('🐛 DEBUG: FlightLog JSON conversion successful');
+    }
+
+    return result;
   }
 
   static String _safeEnumName(dynamic enumValue) {
