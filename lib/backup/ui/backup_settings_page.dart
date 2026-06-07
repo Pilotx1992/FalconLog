@@ -21,6 +21,7 @@ import '../../providers/aircraft_types_provider.dart';
 import '../../providers/flight_logs_provider.dart';
 import '../../providers/language_provider.dart';
 import '../../utils/app_snack_bar.dart';
+import '../../utils/responsive_layout.dart';
 
 export '../services/backup_service.dart' show RestoreMode;
 
@@ -126,102 +127,133 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
     return Scaffold(
       backgroundColor: isDark ? _BackupColors.darkSurface : cs.surface,
-      body: Stack(
-        children: [
-          // Header Background Gradient
-          Container(
-            height: 220,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  _BackupColors.headerGradientStart,
-                  _BackupColors.headerGradientEnd
-                ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = isCompactHeight(constraints.maxHeight);
+          final headerGradientHeight = compact ? 150.0 : 220.0;
+          final headerPaddingV = compact ? 8.0 : 16.0;
+          final sectionGap = compact ? 14.0 : 20.0;
+          final footerGap = compact ? 20.0 : 32.0;
+
+          return Stack(
+            children: [
+              Container(
+                height: headerGradientHeight,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      _BackupColors.headerGradientStart,
+                      _BackupColors.headerGradientEnd
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          SafeArea(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : Column(
-                    children: [
-                      // Header Section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 16),
-                        child: Column(
-                          children: [
-                            Row(
+              SafeArea(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Column(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: headerPaddingV,
+                            ),
+                            child: Column(
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.arrow_back_ios_new,
-                                      size: 20),
-                                  color: Colors.white,
-                                  onPressed: () => Navigator.of(context).pop(),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.arrow_back_ios_new,
+                                        size: 20,
+                                      ),
+                                      color: Colors.white,
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'Backup & Restore',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 48),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                const Expanded(
+                                SizedBox(height: compact ? 8 : 12),
+                                _buildAccountCard(
+                                  surfaceCard,
+                                  sectionTitleColor,
+                                  operationRunning,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: compact ? 8 : 16,
+                              ),
+                              physics: const BouncingScrollPhysics(),
+                              children: [
+                                _buildAutoBackupCard(
+                                  surfaceCard,
+                                  sectionTitleColor,
+                                  operationRunning,
+                                ),
+                                if (kDebugMode) const AutoBackupDebugPanel(),
+                                SizedBox(height: sectionGap),
+                                _buildCloudBackupActions(
+                                  surfaceCard,
+                                  sectionTitleColor,
+                                  operationRunning,
+                                ),
+                                SizedBox(height: sectionGap),
+                                _buildLocalBackupActions(
+                                  surfaceCard,
+                                  sectionTitleColor,
+                                  operationRunning,
+                                ),
+                                SizedBox(height: sectionGap),
+                                _buildSafetyCopySection(
+                                  surfaceCard,
+                                  sectionTitleColor,
+                                  operationRunning,
+                                ),
+                                SizedBox(height: footerGap),
+                                Center(
                                   child: Text(
-                                    'Backup & Restore',
+                                    'Encrypted backups (AES-256-GCM)',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.55)
+                                          : cs.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 48), // Balance alignment
+                                SizedBox(height: footerGap),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            _buildAccountCard(surfaceCard, sectionTitleColor,
-                                operationRunning),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      // Scrollable Content
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 16),
-                          physics: const BouncingScrollPhysics(),
-                          children: [
-                            _buildAutoBackupCard(surfaceCard, sectionTitleColor,
-                                operationRunning),
-                            if (kDebugMode) const AutoBackupDebugPanel(),
-                            const SizedBox(height: 20),
-                            _buildCloudBackupActions(surfaceCard,
-                                sectionTitleColor, operationRunning),
-                            const SizedBox(height: 20),
-                            _buildLocalBackupActions(surfaceCard,
-                                sectionTitleColor, operationRunning),
-                            const SizedBox(height: 20),
-                            _buildSafetyCopySection(surfaceCard,
-                                sectionTitleColor, operationRunning),
-                            const SizedBox(height: 32),
-                            Center(
-                              child: Text(
-                                'Encrypted backups (AES-256-GCM)',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.55)
-                                      : cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -635,7 +667,38 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _BackupColors.warning.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _BackupColors.warning.withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: _BackupColors.warning, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Local backups cannot be restored on a new device or after reinstalling the app.',
+                    style: TextStyle(
+                      color: _BackupColors.warning,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Opacity(
             opacity: canOperate ? 1 : 0.55,
             child: OutlinedButton.icon(
@@ -752,7 +815,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       fontSize: 15)),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                side: const BorderSide(color: _BackupColors.success, width: 1.3),
+                side:
+                    const BorderSide(color: _BackupColors.success, width: 1.3),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28)),
               ),
@@ -984,8 +1048,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
     final dialogBg =
         isDark ? _BackupColors.cardSurfaceDark : theme.colorScheme.surface;
-    final backupDate =
-        DateFormat('dd MMM yyyy, HH:mm').format(
+    final backupDate = DateFormat('dd MMM yyyy, HH:mm').format(
       BackupFilename.parseTimestampFromFileName(candidate.fileName) ??
           DateTime.now(),
     );
