@@ -9,7 +9,7 @@ import '../services/enhanced_auth_service.dart';
 import '../services/navigation_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_snack_bar.dart';
-import '../providers/enhanced_biometric_provider.dart';
+import '../providers/biometric_provider.dart';
 import '../widgets/auth/auth_screen_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
