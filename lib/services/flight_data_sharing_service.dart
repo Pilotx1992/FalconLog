@@ -51,7 +51,8 @@ class FlightDataSharingService {
       'isSimulated': flight.isSimulated,
       'flightTypes': flight.flightTypes.map((e) => e.name).toList(),
       'createdAt': flight.createdAt.toIso8601String(),
-      'updatedAt': flight.updatedAt?.toIso8601String() ?? flight.createdAt.toIso8601String(),
+      'updatedAt': flight.updatedAt?.toIso8601String() ??
+          flight.createdAt.toIso8601String(),
     };
   }
 

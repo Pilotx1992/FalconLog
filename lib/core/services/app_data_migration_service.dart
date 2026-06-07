@@ -11,7 +11,8 @@ import '../../models/flight_log.dart';
 class AppDataMigrationService {
   AppDataMigrationService._();
 
-  static const String migrationVersionKey = 'falconlog_app_data_migration_version';
+  static const String migrationVersionKey =
+      'falconlog_app_data_migration_version';
   static const int targetMigrationVersion = 2;
 
   /// Run before app reads user data. Never clears boxes on failure.
@@ -120,7 +121,8 @@ class AppDataMigrationService {
         records.add(AircraftTypeRecord.fromName(trimmed));
       }
 
-      if (records.isEmpty && !prefs.containsKey(AircraftTypesStorage.legacyKey)) {
+      if (records.isEmpty &&
+          !prefs.containsKey(AircraftTypesStorage.legacyKey)) {
         return true;
       }
 

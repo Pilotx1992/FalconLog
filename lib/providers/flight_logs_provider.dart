@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import '../models/flight_log.dart';
 import '../core/services/hive_initialization_service.dart';
+import '../notifications/schedulers/currency_expiry_scheduler.dart';
 
 final flightLogsProvider =
     StateNotifierProvider<FlightLogsNotifier, AsyncValue<List<FlightLog>>>(
@@ -47,6 +50,7 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       await _box?.put(log.id, log);
       _updateState();
+      _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -56,6 +60,7 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       await _box?.put(log.id, log);
       _updateState();
+      _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -65,6 +70,7 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       await _box?.delete(id);
       _updateState();
+      _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -82,6 +88,7 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
 
       _updateState();
       debugPrint('Restored ${logs.length} flight logs');
+      _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
       debugPrint('Error restoring flight logs: $e');
       state = AsyncValue.error(e, stack);
@@ -94,10 +101,17 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
       await _box?.clear();
       _updateState();
       debugPrint('All flight logs cleared');
+      _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
       debugPrint('Error clearing all flight logs: $e');
       state = AsyncValue.error(e, stack);
     }
+  }
+
+  void _rescheduleCurrencyRemindersBestEffort() {
+    unawaited(
+      CurrencyExpiryScheduler.rescheduleFromHive().catchError((_) {}),
+    );
   }
 
   /// Refresh the provider by re-reading data from Hive

@@ -28,28 +28,82 @@ class SampleFlightsService {
   ];
 
   static const List<String> _registrations = [
-    '88-0001', '88-0002', '88-0003', '88-0004', '88-0005',
-    '88-0101', '88-0102', '88-0103', '88-0104', '88-0105',
-    '88-0201', '88-0202', '88-0203', '88-0204', '88-0205',
-    '89-0001', '89-0002', '89-0003', '89-0004', '89-0005',
-    '90-0001', '90-0002', '90-0003', '90-0004', '90-0005',
-    '91-0001', '91-0002', '91-0003', '91-0004', '91-0005',
+    '88-0001',
+    '88-0002',
+    '88-0003',
+    '88-0004',
+    '88-0005',
+    '88-0101',
+    '88-0102',
+    '88-0103',
+    '88-0104',
+    '88-0105',
+    '88-0201',
+    '88-0202',
+    '88-0203',
+    '88-0204',
+    '88-0205',
+    '89-0001',
+    '89-0002',
+    '89-0003',
+    '89-0004',
+    '89-0005',
+    '90-0001',
+    '90-0002',
+    '90-0003',
+    '90-0004',
+    '90-0005',
+    '91-0001',
+    '91-0002',
+    '91-0003',
+    '91-0004',
+    '91-0005',
   ];
 
   static const List<String> _departures = [
-    'Aviano AB', 'Spangdahlem AB', 'Ramstein AB', 'Lakenheath AB',
-    'Mildenhall AB', 'Incirlik AB', 'Al Dhafra AB', 'Kunsan AB',
-    'Osan AB', 'Misawa AB', 'Kadena AB', 'Luke AFB',
-    'Hill AFB', 'Shaw AFB', 'Moody AFB', 'Holloman AFB',
-    'Nellis AFB', 'Tyndall AFB', 'Eglin AFB', 'MacDill AFB',
+    'Aviano AB',
+    'Spangdahlem AB',
+    'Ramstein AB',
+    'Lakenheath AB',
+    'Mildenhall AB',
+    'Incirlik AB',
+    'Al Dhafra AB',
+    'Kunsan AB',
+    'Osan AB',
+    'Misawa AB',
+    'Kadena AB',
+    'Luke AFB',
+    'Hill AFB',
+    'Shaw AFB',
+    'Moody AFB',
+    'Holloman AFB',
+    'Nellis AFB',
+    'Tyndall AFB',
+    'Eglin AFB',
+    'MacDill AFB',
   ];
 
   static const List<String> _arrivals = [
-    'Aviano AB', 'Spangdahlem AB', 'Ramstein AB', 'Lakenheath AB',
-    'Mildenhall AB', 'Incirlik AB', 'Al Dhafra AB', 'Kunsan AB',
-    'Osan AB', 'Misawa AB', 'Kadena AB', 'Luke AFB',
-    'Hill AFB', 'Shaw AFB', 'Moody AFB', 'Holloman AFB',
-    'Nellis AFB', 'Tyndall AFB', 'Eglin AFB', 'MacDill AFB',
+    'Aviano AB',
+    'Spangdahlem AB',
+    'Ramstein AB',
+    'Lakenheath AB',
+    'Mildenhall AB',
+    'Incirlik AB',
+    'Al Dhafra AB',
+    'Kunsan AB',
+    'Osan AB',
+    'Misawa AB',
+    'Kadena AB',
+    'Luke AFB',
+    'Hill AFB',
+    'Shaw AFB',
+    'Moody AFB',
+    'Holloman AFB',
+    'Nellis AFB',
+    'Tyndall AFB',
+    'Eglin AFB',
+    'MacDill AFB',
   ];
 
   static const List<String> _remarks = [
@@ -94,7 +148,8 @@ class SampleFlightsService {
       final numTypes = _random.nextInt(3) + 1;
       final flightTypes = <FlightType>[];
       for (int j = 0; j < numTypes; j++) {
-        final type = FlightType.values[_random.nextInt(FlightType.values.length)];
+        final type =
+            FlightType.values[_random.nextInt(FlightType.values.length)];
         if (!flightTypes.contains(type)) {
           flightTypes.add(type);
         }
@@ -106,10 +161,12 @@ class SampleFlightsService {
       final durationMinutes = totalMinutes % 60;
 
       // Generate random aircraft type
-      final aircraftType = _aircraftTypes[_random.nextInt(_aircraftTypes.length)];
+      final aircraftType =
+          _aircraftTypes[_random.nextInt(_aircraftTypes.length)];
 
       // Generate random pilot role
-      final pilotRole = PilotRole.values[_random.nextInt(PilotRole.values.length)];
+      final pilotRole =
+          PilotRole.values[_random.nextInt(PilotRole.values.length)];
 
       // Generate random day/night flight (80% day, 20% night)
       final isDayFlight = _random.nextDouble() < 0.8;
@@ -118,12 +175,13 @@ class SampleFlightsService {
       final isSimulated = _random.nextDouble() < 0.1;
 
       // Generate random registration
-      final registration = _registrations[_random.nextInt(_registrations.length)];
+      final registration =
+          _registrations[_random.nextInt(_registrations.length)];
 
       // Generate random departure and arrival (can be same for local flights)
       final departure = _departures[_random.nextInt(_departures.length)];
-      final arrival = flightTypes.contains(FlightType.local) 
-          ? departure 
+      final arrival = flightTypes.contains(FlightType.local)
+          ? departure
           : _arrivals[_random.nextInt(_arrivals.length)];
 
       // Generate flight time (same as duration for simplicity)
@@ -154,11 +212,12 @@ class SampleFlightsService {
       final nightTime = isDayFlight ? 0.0 : flightTime;
 
       // Generate IFR time (20% of flights have IFR time)
-      final ifrTime = _random.nextDouble() < 0.2 ? flightTime * _random.nextDouble() : 0.0;
+      final ifrTime =
+          _random.nextDouble() < 0.2 ? flightTime * _random.nextDouble() : 0.0;
 
       // Generate cross country time (if not local flight)
-      final crossCountry = flightTypes.contains(FlightType.local) 
-          ? 0.0 
+      final crossCountry = flightTypes.contains(FlightType.local)
+          ? 0.0
           : flightTime * (0.3 + _random.nextDouble() * 0.7);
 
       // Generate landings
@@ -243,7 +302,8 @@ class SampleFlightsService {
     final flightTypes = <FlightType>{};
 
     for (final flight in flights) {
-      final flightHours = flight.durationHours + (flight.durationMinutes / 60.0);
+      final flightHours =
+          flight.durationHours + (flight.durationMinutes / 60.0);
       totalHours += flightHours;
 
       if (flight.isDayFlight) {
@@ -288,4 +348,3 @@ class SampleFlightsService {
     };
   }
 }
-

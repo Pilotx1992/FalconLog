@@ -5,6 +5,7 @@ import '../auth/auth_error_mapper.dart';
 import '../auth/auth_validators.dart';
 import '../providers/auth_provider.dart';
 import '../utils/app_snack_bar.dart';
+import '../utils/responsive_layout.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -71,87 +72,94 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width - 32,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Icon
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        _emailSent
-                            ? Icons.mark_email_read_outlined
-                            : Icons.lock_reset,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = isCompactHeight(constraints.maxHeight);
+              final verticalPad = compact ? 12.0 : 24.0;
+              final iconPad = compact ? 14.0 : 20.0;
+              final iconSize = compact ? 48.0 : 60.0;
+              final titleSize = compact ? 24.0 : 28.0;
+              final gapLarge = compact ? 14.0 : 24.0;
+              final gapMedium = compact ? 6.0 : 8.0;
+              final gapSmall = compact ? 12.0 : 16.0;
 
-                    // Title
-                    Text(
-                      _emailSent ? 'Check Your Email' : 'Reset Password',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
+              return Center(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: verticalPad,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - verticalPad * 2,
+                      maxWidth: MediaQuery.sizeOf(context).width - 32,
                     ),
-                    const SizedBox(height: 8),
-
-                    // Subtitle
-                    Text(
-                      _emailSent
-                          ? 'We\'ve sent a password reset link to your email'
-                          : 'Enter your email to receive a password reset link',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Form or Success Message
-                    Container(
-                      width: double.infinity,
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width - 32,
-                      ),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(iconPad),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                        ],
-                      ),
-                      child: _emailSent
-                          ? _buildSuccessContent()
-                          : _buildFormContent(isLoading),
+                          child: Icon(
+                            _emailSent
+                                ? Icons.mark_email_read_outlined
+                                : Icons.lock_reset,
+                            size: iconSize,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: gapLarge),
+                        Text(
+                          _emailSent ? 'Check Your Email' : 'Reset Password',
+                          style: TextStyle(
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: gapMedium),
+                        Text(
+                          _emailSent
+                              ? 'We\'ve sent a password reset link to your email'
+                              : 'Enter your email to receive a password reset link',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: compact ? 20 : 48),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(compact ? 16 : 20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: _emailSent
+                              ? _buildSuccessContent()
+                              : _buildFormContent(isLoading),
+                        ),
+                        SizedBox(height: gapSmall),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),

@@ -32,8 +32,8 @@ abstract final class AppSnackBar {
     messenger.showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor:
-            backgroundColor ?? (isError ? AppColors.danger : AppColors.brandPrimary),
+        backgroundColor: backgroundColor ??
+            (isError ? AppColors.danger : AppColors.brandPrimary),
         behavior: SnackBarBehavior.floating,
         duration: forOutcome(isError: isError),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

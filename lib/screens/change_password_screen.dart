@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../helpers/auth_state_helper.dart';
+import '../utils/responsive_layout.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -93,19 +94,32 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = isCompactHeight(constraints.maxHeight);
+          final pagePadding = compact ? 16.0 : 24.0;
+          final headerPadding = compact ? 20.0 : 32.0;
+          final sectionGap = compact ? 20.0 : 32.0;
+          final formPadding = compact ? 18.0 : 28.0;
+          final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                pagePadding,
+                pagePadding,
+                pagePadding,
+                pagePadding + bottomInset,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(headerPadding),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
@@ -154,11 +168,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                    SizedBox(height: sectionGap),
 
-                // Form Section
-                Container(
-                  padding: const EdgeInsets.all(28),
+                    Container(
+                      padding: EdgeInsets.all(formPadding),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
@@ -351,11 +364,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 32),
-              ],
+                    SizedBox(height: sectionGap),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

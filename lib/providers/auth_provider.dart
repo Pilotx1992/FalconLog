@@ -5,7 +5,7 @@ import 'package:logging/logging.dart';
 import '../auth/auth_error_mapper.dart';
 import '../auth/auth_exception.dart';
 import '../auth/auth_signup_guard.dart';
-import '../services/notification_service.dart';
+import '../services/in_app_notification_service.dart';
 
 // Auth State Provider
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -55,7 +55,7 @@ class AuthService {
       );
 
       if (result.user != null) {
-        NotificationService.showAuthSuccess('Sign in');
+        InAppNotificationService.showAuthSuccess('Sign in');
       }
 
       return result;

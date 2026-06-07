@@ -7,8 +7,7 @@ class ImportFlightScreen extends ConsumerStatefulWidget {
   const ImportFlightScreen({super.key});
 
   @override
-  ConsumerState<ImportFlightScreen> createState() =>
-      _ImportFlightScreenState();
+  ConsumerState<ImportFlightScreen> createState() => _ImportFlightScreenState();
 }
 
 class _ImportFlightScreenState extends ConsumerState<ImportFlightScreen> {
@@ -34,8 +33,8 @@ class _ImportFlightScreenState extends ConsumerState<ImportFlightScreen> {
 
         if (_selectedFilePath != null) {
           // Get preview of the data
-          final preview =
-              await FlightDataSharingService.getImportPreview(_selectedFilePath!);
+          final preview = await FlightDataSharingService.getImportPreview(
+              _selectedFilePath!);
           setState(() {
             _previewData = preview;
           });
@@ -172,7 +171,12 @@ class _ImportFlightScreenState extends ConsumerState<ImportFlightScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                20 + MediaQuery.paddingOf(context).bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

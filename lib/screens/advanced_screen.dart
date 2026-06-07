@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/flight_logs_provider.dart';
 import '../models/flight_log.dart';
+import '../reports/ui/reports_app_bar_action.dart';
 
 class AdvancedScreen extends ConsumerWidget {
   const AdvancedScreen({super.key});
@@ -37,6 +38,9 @@ class AdvancedScreen extends ConsumerWidget {
             ),
           ),
         ),
+        actions: const [
+          ReportsAppBarAction(),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(

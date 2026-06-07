@@ -16,6 +16,8 @@ import 'firebase_options.dart';
 import 'auth/legacy_auth_credential_cleanup.dart';
 import 'middleware/auth_middleware.dart';
 import 'models/flight_log.dart';
+import 'notifications/services/local_notification_service.dart';
+import 'notifications/services/notification_route_handler.dart';
 import 'utils/performance_optimizer.dart';
 
 Future<void> main() async {
@@ -110,6 +112,14 @@ Future<void> _initializeHeavyOperations() async {
         debugPrintStack(stackTrace: stackTrace);
       }
     });
+
+    try {
+      await LocalNotificationService.initialize(isBackground: false);
+      await NotificationRouteHandler.processPendingPayloadOnStartup();
+    } catch (error, stackTrace) {
+      debugPrint('Local notification init failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
 
     debugPrint('Heavy operations initialized successfully.');
   } catch (error, stackTrace) {

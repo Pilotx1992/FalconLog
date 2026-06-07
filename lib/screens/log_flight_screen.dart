@@ -116,8 +116,7 @@ class _LogFlightScreenState extends ConsumerState<LogFlightScreen> {
 
                         final wasRemoved = !ref
                             .read(aircraftTypesProvider)
-                            .any((t) =>
-                                t.toLowerCase() == type.toLowerCase());
+                            .any((t) => t.toLowerCase() == type.toLowerCase());
 
                         setState(() {
                           if (_aircraftType == type) {

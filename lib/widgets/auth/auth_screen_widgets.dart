@@ -3,12 +3,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../utils/responsive_layout.dart';
 
 /// Max width for auth form content on large screens.
 const double authMaxContentWidth = 520;
 
 /// Screens shorter than this use compact spacing and smaller logo/type.
-const double authCompactHeightBreakpoint = 720;
+const double authCompactHeightBreakpoint = kCompactHeightBreakpoint;
 
 /// Hero tag for the shared logo between login and register (one route at a time).
 const String authFalconLogoHeroTag = 'falcon_logo';

@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const compact = Size(360, 640);
   const tall = Size(412, 915);
+  const landscape = Size(640, 360);
 
   Future<void> pumpAuthScreen(
     WidgetTester tester, {
@@ -29,22 +30,23 @@ void main() {
   }
 
   group('UI freeze RC1 — auth screens', () {
-    testWidgets('LoginScreen compact + tall', (tester) async {
-      for (final size in [compact, tall]) {
+    testWidgets('LoginScreen compact + tall + landscape', (tester) async {
+      for (final size in [compact, tall, landscape]) {
         await pumpAuthScreen(tester, home: const LoginScreen(), size: size);
         expect(tester.takeException(), isNull);
       }
     });
 
-    testWidgets('RegisterScreen compact + tall', (tester) async {
-      for (final size in [compact, tall]) {
+    testWidgets('RegisterScreen compact + tall + landscape', (tester) async {
+      for (final size in [compact, tall, landscape]) {
         await pumpAuthScreen(tester, home: const RegisterScreen(), size: size);
         expect(tester.takeException(), isNull);
       }
     });
 
-    testWidgets('ForgotPasswordScreen compact + tall', (tester) async {
-      for (final size in [compact, tall]) {
+    testWidgets('ForgotPasswordScreen compact + tall + landscape',
+        (tester) async {
+      for (final size in [compact, tall, landscape]) {
         await pumpAuthScreen(
           tester,
           home: const ForgotPasswordScreen(),
