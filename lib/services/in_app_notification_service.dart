@@ -9,33 +9,28 @@ enum NotificationType {
   warning,
 }
 
-class NotificationService {
-  // Show success message
+/// In-app SnackBar messages (not system notifications).
+class InAppNotificationService {
   static void showSuccess(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
 
-  // Show error message
   static void showError(String message) {
     NavigationService.showSnackBar(message, isError: true);
   }
 
-  // Show warning message
   static void showWarning(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
 
-  // Show info message
   static void showInfo(String message) {
     NavigationService.showSnackBar(message, isError: false);
   }
 
-  // Show authentication success
   static void showAuthSuccess(String action) {
     showSuccess('$action successful!');
   }
 
-  // Show authentication error ([error] is a Firebase code or user message).
   static void showAuthError(String action, String error) {
     final mapped = mapFirebaseAuthException(
       FirebaseAuthException(code: error, message: null),
@@ -45,12 +40,10 @@ class NotificationService {
     showError('Failed to $action: $detail');
   }
 
-  // Show validation error
   static void showValidationError(String field) {
     showError('Enter valid $field.');
   }
 
-  // Show flight log notifications
   static void showFlightLogSaved() {
     showSuccess('Flight saved!');
   }
@@ -63,7 +56,6 @@ class NotificationService {
     showSuccess('Flight deleted!');
   }
 
-  // Show currency alerts
   static void showCurrencyAlert(String type, int daysRemaining) {
     if (daysRemaining <= 0) {
       showError('$type currency expired! Log flight to renew.');
@@ -72,7 +64,6 @@ class NotificationService {
     }
   }
 
-  // Show email verification reminders
   static void showEmailVerificationReminder() {
     showInfo('Verify email to access all features.');
   }
@@ -81,7 +72,6 @@ class NotificationService {
     showSuccess('Verification email sent!');
   }
 
-  // Show backup/sync notifications
   static void showBackupSuccess() {
     showSuccess('Data backed up!');
   }
@@ -94,12 +84,10 @@ class NotificationService {
     showError('Backup failed. Try again.');
   }
 
-  // Show settings changes
   static void showSettingsSaved() {
     showSuccess('Settings saved!');
   }
 
-  // Show import/export notifications
   static void showDataExported() {
     showSuccess('Data exported!');
   }
@@ -108,22 +96,18 @@ class NotificationService {
     showSuccess('$count flights imported!');
   }
 
-  // Show permission requests
   static void showPermissionDenied(String permission) {
     showError('$permission permission required.');
   }
 
-  // Show maintenance notifications
   static void showMaintenanceMode() {
     showInfo('Under maintenance. Some features unavailable.');
   }
 
-  // Show update notifications
   static void showUpdateAvailable() {
     showInfo('Update available!');
   }
 
-  // Show connection status
   static void showConnectionLost() {
     showError('Connection lost.');
   }
@@ -132,7 +116,6 @@ class NotificationService {
     showSuccess('Connected!');
   }
 
-  // Show backup notifications
   static Future<void> showBackupNotification({
     required String title,
     required String body,
