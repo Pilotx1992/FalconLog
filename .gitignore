@@ -48,3 +48,8 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Local reference only — do not ship (e.g. stock photo previews)
+**/istockphoto-*.png
+**/istockphoto-*.jpg
+assets/c__Users_X_*
