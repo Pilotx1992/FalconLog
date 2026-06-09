@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -67,48 +69,89 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   final BackupScheduler _backupScheduler = BackupScheduler();
 
   bool _isLoading = true;
+  bool _isBackgroundRefreshing = true;
   DateTime? _lastGoogleDriveBackupTime;
   GoogleSignInAccount? _currentUser;
 
   String _backupFrequency = 'off';
   bool _wifiOnly = true;
 
+  Timer? _timeUpdateTimer;
+
   @override
   void initState() {
     super.initState();
+    _timeUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+
     if (widget.skipInitializeForTesting) {
       _backupFrequency = widget.initialBackupFrequencyForTesting;
       _wifiOnly = widget.initialWifiOnlyForTesting;
       _lastGoogleDriveBackupTime =
           widget.initialLastGoogleDriveBackupTimeForTesting;
       _isLoading = false;
+      _isBackgroundRefreshing = false;
       return;
     }
     _initializeAndLoadSettings();
   }
 
+  @override
+  void dispose() {
+    _timeUpdateTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _initializeAndLoadSettings() async {
     try {
-      await _backupService.initialize();
-      final backupMetadata = await _backupService.findExistingBackup(
-        provider: BackupProvider.googleDrive,
-      );
       final frequency = await _backupScheduler.getBackupFrequency();
       final wifiOnly = await _backupScheduler.isWifiOnly();
-      await _backupScheduler.reconcileAndGetBackupStatus();
-      await ref.read(backupHistoryProvider.notifier).refresh();
+      final cachedMetadata =
+          await _backupService.findCachedGoogleDriveBackupMetadata();
 
       if (mounted) {
         setState(() {
           _currentUser = _backupService.currentUser;
-          _lastGoogleDriveBackupTime = backupMetadata?.createdAt;
+          _lastGoogleDriveBackupTime = cachedMetadata?.createdAt;
           _backupFrequency = frequency;
           _wifiOnly = wifiOnly;
           _isLoading = false;
         });
       }
+
+      _refreshCloudStatusInBackground();
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isBackgroundRefreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshCloudStatusInBackground() async {
+    try {
+      await _backupScheduler.reconcileAndGetBackupStatus();
+      await ref.read(backupHistoryProvider.notifier).refresh();
+
+      await _backupService.initialize();
+      final backupMetadata = await _backupService.findExistingBackup(
+        provider: BackupProvider.googleDrive,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentUser = _backupService.currentUser;
+          if (backupMetadata != null) {
+            _lastGoogleDriveBackupTime = backupMetadata.createdAt;
+          }
+          _isBackgroundRefreshing = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isBackgroundRefreshing = false);
     }
   }
 
@@ -306,7 +349,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                                 ? (user.displayName?.isNotEmpty == true
                                     ? user.displayName!
                                     : 'Google User')
-                                : 'Not connected',
+                                : (_isBackgroundRefreshing
+                                    ? 'Connecting...'
+                                    : 'Not connected'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -331,7 +376,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isConnected ? user.email : 'Sign in to enable backup',
+                      isConnected
+                          ? user.email
+                          : (_isBackgroundRefreshing
+                              ? 'Please wait...'
+                              : 'Sign in to enable backup'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -362,7 +411,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               ),
             ],
           ),
-          if (!isConnected) ...[
+          if (!isConnected && !_isBackgroundRefreshing) ...[
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
@@ -377,6 +426,23 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+          if (!isConnected && _isBackgroundRefreshing) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16, bottom: 8, top: 4),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: cs.primary,
+                  ),
                 ),
               ),
             ),

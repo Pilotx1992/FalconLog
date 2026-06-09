@@ -2056,6 +2056,32 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  /// Quickly fetch the latest cached cloud backup metadata without network calls.
+  Future<BackupMetadata?> findCachedGoogleDriveBackupMetadata() async {
+    try {
+      final box = await HiveInitializationService.openBox<BackupMetadata>(
+        'backupMetadata',
+      );
+      BackupMetadata? latest;
+      for (final entry in box.values) {
+        if (entry.location != BackupLocation.cloud &&
+            entry.location != BackupLocation.both) {
+          continue;
+        }
+        if (!_isRestoreEligibleMetadata(entry)) {
+          continue;
+        }
+
+        if (latest == null || entry.createdAt.isAfter(latest.createdAt)) {
+          latest = entry;
+        }
+      }
+      return latest;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<BackupMetadata?> _findLatestGoogleDriveBackupMetadata({
     bool interactive = false,
   }) async {
