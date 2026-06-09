@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 class BiometricAuthService {
   static final LocalAuthentication _localAuth = LocalAuthentication();
@@ -14,7 +14,7 @@ class BiometricAuthService {
     try {
       return await _localAuth.isDeviceSupported();
     } catch (e) {
-      debugPrint('Error checking device support: $e');
+      if (kDebugMode) debugPrint('Error checking device support: $e');
       return false;
     }
   }
@@ -24,7 +24,7 @@ class BiometricAuthService {
     try {
       return await _localAuth.canCheckBiometrics;
     } catch (e) {
-      debugPrint('Error checking biometrics availability: $e');
+      if (kDebugMode) debugPrint('Error checking biometrics availability: $e');
       return false;
     }
   }
@@ -34,7 +34,7 @@ class BiometricAuthService {
     try {
       return await _localAuth.getAvailableBiometrics();
     } catch (e) {
-      debugPrint('Error getting available biometrics: $e');
+      if (kDebugMode) debugPrint('Error getting available biometrics: $e');
       return [];
     }
   }
@@ -45,7 +45,7 @@ class BiometricAuthService {
       final availableBiometrics = await getAvailableBiometrics();
       return availableBiometrics.isNotEmpty;
     } catch (e) {
-      debugPrint('Error checking enrolled biometrics: $e');
+      if (kDebugMode) debugPrint('Error checking enrolled biometrics: $e');
       return false;
     }
   }
@@ -94,10 +94,10 @@ class BiometricAuthService {
 
       return didAuthenticate;
     } on PlatformException catch (e) {
-      debugPrint('Biometric authentication error: ${e.message}');
+      if (kDebugMode) debugPrint('Biometric authentication error: ${e.message}');
       throw BiometricException(_getErrorMessage(e.code));
     } catch (e) {
-      debugPrint('Unexpected biometric error: $e');
+      if (kDebugMode) debugPrint('Unexpected biometric error: $e');
       throw BiometricException('Auth failed');
     }
   }
@@ -134,7 +134,7 @@ class BiometricAuthService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(_biometricEnabledKey) ?? false;
     } catch (e) {
-      debugPrint('Error checking biometric enabled status: $e');
+      if (kDebugMode) debugPrint('Error checking biometric enabled status: $e');
       return false;
     }
   }
@@ -150,7 +150,7 @@ class BiometricAuthService {
         await prefs.setBool(_biometricSetupKey, true);
       }
     } catch (e) {
-      debugPrint('Error setting biometric enabled status: $e');
+      if (kDebugMode) debugPrint('Error setting biometric enabled status: $e');
       throw BiometricException('Failed to save settings');
     }
   }
@@ -161,7 +161,7 @@ class BiometricAuthService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(_biometricSetupKey) ?? false;
     } catch (e) {
-      debugPrint('Error checking biometric setup status: $e');
+      if (kDebugMode) debugPrint('Error checking biometric setup status: $e');
       return false;
     }
   }
@@ -213,7 +213,7 @@ class BiometricAuthService {
         return BiometricSetupResult.authenticationFailed;
       }
     } catch (e) {
-      debugPrint('Biometric setup error: $e');
+      if (kDebugMode) debugPrint('Biometric setup error: $e');
       return BiometricSetupResult.error;
     }
   }
@@ -223,7 +223,7 @@ class BiometricAuthService {
     try {
       await setBiometricEnabled(false);
     } catch (e) {
-      debugPrint('Error disabling biometric auth: $e');
+      if (kDebugMode) debugPrint('Error disabling biometric auth: $e');
       throw BiometricException('Failed to disable auth');
     }
   }

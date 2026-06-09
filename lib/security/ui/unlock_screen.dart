@@ -9,6 +9,7 @@ import '../../utils/responsive_layout.dart';
 import '../providers/security_providers.dart';
 import '../security_constants.dart';
 import 'pin_pad_widget.dart';
+import 'package:flutter/foundation.dart';
 
 /// App-lock unlock screen (PIN + optional biometric).
 class UnlockScreen extends ConsumerStatefulWidget {
@@ -96,7 +97,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
         _errorPulse++;
       });
     } catch (e, st) {
-      debugPrint('[UnlockScreen] verifyPin failed: $e\n$st');
+      if (kDebugMode) debugPrint('[UnlockScreen] verifyPin failed: $e\n$st');
       if (!mounted) return;
       setState(() {
         _pin = '';

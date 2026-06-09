@@ -19,6 +19,7 @@ import 'models/flight_log.dart';
 import 'notifications/services/local_notification_service.dart';
 import 'notifications/services/notification_route_handler.dart';
 import 'utils/performance_optimizer.dart';
+import 'package:flutter/foundation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,13 +32,13 @@ Future<void> main() async {
 
   await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
 
-  debugPrint('Using production Firebase Auth configuration');
+  if (kDebugMode) debugPrint('Using production Firebase Auth configuration');
 
   FirebaseAuth.instance.authStateChanges().listen((User? user) {
     if (user == null) {
-      debugPrint('User is currently signed out.');
+      if (kDebugMode) debugPrint('User is currently signed out.');
     } else {
-      debugPrint('User is signed in.');
+      if (kDebugMode) debugPrint('User is signed in.');
     }
   });
 
@@ -46,15 +47,15 @@ Future<void> main() async {
   // Initialize backup scheduler
   try {
     await BackupScheduler.initialize();
-    debugPrint('Backup scheduler initialized successfully.');
+    if (kDebugMode) debugPrint('Backup scheduler initialized successfully.');
 
     // Clean up old WorkManager tasks once, then restore the user's saved
     // auto-backup schedule so app restarts do not disable it.
     await WorkManagerCleanup.cleanupOldTasks();
     await BackupScheduler.restoreSavedSchedule();
-    debugPrint('Saved backup schedule restored.');
+    if (kDebugMode) debugPrint('Saved backup schedule restored.');
   } catch (error, stackTrace) {
-    debugPrint('Backup scheduler initialization failed: $error');
+    if (kDebugMode) debugPrint('Backup scheduler initialization failed: $error');
     debugPrintStack(stackTrace: stackTrace);
   }
 
@@ -67,7 +68,7 @@ Future<void> main() async {
 
 Future<void> _initializeCriticalComponents() async {
   try {
-    debugPrint('Initializing critical components...');
+    if (kDebugMode) debugPrint('Initializing critical components...');
 
     await HiveInitializationService.initialize();
     await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
@@ -80,35 +81,35 @@ Future<void> _initializeCriticalComponents() async {
     if (pendingRestore.hadPendingJournal) {
       await RestoreRecoveryNoticeStore.save(pendingRestore);
       if (pendingRestore.rollbackSucceeded) {
-        debugPrint('✅ ${pendingRestore.message}');
+        if (kDebugMode) debugPrint('✅ ${pendingRestore.message}');
       } else {
-        debugPrint('⚠️ ${pendingRestore.message}');
+        if (kDebugMode) debugPrint('⚠️ ${pendingRestore.message}');
       }
     }
 
     // Initialize backup metadata box for backup system (MUST be typed!)
     await HiveInitializationService.openBox<BackupMetadata>('backupMetadata');
-    debugPrint('Backup metadata box initialized.');
+    if (kDebugMode) debugPrint('Backup metadata box initialized.');
 
-    debugPrint('Critical components initialized.');
+    if (kDebugMode) debugPrint('Critical components initialized.');
   } catch (error, stackTrace) {
-    debugPrint('Error initializing critical components: ');
+    if (kDebugMode) debugPrint('Error initializing critical components: ');
     debugPrintStack(stackTrace: stackTrace);
   }
 }
 
 Future<void> _initializeHeavyOperations() async {
   try {
-    debugPrint('Starting heavy operations initialization...');
+    if (kDebugMode) debugPrint('Starting heavy operations initialization...');
 
     await Future.delayed(const Duration(milliseconds: 100));
 
     Future.microtask(() async {
       try {
         await AuthMiddleware.initialize();
-        debugPrint('Auth middleware initialized.');
+        if (kDebugMode) debugPrint('Auth middleware initialized.');
       } catch (error, stackTrace) {
-        debugPrint('Error initializing auth middleware: ');
+        if (kDebugMode) debugPrint('Error initializing auth middleware: ');
         debugPrintStack(stackTrace: stackTrace);
       }
     });
@@ -117,13 +118,13 @@ Future<void> _initializeHeavyOperations() async {
       await LocalNotificationService.initialize(isBackground: false);
       await NotificationRouteHandler.processPendingPayloadOnStartup();
     } catch (error, stackTrace) {
-      debugPrint('Local notification init failed: $error');
+      if (kDebugMode) debugPrint('Local notification init failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
 
-    debugPrint('Heavy operations initialized successfully.');
+    if (kDebugMode) debugPrint('Heavy operations initialized successfully.');
   } catch (error, stackTrace) {
-    debugPrint('Error initializing heavy operations: ');
+    if (kDebugMode) debugPrint('Error initializing heavy operations: ');
     debugPrintStack(stackTrace: stackTrace);
   }
 }

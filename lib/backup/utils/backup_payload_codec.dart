@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import '../../core/services/hive_initialization_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,7 +39,7 @@ class BackupPayloadCodec {
     String? deviceId,
   }) async {
     try {
-      final flightLogsBox = await Hive.openBox<FlightLog>('flightLogsBox');
+      final flightLogsBox = await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
       final prefs = await SharedPreferences.getInstance();
       final provider = providerOverride ??
           await BackupProviderPreferences.getSelectedProvider();
@@ -248,7 +249,7 @@ class BackupPayloadCodec {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final flightLogsBox = await Hive.openBox<FlightLog>('flightLogsBox');
+    final flightLogsBox = await HiveInitializationService.openBox<FlightLog>('flightLogsBox');
 
     var restoredFlights = 0;
     var restoredAircraft = 0;

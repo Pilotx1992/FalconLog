@@ -100,7 +100,7 @@ class SecurityService {
         );
       }
     } catch (e, st) {
-      debugPrint('[SecurityService] PIN secret check failed: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityService] PIN secret check failed: $e\n$st');
       await _disablePinDueToCorruption(
         'PIN enabled but secrets could not be validated',
       );
@@ -122,7 +122,7 @@ class SecurityService {
   }
 
   Future<void> _disablePinDueToCorruption(String reason) async {
-    debugPrint('[SecurityService] $reason — disabling PIN safely');
+    if (kDebugMode) debugPrint('[SecurityService] $reason — disabling PIN safely');
 
     _settings = _settings.copyWith(
       isPinEnabled: false,
@@ -134,7 +134,7 @@ class SecurityService {
       await _repository.saveSettings(_settings);
       await _repository.clearPinSecrets();
     } catch (e, st) {
-      debugPrint('[SecurityService] Failed to persist PIN repair: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityService] Failed to persist PIN repair: $e\n$st');
     }
     _isLocked = false;
     _emitLockState();
@@ -331,12 +331,12 @@ class SecurityService {
     try {
       final available = await isBiometricAvailableForAppLock();
       if (!available) {
-        debugPrint('[SecurityService] Biometric not available for app lock');
+        if (kDebugMode) debugPrint('[SecurityService] Biometric not available for app lock');
         return false;
       }
       return await BiometricAuthService.authenticate(reason: reason);
     } catch (e, st) {
-      debugPrint('[SecurityService] Biometric auth failed: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityService] Biometric auth failed: $e\n$st');
       return false;
     }
   }

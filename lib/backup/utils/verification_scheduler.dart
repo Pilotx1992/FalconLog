@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 import 'backup_constants.dart';
 
 /// Service for scheduling automatic backup verification using WorkManager
+@Deprecated('No longer supported. Backup verification is now handled inline.')
 class VerificationScheduler {
   static const String _taskName = 'falconlog_verification_task';
   static const String _taskTag = 'falconlog_verification';
@@ -136,7 +137,7 @@ class VerificationScheduler {
 }
 
 /// Callback dispatcher for WorkManager
-@pragma('vm:entry-point')
+@Deprecated('Do not use. Conflicts with callbackDispatcher in backup_scheduler.dart')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {

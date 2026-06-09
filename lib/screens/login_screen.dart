@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import '../utils/app_snack_bar.dart';
 import '../providers/biometric_provider.dart';
 import '../widgets/auth/auth_screen_widgets.dart';
+import 'package:flutter/foundation.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -320,7 +321,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       await service.enableBiometricAuth();
       // Silent success; next launch can use biometric
     } catch (e) {
-      debugPrint('Biometric auto-enable skipped: $e');
+      if (kDebugMode) debugPrint('Biometric auto-enable skipped: $e');
     }
   }
 }

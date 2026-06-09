@@ -194,7 +194,7 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     } catch (e, stackTrace) {
       if (kDebugMode) {
         debugPrint('Backup failed to start: $e');
-        debugPrint('$stackTrace');
+        if (kDebugMode) debugPrint('$stackTrace');
       }
 
       if (!mounted) return;
@@ -252,7 +252,7 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     } catch (e, stackTrace) {
       if (kDebugMode) {
         debugPrint('Restore failed: $e');
-        debugPrint('$stackTrace');
+        if (kDebugMode) debugPrint('$stackTrace');
       }
 
       if (!mounted) return;

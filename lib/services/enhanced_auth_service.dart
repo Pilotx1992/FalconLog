@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart' as g;
@@ -118,7 +118,7 @@ class EnhancedAuthService {
       await prefs.setBool('prefer_google_signin', true);
       await prefs.setString('google_email', googleUser.email);
 
-      debugPrint('Google sign-in successful for: ${googleUser.email}');
+      if (kDebugMode) { debugPrint('Google sign-in successful for: ${googleUser.email}'); }
       return userCredential;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'account-exists-with-different-credential') {
@@ -129,7 +129,7 @@ class EnhancedAuthService {
       }
       throw AuthException(mapFirebaseAuthException(e), code: e.code);
     } on PlatformException catch (e) {
-      debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}');
+      if (kDebugMode) { debugPrint('Google Sign-In PlatformException: ${e.code} - ${e.message}'); }
       switch (e.code) {
         case 'sign_in_canceled':
           throw Exception('Sign in cancelled');
@@ -144,7 +144,7 @@ class EnhancedAuthService {
           throw Exception('Google sign-in error: ${e.message ?? e.code}');
       }
     } catch (e) {
-      debugPrint('Google Sign-In general error: $e');
+      if (kDebugMode) { debugPrint('Google Sign-In general error: $e'); }
 
       // Handle common issues
       final errorString = e.toString().toLowerCase();
@@ -175,7 +175,7 @@ class EnhancedAuthService {
 
       return isAvailable && isDeviceSupported && availableBiometrics.isNotEmpty;
     } catch (e) {
-      debugPrint('Error checking biometric availability: $e');
+      if (kDebugMode) { debugPrint('Error checking biometric availability: $e'); }
       return false;
     }
   }
@@ -185,7 +185,7 @@ class EnhancedAuthService {
     try {
       return await _localAuth.getAvailableBiometrics();
     } catch (e) {
-      debugPrint('Error getting available biometrics: $e');
+      if (kDebugMode) { debugPrint('Error getting available biometrics: $e'); }
       return [];
     }
   }
@@ -223,7 +223,7 @@ class EnhancedAuthService {
     } on AuthException {
       rethrow;
     } catch (e) {
-      debugPrint('Biometric sign-in error: $e');
+      if (kDebugMode) { debugPrint('Biometric sign-in error: $e'); }
       throw const AuthException(kBiometricLoginRequiresSignInMessage);
     }
   }
@@ -283,20 +283,20 @@ class EnhancedAuthService {
   Future<void> signOut() async {
     try {
       await ensureInitialized();
-      debugPrint('Starting comprehensive sign-out process...');
+      if (kDebugMode) { debugPrint('Starting comprehensive sign-out process...'); }
 
       // Sign out from Google if signed in
       try {
         await _googleSignIn.signOut();
-        debugPrint('Google sign-out completed');
+        if (kDebugMode) { debugPrint('Google sign-out completed'); }
       } catch (e) {
-        debugPrint('Google sign-out warning (non-fatal): $e');
+        if (kDebugMode) { debugPrint('Google sign-out warning (non-fatal): $e'); }
         // Continue with Firebase sign out even if Google sign out fails
       }
 
       // Sign out from Firebase
       await _firebaseAuth.signOut();
-      debugPrint('Firebase sign-out completed');
+      if (kDebugMode) { debugPrint('Firebase sign-out completed'); }
 
       // Clear ALL saved preferences related to auth
       final prefs = await SharedPreferences.getInstance();
@@ -307,13 +307,13 @@ class EnhancedAuthService {
       await prefs.remove('biometric_enabled');
       await prefs.remove('remember_me');
       await LegacyAuthCredentialCleanup.removeUnsafePlaintextCredentials();
-      debugPrint('Auth preferences cleared');
+      if (kDebugMode) { debugPrint('Auth preferences cleared'); }
 
       // Force Firebase auth state to refresh
       await Future.delayed(const Duration(milliseconds: 100));
-      debugPrint('Sign-out process completed successfully');
+      if (kDebugMode) { debugPrint('Sign-out process completed successfully'); }
     } catch (e) {
-      debugPrint('Sign out error: $e');
+      if (kDebugMode) { debugPrint('Sign out error: $e'); }
       throw Exception('Sign out failed: ${e.toString()}');
     }
   }

@@ -14,6 +14,7 @@ import 'change_password_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../backup/ui/backup_settings_page.dart';
 import '../providers/app_info_provider.dart';
+import 'package:flutter/foundation.dart';
 
 enum _SettingsSection {
   account,
@@ -1838,7 +1839,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _showEmailCopyDialog();
       }
     } catch (e) {
-      debugPrint('Could not launch email client: $e');
+      if (kDebugMode) debugPrint('Could not launch email client: $e');
       _showEmailCopyDialog();
     }
   }

@@ -29,12 +29,13 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
         maxRetries: 3,
       );
 
-      debugPrint(
-          'FlightLogsProvider: Box opened successfully with ${_box!.length} logs');
+      if (kDebugMode) {
+        debugPrint('FlightLogsProvider: Box opened successfully with ${_box!.length} logs');
+      }
       _updateState();
-      debugPrint('FlightLogsProvider initialized successfully');
+      if (kDebugMode) debugPrint('FlightLogsProvider initialized successfully');
     } catch (e, stack) {
-      debugPrint('Error in FlightLogsProvider._init: $e');
+      if (kDebugMode) debugPrint('Error in FlightLogsProvider._init: $e');
       state = AsyncValue.error(e, stack);
     }
   }
@@ -87,10 +88,10 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
       }
 
       _updateState();
-      debugPrint('Restored ${logs.length} flight logs');
+      if (kDebugMode) debugPrint('Restored ${logs.length} flight logs');
       _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
-      debugPrint('Error restoring flight logs: $e');
+      if (kDebugMode) debugPrint('Error restoring flight logs: $e');
       state = AsyncValue.error(e, stack);
     }
   }
@@ -100,10 +101,10 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
     try {
       await _box?.clear();
       _updateState();
-      debugPrint('All flight logs cleared');
+      if (kDebugMode) debugPrint('All flight logs cleared');
       _rescheduleCurrencyRemindersBestEffort();
     } catch (e, stack) {
-      debugPrint('Error clearing all flight logs: $e');
+      if (kDebugMode) debugPrint('Error clearing all flight logs: $e');
       state = AsyncValue.error(e, stack);
     }
   }
@@ -117,9 +118,10 @@ class FlightLogsNotifier extends StateNotifier<AsyncValue<List<FlightLog>>> {
   /// Refresh the provider by re-reading data from Hive
   /// Useful after external changes to the box (e.g., from backup restore)
   void refresh() {
-    debugPrint('FlightLogsProvider: Refreshing data from Hive...');
+    if (kDebugMode) debugPrint('FlightLogsProvider: Refreshing data from Hive...');
     _updateState();
-    debugPrint(
-        'FlightLogsProvider: Refresh complete with ${_box?.length ?? 0} logs');
+    if (kDebugMode) {
+      debugPrint('FlightLogsProvider: Refresh complete with ${_box?.length ?? 0} logs');
+    }
   }
 }

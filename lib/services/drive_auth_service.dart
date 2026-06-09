@@ -49,7 +49,7 @@ class DriveAuthService {
         'Authorization': 'Bearer ${auth.accessToken}',
       };
     } catch (e) {
-      debugPrint('Error getting auth headers: $e');
+      if (kDebugMode) debugPrint('Error getting auth headers: $e');
       throw CloudAuthenticationException(
           'Failed to get authentication headers: $e');
     }
@@ -62,32 +62,14 @@ class DriveAuthService {
       GoogleSignInAccount? account = await _googleSignIn.signInSilently();
 
       if (account != null) {
-        debugPrint(
-            'Google Drive authentication restored silently for: ${account.email}');
-        return account;
-      }
-
-      // If silent sign-in fails, try interactive sign-in
-      account = await _googleSignIn.signIn();
-
-      if (account == null) {
-        debugPrint('Google Drive authentication cancelled by user');
-        return null;
-      }
-
-      debugPrint(
-          'Google Drive authentication successful for: ${account.email}');
-
-      // Verify we have the necessary scopes
-      final auth = await account.authentication;
-      if (auth.accessToken == null) {
-        throw CloudAuthenticationException(
-            'Failed to obtain access token for Drive API');
+        if (kDebugMode) {
+          debugPrint('Google Drive authentication restored silently for: ${account.email}');
+        }
       }
 
       return account;
     } catch (e) {
-      debugPrint('Error during Google Drive authentication: $e');
+      if (kDebugMode) debugPrint('Error during Google Drive authentication: $e');
       if (e is CloudAuthenticationException) {
         rethrow;
       }
@@ -100,9 +82,9 @@ class DriveAuthService {
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
-      debugPrint('Google sign out completed');
+      if (kDebugMode) debugPrint('Google sign out completed');
     } catch (e) {
-      debugPrint('Error signing out: $e');
+      if (kDebugMode) debugPrint('Error signing out: $e');
     }
   }
 }

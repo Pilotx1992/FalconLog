@@ -8,12 +8,13 @@ import '../models/flight_log.dart';
 import '../backup/services/backup_service.dart';
 
 /// Task identifiers
+@Deprecated('Use BackupScheduler and AutoBackupWorkNames instead')
 class BackgroundBackupTasks {
   static const periodicEncryptedLocal = 'periodic_encrypted_local_backup';
 }
 
 /// Entry point for Workmanager. Must be a top-level function.
-@pragma('vm:entry-point')
+@Deprecated('Do not use. Use callbackDispatcher in backup_scheduler.dart instead')
 Future<bool> backgroundDispatcher() async {
   try {
     // Ensure Flutter bindings
@@ -61,6 +62,7 @@ Future<bool> backgroundDispatcher() async {
 }
 
 /// Helper to register periodic task
+@Deprecated('Use BackupScheduler instead')
 class BackgroundBackupScheduler {
   static Future<void> initAndSchedule() async {
     await Workmanager().initialize(backgroundDispatcher);

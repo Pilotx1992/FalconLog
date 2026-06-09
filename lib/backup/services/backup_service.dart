@@ -287,6 +287,7 @@ class BackupService extends ChangeNotifier {
       _backupOperationActive = false;
       _isBackupInProgress = false;
       _cancelRequested = false;
+      notifyListeners();
     }
   }
 
@@ -1151,6 +1152,7 @@ class BackupService extends ChangeNotifier {
       _isRestoreInProgress = false;
       _restoreMutating = false;
       _cancelRequested = false;
+      notifyListeners();
     }
   }
 
@@ -1342,6 +1344,7 @@ class BackupService extends ChangeNotifier {
       _isRestoreInProgress = false;
       _restoreMutating = false;
       _cancelRequested = false;
+      notifyListeners();
     }
   }
 
@@ -2009,7 +2012,7 @@ class BackupService extends ChangeNotifier {
       ),
     );
     if (!marked && kDebugMode) {
-      debugPrint('DRIVE_BACKUP_VERIFIED_APP_PROPERTIES_SKIPPED $driveFileId');
+      if (kDebugMode) debugPrint('DRIVE_BACKUP_VERIFIED_APP_PROPERTIES_SKIPPED $driveFileId');
     }
   }
 
@@ -2752,6 +2755,7 @@ class BackupService extends ChangeNotifier {
   /// Request cooperative cancellation of the active backup/restore.
   Future<void> cancelCurrentOperation() async {
     if (!_isBackupInProgress && !_isRestoreInProgress) {
+      _cancelRequested = false;
       return;
     }
 
@@ -2813,7 +2817,9 @@ class BackupService extends ChangeNotifier {
   /// Sign out from Google Drive
   Future<void> signOut() async {
     await _driveService.signOut();
-    // await _keyManager.clearAllKeys(); // Temporarily disabled
+    if (!_backupOperationActive && !_isBackupInProgress && !_isRestoreInProgress) {
+      await _keyManager.clearAllKeys();
+    }
     notifyListeners();
   }
 
@@ -2973,3 +2979,4 @@ enum RestoreStatus {
     }
   }
 }
+

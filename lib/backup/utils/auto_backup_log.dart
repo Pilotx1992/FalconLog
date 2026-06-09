@@ -25,6 +25,6 @@ class AutoBackupLog {
       _print('AutoBackupLifecycle', message);
 
   static void _print(String tag, String message) {
-    debugPrint('[$tag] $message');
+    if (kDebugMode) debugPrint('[$tag] $message');
   }
 }

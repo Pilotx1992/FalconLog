@@ -232,7 +232,7 @@ class FlightDataSharingService {
         }
       }
 
-      debugPrint('Successfully imported ${importedFlights.length} flights');
+      if (kDebugMode) debugPrint('Successfully imported ${importedFlights.length} flights');
     } catch (e) {
       throw Exception('Failed to process imported data: $e');
     }

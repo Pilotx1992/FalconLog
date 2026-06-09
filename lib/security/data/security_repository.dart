@@ -62,7 +62,7 @@ class SecurityRepository implements SecurityDataStore {
     try {
       return await _secureStorage.read(key: SecurityConstants.pinHashKey);
     } catch (e, st) {
-      debugPrint('[SecurityRepository] readPinHash failed: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityRepository] readPinHash failed: $e\n$st');
       return null;
     }
   }
@@ -72,7 +72,7 @@ class SecurityRepository implements SecurityDataStore {
     try {
       return await _secureStorage.read(key: SecurityConstants.pinSaltKey);
     } catch (e, st) {
-      debugPrint('[SecurityRepository] readPinSalt failed: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityRepository] readPinSalt failed: $e\n$st');
       return null;
     }
   }
@@ -84,7 +84,7 @@ class SecurityRepository implements SecurityDataStore {
       final salt = await readPinSalt();
       return hash != null && hash.isNotEmpty && salt != null && salt.isNotEmpty;
     } catch (e, st) {
-      debugPrint('[SecurityRepository] hasPinSecrets failed: $e\n$st');
+      if (kDebugMode) debugPrint('[SecurityRepository] hasPinSecrets failed: $e\n$st');
       return false;
     }
   }

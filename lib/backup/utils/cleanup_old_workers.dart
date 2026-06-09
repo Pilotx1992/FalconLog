@@ -21,6 +21,7 @@ class WorkManagerCleanup {
       await Workmanager().cancelByUniqueName('falconlog_backup_task_immediate');
       await Workmanager().cancelByUniqueName('falconlog_auto_backup_immediate');
       await Workmanager().cancelByUniqueName('falconlog_auto_backup_periodic');
+      await Workmanager().cancelByUniqueName('periodic_encrypted_local_backup');
       await Workmanager().cancelByTag('falconlog_backup');
 
       await prefs.setBool(_cleanupDoneKey, true);

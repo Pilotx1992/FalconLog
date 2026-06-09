@@ -86,16 +86,9 @@ class EncryptionService {
   }
 
   /// Rotates encryption keys for enhanced security
+  @Deprecated('Rotation without old-key backup destroys existing backups')
   static Future<void> rotateKeys() async {
-    final currentCounter =
-        int.tryParse(await _keyStorage.read(key: _keyRotationName) ?? '1') ?? 1;
-    await _keyStorage.delete(key: _masterKeyName);
-    await _keyStorage.delete(key: _saltName);
-    await _keyStorage.write(
-        key: _keyRotationName, value: (currentCounter + 1).toString());
-
-    // Force regeneration of keys
-    await _getOrCreateMasterKey();
+    throw UnsupportedError('Key rotation is disabled to prevent backup data loss.');
   }
 
   /// Zips a list of files/directories into [outputZipPath].
