@@ -227,7 +227,7 @@ class BackupOperationLock {
 
   static const String _recordFileName = 'falconlog_backup_operation_lock.json';
   static const String _mutexFileName = 'falconlog_backup_operation_lock.mutex';
-  static const Duration defaultStaleTimeout = Duration(minutes: 45);
+  static const Duration defaultStaleTimeout = Duration(minutes: 5);
   static const Duration defaultHeartbeatInterval = Duration(seconds: 90);
   static const Duration _mutexLockRetryDelay = Duration(milliseconds: 10);
   static const Duration _mutexLockRetryTimeout = Duration(seconds: 5);
@@ -315,7 +315,6 @@ class BackupOperationLock {
     return _withExclusiveLock(_readRecordUnlocked);
   }
 
-  @visibleForTesting
   static Future<void> clearForTesting() async {
     await _withExclusiveLock((recordFile) async {
       if (await recordFile.exists()) {
@@ -400,3 +399,5 @@ class BackupOperationLock {
     return getApplicationSupportDirectory();
   }
 }
+
+

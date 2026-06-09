@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/auto_backup_debug_qa.dart';
+import '../utils/backup_operation_lock.dart';
 
 /// Temporary debug-only QA strip for on-device auto backup verification.
 ///
@@ -84,6 +85,13 @@ class _AutoBackupDebugPanelState extends State<AutoBackupDebugPanel> {
                 () => _run(
                   'Reset 23:59',
                   AutoBackupDebugQa.resetDueToProductionDefault,
+                ),
+              ),
+              _chip(
+                'Force Clear Operation Lock',
+                () => _run(
+                  'Clear Lock',
+                  BackupOperationLock.clearForTesting,
                 ),
               ),
             ],
